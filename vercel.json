@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/join", "destination": "/" },
+    { "source": "/s/(.*)", "destination": "/" },
+    { "source": "/swipe/(.*)", "destination": "/" },
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
