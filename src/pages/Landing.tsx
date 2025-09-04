@@ -351,7 +351,7 @@ export default function Landing() {
                     className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl"
                     aria-label="Deslike"
                 >
-                    <XIcon className="w-8 h-8" />
+                    <XIcon className="w-6 h-6" />
                 </button>
 
                 <button
@@ -365,7 +365,7 @@ export default function Landing() {
                     className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl"
                     aria-label="Like"
                 >
-                    <Heart className="w-8 h-8" />
+                    <Heart className="w-6 h-6" />
                 </button>
                 </div>
             </div>
