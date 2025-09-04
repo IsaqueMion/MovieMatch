@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase' // se não usar alias "@", troque para '../lib/supabase'
 
 type Member = { user_id: string }
@@ -7,6 +7,7 @@ type Member = { user_id: string }
 export default function Session() {
   const { code = '' } = useParams()
   const upperCode = String(code).toUpperCase()
+  const navigate = useNavigate()
 
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [members, setMembers] = useState<Member[]>([])
@@ -35,6 +36,7 @@ export default function Session() {
       setLoading(false)
     })()
   }, [upperCode])
+  
 
   function copyLink() {
     const url = `${location.origin}/s/${upperCode}`
@@ -73,8 +75,15 @@ export default function Session() {
           {members.length === 0 && <li>— nenhum membro ainda —</li>}
         </ul>
       </div>
-
+              <button
+          onClick={() => navigate(`/swipe/${upperCode}`)}
+          className="rounded-lg bg-emerald-500 px-3 py-2 text-white hover:bg-emerald-600"
+        >
+          Começar a escolher
+        </button>
       <Link to="/" className="text-blue-600 underline">Voltar ao início</Link>
     </div>
+    
+
   )
 }
