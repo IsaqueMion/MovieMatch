@@ -411,7 +411,7 @@ export default function Swipe() {
           <motion.button onClick={() => react(-1)} disabled={busy || dragging || !current}
             className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Deslike" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
-            <XIcon className="w-8 h-8" />
+            <XIcon className="w-6 h-6" />
           </motion.button>
 
           <motion.button onClick={() => undo()} disabled={busy || dragging || historyRef.current.length === 0}
@@ -423,7 +423,7 @@ export default function Swipe() {
           <motion.button onClick={() => react(1)} disabled={busy || dragging || !current}
             className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Like" whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }} transition={{ type: 'spring', stiffness: 320, damping: 18 }}>
-            <Heart className="w-8 h-8" />
+            <Heart className="w-6 h-6" />
           </motion.button>
         </div>
       </div>
