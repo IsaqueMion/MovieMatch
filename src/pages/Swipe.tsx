@@ -377,7 +377,7 @@ export default function Swipe() {
 
       {/* centro */}
       <div className="flex-1 px-4 pb-3 overflow-hidden">
-        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
+        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px-128px)] sm:h-[calc(100dvh-112px-112px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
               <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
@@ -406,8 +406,8 @@ export default function Swipe() {
       </div>
 
       {/* Ações */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30">
-        <div className="flex items-center justify-center gap-5">
+    <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom)+16px)] pointer-events-none">
+        <div className="flex items-center justify-center gap-5 pointer-events-auto">
           <motion.button onClick={() => react(-1)} disabled={busy || dragging || !current}
             className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Deslike" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
