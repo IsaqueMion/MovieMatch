@@ -10,10 +10,16 @@ export type DiscoverFilters = {
 }
 
 export type MovieDetails = {
-  vote_average?: number
-  genres?: { id: number; name: string }[]
-  age_rating?: string | null
-  trailer?: { key: string } | null
+  tmdb_id: number
+  title: string
+  year: number | null
+  poster_url: string | null
+  vote_average: number | null
+  genres: { id: number; name: string }[]
+  runtime: number | null
+  overview: string
+  trailer: { key: string } | null
+  age_rating: string
 }
 
 export async function discoverMovies(opts: { page?: number; filters?: DiscoverFilters }) {
@@ -30,7 +36,15 @@ export async function discoverMovies(opts: { page?: number; filters?: DiscoverFi
 }
 
 export async function getMovieDetails(tmdb_id: number): Promise<MovieDetails> {
-  const { data, error } = await supabase.functions.invoke('movie_details', { body: { tmdb_id } })
-  if (error) throw error
-  return data as MovieDetails
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}`
+  const res = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      // Edge Functions do Supabase exigem o header Authorization:
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    },
+  })
+  if (!res.ok) throw new Error(`movie_details ${res.status}`)
+  return await res.json()
 }
+
