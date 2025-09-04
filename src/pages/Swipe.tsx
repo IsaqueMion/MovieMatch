@@ -677,7 +677,21 @@ export default function Swipe() {
               </div>
               <div className="mt-4 flex items-center justify-end gap-2">
                 <button onClick={() => setMatchModal(null)} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15">Continuar</button>
-                <Link to={`/s/${code}/matches`} className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => setMatchModal(null)}>Ver matches</Link>
+                <Link
+                    to={`/s/${code}/matches`}
+                    className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+                    onClick={() => {
+                        // ✅ marca como "visto" para esconder o pontinho
+                        if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
+                        // ✅ também zera o "novo match" atual para sumir imediatamente
+                        setLatestMatchAt(0)
+                        // fecha o modal
+                        setMatchModal(null)
+                    }}
+                >
+                    Ver matches
+                </Link>
+
               </div>
             </motion.div>
           </motion.div>
