@@ -400,7 +400,7 @@ return (
     </div>
 
     {/* centro */}
-    <div className="flex-1 px-4 pb-3 overflow-hidden">
+    <div className="flex-1 px-4 pb-3 overflow-visible">
       {/* 56px ≈ topbar; 176px ≈ botões + folga; inclui safe-area */}
       <div
         className="w-full max-w-md mx-auto"

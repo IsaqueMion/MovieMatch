@@ -10,12 +10,14 @@ type Props = {
 }
 
 export default function MovieCarousel({ title, year, poster_url, fullHeight, details }: Props) {
+  const cls =
+    fullHeight
+      ? 'h-full w-full overflow-hidden rounded-2xl ring-1 ring-white/10 bg-neutral-900/70 grid place-items-center'
+      : 'aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 bg-neutral-900/70 grid place-items-center'
+
   return (
     <div className={`relative ${fullHeight ? 'h-full' : ''}`}>
-      {/* container do pôster */}
-      <div
-        className="aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 bg-neutral-900/70 grid place-items-center"
-      >
+      <div className={cls}>
         {poster_url ? (
           <img
             src={poster_url}
