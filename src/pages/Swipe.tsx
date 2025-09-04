@@ -264,37 +264,57 @@ export default function Swipe() {
     } finally { setLoadingMore(false) }
   }
 
-  async function react(value: 1 | -1) {
-    if (!sessionId || !userId || !current) return
-    if (clickGuardRef.current || busy) return
-    clickGuardRef.current = true; setBusy(true); setLastDir(value === 1 ? 'like' : 'dislike')
+async function react(value: 1 | -1) {
+  if (!sessionId || !userId || !current) return
+  if (clickGuardRef.current || busy) return
 
-    try {
-      const { data: upserted, error: movieErr } = await supabase
-        .from('movies')
-        .upsert(
-          { tmdb_id: current.tmdb_id, title: current.title, year: current.year ?? null, poster_url: current.poster_url ?? null },
-          { onConflict: 'tmdb_id' }
-        ).select('id').single()
-      if (movieErr) throw movieErr
-      const movieId = upserted?.id
-      if (!movieId) throw new Error('Falha ao obter movie.id')
+  clickGuardRef.current = true
+  setBusy(true)
+  setLastDir(value === 1 ? 'like' : 'dislike')
 
-      const { error: rxErr } = await supabase
-        .from('reactions')
-        .upsert({ session_id: sessionId, user_id: userId, movie_id: movieId, value }, { onConflict: 'session_id,user_id,movie_id' })
-      if (rxErr) throw rxErr
+  try {
+    // 1) Garante o filme na tabela (unicidade por tmdb_id) e pega o id REAL
+    const { data: upserted, error: movieErr } = await supabase
+      .from('movies')
+      .upsert(
+        {
+          tmdb_id: current.tmdb_id,
+          title: current.title,
+          year: current.year ?? null,
+          poster_url: current.poster_url ?? null,
+        },
+        { onConflict: 'tmdb_id' }
+      )
+      .select('id')
+      .single()
 
-      historyRef.current.push(movieId as unknown as number)
-    } catch (e: any) {
-      console.error('reactions upsert error:', e)
-      toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
-    } finally {
-      await goNext()
-      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
+    if (movieErr) throw movieErr
+
+    const movieRowId = upserted?.id
+    if (typeof movieRowId !== 'number') {
+      throw new Error('Falha ao obter movie.id')
     }
-  }
 
+    // 2) Grava a reação
+    const { error: rxErr } = await supabase
+      .from('reactions')
+      .upsert(
+        { session_id: sessionId, user_id: userId, movie_id: movieRowId, value },
+        { onConflict: 'session_id,user_id,movie_id' }
+      )
+
+    if (rxErr) throw rxErr
+
+    // 3) Guarda para poder desfazer
+    historyRef.current.push(movieRowId)
+  } catch (e: any) {
+    console.error('reactions upsert error:', e)
+    toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
+  } finally {
+    await goNext()
+    setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
+  }
+}
   async function undo() {
     if (!sessionId || !userId || busy) return
     const last = historyRef.current.pop()
@@ -341,107 +361,126 @@ export default function Swipe() {
   const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
   const clampYear = (v: number) => Math.max(1900, Math.min(currentYear, v))
 
-  return (
-    <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-      {/* Top bar */}
-      <div className="shrink-0 px-3 pt-2">
-        <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
-          <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
-            <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
-              Sessão <span className="font-semibold">{code}</span>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              {online.length} online
-            </span>
-            {filtersCount > 0 && (
-              <button onClick={() => setOpenFilters(true)} className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] hover:bg-white/15" title="Editar filtros">
-                {filtersCount} filtros
-              </button>
+return (
+  <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
+    {/* Top bar */}
+    <div className="shrink-0 px-3 pt-2">
+      <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
+        <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
+          <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
+            Sessão <span className="font-semibold">{code}</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            {online.length} online
+          </span>
+          {filtersCount > 0 && (
+            <button
+              onClick={() => setOpenFilters(true)}
+              className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] hover:bg-white/15"
+              title="Editar filtros"
+            >
+              {filtersCount} filtros
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setOpenFilters(true)} title="Filtros" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+          <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
+            <Share2 className="w-4 h-4" />
+          </button>
+          <Link to={`/s/${code}/matches`} title="Ver matches" className="p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white">
+            <Star className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </div>
+
+    {/* centro */}
+    <div className="flex-1 px-4 pb-3 overflow-hidden">
+      {/* 56px ≈ topbar; 176px ≈ botões + folga; inclui safe-area */}
+      <div
+        className="w-full max-w-md mx-auto"
+        style={{ height: 'calc(100dvh - 56px - 176px - env(safe-area-inset-bottom))' }}
+      >
+        <div className="h-full">
+          <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
+            {current ? (
+              <SwipeCard
+                key={current.movie_id}
+                movie={current}
+                details={det}
+                variants={cardVariants}
+                exitDir={lastDir}
+                onDragState={setDragging}
+                onDecision={(v) => react(v)}
+              />
+            ) : (
+              <motion.div
+                key="empty"
+                className="h-full grid place-items-center text-white/80"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              >
+                <div className="text-center">
+                  <p>Acabaram os filmes deste lote 😉</p>
+                  {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
+                </div>
+              </motion.div>
             )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => setOpenFilters(true)} title="Filtros" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-              <SlidersHorizontal className="w-4 h-4" />
-            </button>
-            <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-              <Share2 className="w-4 h-4" />
-            </button>
-            <Link to={`/s/${code}/matches`} title="Ver matches" className="p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white">
-              <Star className="w-4 h-4" />
-            </Link>
-          </div>
+          </AnimatePresence>
         </div>
       </div>
+    </div>
 
-      {/* centro */}
-     <div className="flex-1 px-4 pb-3 overflow-hidden">
-        {/* 56px ≈ topbar; 176px ≈ área dos botões + folga; safe-area p/ iPhone */}
-        <div
-            className="w-full max-w-md mx-auto"
-            style={{ height: 'calc(100dvh - 56px - 176px - env(safe-area-inset-bottom))' }}
-        >
-            <div className="h-full">
-              <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
-                {current ? (
-                  <SwipeCard
-                    key={current.movie_id}
-                    movie={current}
-                    details={det}
-                    variants={cardVariants}
-                    exitDir={lastDir}
-                    onDragState={setDragging}
-                    onDecision={(v) => react(v)}
-                  />
-                ) : (
-                  <motion.div key="empty" className="h-full grid place-items-center text-white/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="text-center">
-                      <p>Acabaram os filmes deste lote 😉</p>
-                      {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Ações */}
+    {/* Ações */}
     <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom)+16px)] pointer-events-none">
-        <div className="flex items-center justify-center gap-5 pointer-events-auto">
-          <motion.button onClick={() => react(-1)} disabled={busy || dragging || !current}
-            className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
-            aria-label="Deslike" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}>
-            <XIcon className="w-6 h-6" />
-          </motion.button>
+      <div className="flex items-center justify-center gap-5 pointer-events-auto">
+        <motion.button
+          onClick={() => react(-1)} disabled={busy || dragging || !current}
+          className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
+          aria-label="Deslike" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+        >
+          <XIcon className="w-6 h-6" />
+        </motion.button>
 
-          <motion.button onClick={() => undo()} disabled={busy || dragging || historyRef.current.length === 0}
-            className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
-            aria-label="Desfazer" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} title="Desfazer (Backspace)">
-            <Undo2 className="w-6 h-6" />
-          </motion.button>
+        <motion.button
+          onClick={() => undo()} disabled={busy || dragging || historyRef.current.length === 0}
+          className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
+          aria-label="Desfazer" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }} title="Desfazer (Backspace)"
+        >
+          <Undo2 className="w-6 h-6" />
+        </motion.button>
 
-          <motion.button onClick={() => react(1)} disabled={busy || dragging || !current}
-            className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
-            aria-label="Like" whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }} transition={{ type: 'spring', stiffness: 320, damping: 18 }}>
-            <Heart className="w-6 h-6" />
-          </motion.button>
-        </div>
+        <motion.button
+          onClick={() => react(1)} disabled={busy || dragging || !current}
+          className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
+          aria-label="Like" whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+        >
+          <Heart className="w-6 h-6" />
+        </motion.button>
       </div>
+    </div>
 
-      {/* Banner UNDO */}
-      <AnimatePresence>
-        {undoMsg && (
-          <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none">
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}
-              className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow">
-              {undoMsg}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+    {/* Banner UNDO */}
+    <AnimatePresence>
+      {undoMsg && (
+        <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+            className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow"
+          >
+            {undoMsg}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
 
       {/* Modal Filtros */}
       <AnimatePresence>
