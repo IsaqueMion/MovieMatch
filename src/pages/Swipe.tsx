@@ -211,6 +211,24 @@ export default function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.tmdb_id])
 
+  //PREFETCH dos PRÓXIMOS
+    useEffect(() => {
+    if (!movies.length) return
+    const toPrefetch = [i + 1, i + 2]
+
+    toPrefetch.forEach(idx => {
+        const m = movies[idx]
+        if (!m) return
+        const key = m.tmdb_id
+        if (!detailsCache[key]) {
+        getMovieDetails(key)
+            .then(det => setDetailsCache(prev => ({ ...prev, [key]: det })))
+            .catch(() => {})
+        }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [i, movies]) // ← assim evitamos re-executar só por mudar o cache
+
   useEffect(() => {
     if (!sessionId) return
     const channel = supabase
@@ -249,33 +267,43 @@ export default function Swipe() {
   }, [sessionId])
 
   useEffect(() => {
-  if (!sessionId) return
-  ;(async () => {
-    const { data, error } = await supabase
-      .from('reactions')
-      .select('movie_id, user_id, created_at')
-      .eq('session_id', sessionId)
-      .eq('value', 1)
+    if (!sessionId) return
+    ;(async () => {
+        const { data, error } = await supabase
+        .from('reactions')
+        .select('movie_id, user_id, created_at')
+        .eq('session_id', sessionId)
+        .eq('value', 1)
 
-    if (error) return
+        if (error) return
 
-    const byMovie = new Map<number, { users: Set<string>, latest: number }>()
-    for (const r of (data ?? [])) {
-      const m = byMovie.get(r.movie_id) ?? { users: new Set<string>(), latest: 0 }
-      if (r.user_id) m.users.add(String(r.user_id))
-      const ts = r.created_at ? new Date(r.created_at as unknown as string).getTime() : 0
-      if (ts > m.latest) m.latest = ts
-      byMovie.set(r.movie_id, m)
-    }
+        const byMovie = new Map<number, { users: Set<string>, latest: number }>()
+        for (const r of (data ?? [])) {
+        const m = byMovie.get(r.movie_id) ?? { users: new Set<string>(), latest: 0 }
+        if (r.user_id) m.users.add(String(r.user_id))
+        const ts = r.created_at ? new Date(r.created_at as unknown as string).getTime() : 0
+        if (ts > m.latest) m.latest = ts
+        byMovie.set(r.movie_id, m)
+        }
 
-    let newest = 0
-    for (const m of byMovie.values()) {
-      if (m.users.size >= 2 && m.latest > newest) newest = m.latest
-    }
-    if (newest) setLatestMatchAt(newest)
-  })()
-}, [sessionId])
+        let newest = 0
+        for (const m of byMovie.values()) {
+        if (m.users.size >= 2 && m.latest > newest) newest = m.latest
+        }
+        if (newest) setLatestMatchAt(newest)
+    })()
+    }, [sessionId])
 
+    useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+        if (busy || dragging) return;
+        if (e.key === 'ArrowRight') { e.preventDefault(); react(1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); react(-1); }
+        else if (e.key === 'Backspace') { e.preventDefault(); undo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    }, [busy, dragging, react, undo]);
 
   // presença
   useEffect(() => {
