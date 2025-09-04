@@ -197,44 +197,45 @@ export default function Landing() {
 
           {/* CTA */}
           <div className="mt-6 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10 backdrop-blur">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                ref={inputRef}
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => (e.key === 'Enter' ? handleJoin() : undefined)}
-                placeholder="Digite o código da sessão (ex.: 7F9XQ2)"
-                className="h-11 w-full rounded-lg border border-white/10 bg-neutral-900/60 px-3 text-white outline-none placeholder:text-white/40"
-              />
-              <button
-                onClick={handleJoin}
-                className="h-11 shrink-0 rounded-lg bg-white/10 px-4 font-medium text-white ring-1 ring-white/10 hover:bg-white/15"
-              >
-                Entrar
-              </button>
-            </div>
-
-            <div className="mt-3 flex items-center gap-3">
-              <div className="hidden h-px flex-1 bg-white/10 sm:block" />
-              <span className="text-xs text-white/60">ou</span>
-              <div className="hidden h-px flex-1 bg-white/10 sm:block" />
-              <button
+            <div className="flex flex-col gap-3">
+                {/* Botão CRIAR acima, maior */}
+                <button
                 onClick={handleCreate}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600"
-              >
-                <Sparkles className="h-4 w-4" />
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-semibold text-white hover:bg-emerald-600"
+                >
+                <Sparkles className="h-5 w-5" />
                 Criar nova sessão
-              </button>
-            </div>
+                </button>
 
-            <div className="flex flex-wrap gap-2 pt-1 text-sm text-white/70">
-              <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Sem cadastro</span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Tempo real</span>
-              <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Funciona no navegador</span>
-            </div>
+                <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-xs text-white/60">ou</span>
+                <div className="h-px flex-1 bg-white/10" />
+                </div>
 
-            <p className="mt-2 text-xs text-white/60">{status}</p>
-          </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => (e.key === "Enter" ? handleJoin() : undefined)}
+                    placeholder="Digite o código da sessão (ex.: 7F9XQ2)"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-neutral-900/60 px-3 text-white outline-none placeholder:text-white/40"
+                />
+                <button
+                    onClick={handleJoin}
+                    className="h-11 shrink-0 rounded-lg bg-white/10 px-4 font-medium text-white ring-1 ring-white/10 hover:bg-white/15"
+                >
+                    Entrar
+                </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1 text-sm text-white/70">
+                <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Sem cadastro</span>
+                <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Tempo real</span>
+                <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Funciona no navegador</span>
+                </div>
+             </div>
+            </div>
         </motion.div>
 
         {/* Carrossel direita */}
