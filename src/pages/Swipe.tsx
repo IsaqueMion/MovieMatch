@@ -778,15 +778,15 @@ function SwipeCard({
       style={{ x }} 
       drag="x" dragElastic={0.2} 
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onDragStart={() => { dragRef.current = true; onDragState(true) }} 
+      onDragStart={() => { dragRef.current = true; onDragState(true) }}
       onDragEnd={(_, info) => {
-        onDragState(false)
-        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
-        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
-        // pequena folga pra evitar “tap fantasma” logo após soltar
-        setTimeout(() => { dragRef.current = false }, 80)
-      }}
+      onDragState(false)
+      const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
+      const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
+      if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
+      setTimeout(() => { dragRef.current = false }, 80)
+    }}
+
     >
       {/* Overlay feedback */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
@@ -798,70 +798,66 @@ function SwipeCard({
         </motion.div>
       </div>
 
-      {/* Conteúdo */}
-      <div className="h-full flex flex-col">
-        <div className="relative min-h-0">
+      {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
+        <div className="h-full grid grid-rows-[1fr_auto] gap-2">
+        {/* 👇 ESTE BLOCO TROCA */}
+        <div className="relative min-h-0 h-full">
             <MovieCarousel
-                title={movie.title}
-                year={movie.year}
-                poster_url={movie.poster_url || ''}
-                details={details}
-                fullHeight
+            title={movie.title}
+            year={movie.year}
+            poster_url={movie.poster_url || ''}
+            details={details}
+            fullHeight
             />
 
             {/* Tap-zones: metade esquerda = dislike, metade direita = like */}
-            <div className="absolute inset-0 z-[5] grid grid-cols-2">
-                <button
+            <div className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-2">
+            <button
                 type="button"
                 aria-label="Deslike"
-                className="h-full w-full bg-transparent cursor-pointer"
+                className="h-full w-full bg-transparent pointer-events-auto"
                 onClick={() => {
-                    if (dragRef.current) return
-                    try { navigator.vibrate?.(8) } catch {}
-                    onDecision(-1)
+                if (dragRef.current) return
+                try { navigator.vibrate?.(8) } catch {}
+                onDecision(-1)
                 }}
-                />
-                <button
+            />
+            <button
                 type="button"
                 aria-label="Like"
-                className="h-full w-full bg-transparent cursor-pointer"
+                className="h-full w-full bg-transparent pointer-events-auto"
                 onClick={() => {
-                    if (dragRef.current) return
-                    try { navigator.vibrate?.(8) } catch {}
-                    onDecision(1)
+                if (dragRef.current) return
+                try { navigator.vibrate?.(8) } catch {}
+                onDecision(1)
                 }}
-                />
+            />
             </div>
         </div>
-        
-        {/* Meta compacta */}
-        <div className="mt-1 text-white shrink-0">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
-              {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
+        {/* 👆 FIM DO BLOCO TROCADO */}
+
+        {/* Meta abaixo */}
+        <div className="text-white shrink-0">
+            <h3 className="text-[15px] font-semibold leading-tight line-clamp-2">
+            {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
             </h3>
-            <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
-            </div>
-          </div>
 
-          {details?.genres?.length ? (
+            {details?.genres?.length ? (
             <div className="mt-1 flex flex-wrap gap-1">
-              {details.genres.slice(0, 3).map(g => (
+                {details.genres.slice(0, 3).map(g => (
                 <span key={g.id} className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90">{g.name}</span>
-              ))}
+                ))}
             </div>
-          ) : null}
+            ) : null}
 
-          <div className="mt-1">
+            <div className="mt-1">
             <span className="text-[11px] text-white/70 mr-1.5">Classificação:</span>
             <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-              {details?.age_rating?.trim() || '—'}
+                {details?.age_rating?.trim() || '—'}
             </span>
-          </div>
+            </div>
         </div>
-      </div>
+        </div>
     </motion.div>
   )
 }
