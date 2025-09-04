@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { discoverMovies, getMovieDetails, type MovieDetails, type DiscoverFilters } from '../lib/functions'
@@ -88,6 +88,12 @@ export default function Swipe() {
   }
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
+
+  const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
+  const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
+  const lastSeenMatchAt = useMemo(() => (LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0), [LS_KEY])
+  const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
+
 
   const current = movies[i]
 
@@ -234,12 +240,42 @@ export default function Swipe() {
 
             const title = mv?.title ?? `Filme #${movieId}`
             setMatchModal({ title, poster_url: mv?.poster_url ?? null, year: mv?.year ?? null })
+            setLatestMatchAt(Date.now()) // <-- marca que chegou match novo
           }
         }
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [sessionId])
+
+  useEffect(() => {
+  if (!sessionId) return
+  ;(async () => {
+    const { data, error } = await supabase
+      .from('reactions')
+      .select('movie_id, user_id, created_at')
+      .eq('session_id', sessionId)
+      .eq('value', 1)
+
+    if (error) return
+
+    const byMovie = new Map<number, { users: Set<string>, latest: number }>()
+    for (const r of (data ?? [])) {
+      const m = byMovie.get(r.movie_id) ?? { users: new Set<string>(), latest: 0 }
+      if (r.user_id) m.users.add(String(r.user_id))
+      const ts = r.created_at ? new Date(r.created_at as unknown as string).getTime() : 0
+      if (ts > m.latest) m.latest = ts
+      byMovie.set(r.movie_id, m)
+    }
+
+    let newest = 0
+    for (const m of byMovie.values()) {
+      if (m.users.size >= 2 && m.latest > newest) newest = m.latest
+    }
+    if (newest) setLatestMatchAt(newest)
+  })()
+}, [sessionId])
+
 
   // presença
   useEffect(() => {
@@ -403,8 +439,16 @@ export default function Swipe() {
             <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
               <Share2 className="w-4 h-4" />
             </button>
-            <Link to={`/s/${code}/matches`} title="Ver matches" className="p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white">
-              <Star className="w-4 h-4" />
+            <Link
+                to={`/s/${code}/matches`}
+                onClick={() => { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) }}
+                title="Ver matches"
+                className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+                <Star className="w-4 h-4" />
+                {hasNewMatch && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-neutral-900" />
+                )}
             </Link>
           </div>
         </div>

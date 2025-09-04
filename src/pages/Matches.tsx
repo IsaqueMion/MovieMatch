@@ -23,6 +23,7 @@ type MatchItem = {
   year: number | null
   poster_url: string | null
   likes: number
+  latestAt: number
 }
 
 export default function Matches() {
@@ -69,56 +70,70 @@ export default function Matches() {
   }, [sessionId])
 
   async function loadMatches(sid: string) {
-    const { data, error } = await supabase
-      .from('reactions')
-      .select('movie_id, value, user_id, movies:movie_id(title,year,poster_url)')
-      .eq('session_id', sid)
-      .eq('value', 1)
+  const { data, error } = await supabase
+    .from('reactions')
+    .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url)')
+    .eq('session_id', sid)
+    .eq('value', 1)
 
-    if (error) {
-      console.error(error)
-      setItems([])
-      return
-    }
-
-    const rows = (data ?? []) as ReactionRow[]
-
-    // agrega por movie_id (conta usuários únicos) e extrai info do filme
-    const map = new Map<number, { title: string; year: number | null; poster_url: string | null; users: Set<string> }>()
-
-    for (const r of rows) {
-      const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
-      const current =
-        map.get(r.movie_id) ??
-        {
-          title: mInfo?.title ?? '—',
-          year: mInfo?.year ?? null,
-          poster_url: mInfo?.poster_url ?? null,
-          users: new Set<string>(),
-        }
-
-      if (r.user_id) current.users.add(String(r.user_id))
-      map.set(r.movie_id, current)
-    }
-
-    const list: MatchItem[] = []
-    for (const [movie_id, m] of map.entries()) {
-      const likes = m.users.size
-      if (likes >= 2) {
-        list.push({
-          movie_id,
-          title: m.title,
-          year: m.year,
-          poster_url: m.poster_url,
-          likes,
-        })
-      }
-    }
-
-    // ordena por mais likes (depois título)
-    list.sort((a, b) => (b.likes - a.likes) || a.title.localeCompare(b.title))
-    setItems(list)
+  if (error) {
+    console.error(error)
+    setItems([])
+    return
   }
+
+  type MovieJoin = { title: string | null; year: number | null; poster_url: string | null }
+  type Row = {
+    movie_id: number
+    value: 1 | -1
+    user_id: string | null
+    created_at: string | null
+    movies: MovieJoin | MovieJoin[] | null
+  }
+
+  const rows = (data ?? []) as Row[]
+
+  const map = new Map<number, {
+    title: string; year: number | null; poster_url: string | null;
+    users: Set<string>; latestAt: number
+  }>()
+
+  for (const r of rows) {
+    const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
+    const curr = map.get(r.movie_id) ?? {
+      title: mInfo?.title ?? '—',
+      year: mInfo?.year ?? null,
+      poster_url: mInfo?.poster_url ?? null,
+      users: new Set<string>(),
+      latestAt: 0,
+    }
+
+    if (r.user_id) curr.users.add(String(r.user_id))
+    const ts = r.created_at ? new Date(r.created_at).getTime() : 0
+    if (ts > curr.latestAt) curr.latestAt = ts
+
+    map.set(r.movie_id, curr)
+  }
+
+  const list: MatchItem[] = []
+  for (const [movie_id, m] of map.entries()) {
+    const likes = m.users.size
+    if (likes >= 2) {
+      list.push({
+        movie_id,
+        title: m.title,
+        year: m.year,
+        poster_url: m.poster_url,
+        likes,
+        latestAt: m.latestAt,
+      })
+    }
+  }
+
+  // 1º: mais recente, 2º: mais likes, 3º: título
+  list.sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
+  setItems(list)
+}
 
   if (loading) {
     return (
