@@ -252,7 +252,7 @@ export default function Landing() {
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <Users className="h-4 w-4 text-emerald-300" />
-                3 online
+                2 online
               </div>
               <div className="inline-flex items-center gap-2 rounded-md bg-white/5 px-2 py-1 text-xs ring-1 ring-white/10">
                 <Heart className="h-3.5 w-3.5 text-emerald-300" /> Match instantâneo
