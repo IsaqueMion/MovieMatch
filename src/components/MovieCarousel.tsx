@@ -9,8 +9,22 @@ type Props = {
   fullHeight?: boolean
 }
 
-// três tipos possíveis de slide
+// slides possíveis
 type SlideKind = 'poster' | 'trailer' | 'synopsis'
+
+// helpers para ler campos opcionais que não estão no tipo
+function getTrailerKey(details?: MovieDetails): string | null {
+  const key = (details as any)?.trailer?.key
+  return typeof key === 'string' && key.length > 0 ? key : null
+}
+function getRuntime(details?: MovieDetails): number | undefined {
+  const rt = (details as any)?.runtime
+  return typeof rt === 'number' ? rt : undefined
+}
+function getOverview(details?: MovieDetails): string | undefined {
+  const ov = (details as any)?.overview
+  return typeof ov === 'string' && ov.length > 0 ? ov : undefined
+}
 
 export default function MovieCarousel({
   title,
@@ -19,9 +33,9 @@ export default function MovieCarousel({
   details,
   fullHeight = true,
 }: Props) {
-  const hasTrailer = details?.trailer?.site === 'YouTube' && !!details?.trailer?.key
+  const trailerKey = getTrailerKey(details)
+  const hasTrailer = !!trailerKey
 
-  // lista de slides (apenas strings, tipadas)
   const slides = useMemo<SlideKind[]>(() => {
     const arr: SlideKind[] = ['poster']
     if (hasTrailer) arr.push('trailer')
@@ -31,7 +45,7 @@ export default function MovieCarousel({
 
   const [slide, setSlide] = useState(0)
 
-  // se a quantidade de slides mudar, mantém índice válido
+  // mantém índice válido ao mudar # de slides
   useEffect(() => {
     if (slide > slides.length - 1) setSlide(0)
   }, [slides.length, slide])
@@ -44,10 +58,13 @@ export default function MovieCarousel({
   const next = () => setSlide((s) => (s + 1) % slides.length)
   const prev = () => setSlide((s) => (s - 1 + slides.length) % slides.length)
 
-  const youtubeEmbed: string | null =
-    hasTrailer ? `https://www.youtube.com/embed/${details!.trailer!.key}?playsinline=1&rel=0` : null
+  const youtubeEmbed: string | null = trailerKey
+    ? `https://www.youtube.com/embed/${trailerKey}?playsinline=1&rel=0`
+    : null
 
   const slideKey: SlideKind = slides[slide] ?? 'poster'
+  const runtime = getRuntime(details)
+  const overview = getOverview(details)
 
   return (
     <div className="w-full h-full select-none">
@@ -96,17 +113,17 @@ export default function MovieCarousel({
                   {title}{year ? ` (${year})` : ''}
                 </h3>
                 <div className="mt-0.5 text-sm text-gray-600">
-                  {details?.runtime ? `${details.runtime} min` : '—'}
+                  {typeof runtime === 'number' ? `${runtime} min` : '—'}
                   {details?.genres?.length ? ` • ${details.genres.map(g => g.name).join(' • ')}` : ''}
                 </div>
                 <div className="mt-3 text-sm leading-relaxed max-h-64 overflow-y-auto pr-1">
-                  {details?.overview || <Skeleton>Carregando sinopse…</Skeleton>}
+                  {overview || <Skeleton>Carregando sinopse…</Skeleton>}
                 </div>
               </div>
             </div>
           </FadeSlide>
 
-          {/* setas laterais (não cobrem barra do YouTube) */}
+          {/* setas laterais */}
           {slides.length > 1 && (
             <>
               <button
@@ -126,7 +143,7 @@ export default function MovieCarousel({
             </>
           )}
 
-          {/* Dots sobrepostos dentro do card (esconde no trailer) */}
+          {/* Dots (esconde no trailer) */}
           {slides.length > 1 && slideKey !== 'trailer' && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-2 bg-black/20 rounded-full px-2 py-1 backdrop-blur">
               {slides.map((kind, idx) => (
