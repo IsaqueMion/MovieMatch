@@ -376,8 +376,9 @@ export default function Swipe() {
       </div>
 
       {/* centro */}
-      <div className="flex-1 px-4 pb-3 overflow-hidden">
-        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px-128px)] sm:h-[calc(100dvh-112px-112px)]">
+      <div className="flex-1 px-4 pb-3 overflow-visible">
+        {/* 112px ≈ top bar; 168px ≈ área fixa dos botões + folga */}
+        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px-168px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
               <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
