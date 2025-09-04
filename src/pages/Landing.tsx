@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Clapperboard, Heart, Users, Play, Film, Sparkles, X as XIcon } from 'lucide-react'
 import { discoverMovies } from '../lib/functions'
+import { Toaster, toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 
 type CarouselItem = {
