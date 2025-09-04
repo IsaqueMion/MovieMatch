@@ -503,14 +503,14 @@ export default function Swipe() {
                 <div>
                   <label className="block text-sm mb-1">Idioma original</label>
                   <Select
-                    value={filters.language ?? ''} onChange={(v) => setFilters((f) => ({ ...f, language: v }))}
+                    value={filters.language ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, language: v }))}
                     options={[{ value: '', label: 'Qualquer' }, { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' }]}
                   />
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Ordenar por</label>
                   <Select
-                    value={filters.sortBy ?? 'popularity.desc'} onChange={(v) => setFilters((f) => ({ ...f, sortBy: v }))}
+                    value={filters.sortBy ?? 'popularity.desc'} onChange={(v: string) => setFilters((f) => ({ ...f, sortBy: v }))}
                     options={[
                       { value: 'popularity.desc', label: 'Popularidade (desc)' },
                       { value: 'vote_average.desc', label: 'Nota (desc)' },
