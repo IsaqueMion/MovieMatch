@@ -2,6 +2,21 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+type MovieJoin = {
+  title: string | null
+  year: number | null
+  poster_url: string | null
+}
+
+// A linha do SELECT pode vir com movies como OBJETO ou ARRAY
+type ReactionRow = {
+  movie_id: number
+  value: 1 | -1
+  user_id: string | null
+  created_at?: string | null
+  movies: MovieJoin | MovieJoin[] | null
+}
+
 type MatchItem = {
   movie_id: number
   title: string
@@ -10,26 +25,12 @@ type MatchItem = {
   likes: number
 }
 
-// Linha do SELECT que vem de reactions + join com movies
-type ReactionRow = {
-  movie_id: number
-  value: 1 | -1
-  user_id: string | null
-  // created_at é opcional aqui; não usamos agora
-  movies: {
-    title: string | null
-    year: number | null
-    poster_url: string | null
-  } | null
-}
-
 export default function Matches() {
   const { code = '' } = useParams()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [items, setItems] = useState<MatchItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  // busca sessão + carrega matches
   useEffect(() => {
     (async () => {
       setLoading(true)
@@ -53,7 +54,7 @@ export default function Matches() {
     })()
   }, [code])
 
-  // tempo real: quando inserir/deletar reação, recarrega
+  // Tempo real: qualquer mudança em reactions desta sessão => recarrega
   useEffect(() => {
     if (!sessionId) return
     const ch = supabase
@@ -68,36 +69,40 @@ export default function Matches() {
   }, [sessionId])
 
   async function loadMatches(sid: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('reactions')
       .select('movie_id, value, user_id, movies:movie_id(title,year,poster_url)')
       .eq('session_id', sid)
       .eq('value', 1)
 
+    if (error) {
+      console.error(error)
+      setItems([])
+      return
+    }
+
     const rows = (data ?? []) as ReactionRow[]
 
-    // agrega por movie_id: usuários únicos que deram like
-    const map = new Map<
-      number,
-      { title: string; year: number | null; poster_url: string | null; users: Set<string> }
-    >()
+    // agrega por movie_id (conta usuários únicos) e extrai info do filme
+    const map = new Map<number, { title: string; year: number | null; poster_url: string | null; users: Set<string> }>()
 
     for (const r of rows) {
-      const curr =
+      const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
+      const current =
         map.get(r.movie_id) ??
         {
-          title: r.movies?.title ?? '—',
-          year: r.movies?.year ?? null,
-          poster_url: r.movies?.poster_url ?? null,
+          title: mInfo?.title ?? '—',
+          year: mInfo?.year ?? null,
+          poster_url: mInfo?.poster_url ?? null,
           users: new Set<string>(),
         }
 
-      if (r.user_id) curr.users.add(String(r.user_id))
-      map.set(r.movie_id, curr)
+      if (r.user_id) current.users.add(String(r.user_id))
+      map.set(r.movie_id, current)
     }
 
     const list: MatchItem[] = []
-    map.forEach((m, movie_id) => {
+    for (const [movie_id, m] of map.entries()) {
       const likes = m.users.size
       if (likes >= 2) {
         list.push({
@@ -108,9 +113,9 @@ export default function Matches() {
           likes,
         })
       }
-    })
+    }
 
-    // ordena por likes (depois título)
+    // ordena por mais likes (depois título)
     list.sort((a, b) => (b.likes - a.likes) || a.title.localeCompare(b.title))
     setItems(list)
   }
