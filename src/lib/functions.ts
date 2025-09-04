@@ -40,7 +40,7 @@ export async function getMovieDetails(tmdb_id: number): Promise<MovieDetails> {
   const res = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
-      // Edge Functions do Supabase exigem o header Authorization:
+      // Edge Functions do Supabase exigem esse header:
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
     },
   })

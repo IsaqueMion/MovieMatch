@@ -34,7 +34,7 @@ export default function MovieCarousel({
   fullHeight = true,
 }: Props) {
   const trailerKey = getTrailerKey(details)
-  const hasTrailer = !!trailerKey
+  const hasTrailer = !!details?.trailer?.key
 
   const slides = useMemo<SlideKind[]>(() => {
     const arr: SlideKind[] = ['poster']
