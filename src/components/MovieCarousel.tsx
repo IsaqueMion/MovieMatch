@@ -20,7 +20,7 @@ export default function MovieCarousel({ title, year, poster_url, fullHeight, det
           <img
             src={poster_url}
             alt={`${title}${year ? ` (${year})` : ''}`}
-            className="max-h-full max-w-full object-contain"   {/* 👈 não corta */}
+            className="max-h-full max-w-full object-contain"
             loading="eager"
             decoding="async"
           />
