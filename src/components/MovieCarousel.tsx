@@ -12,17 +12,23 @@ type Props = {
 export default function MovieCarousel({ title, year, poster_url, fullHeight, details }: Props) {
   return (
     <div className={`relative ${fullHeight ? 'h-full' : ''}`}>
-      <div className="aspect-[3/4] w-full overflow-hidden rounded-3xl ring-1 ring-white/10 bg-neutral-900/60 relative">
+      {/* container do pôster */}
+      <div
+        className="aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 bg-neutral-900/70 grid place-items-center"
+      >
         {poster_url ? (
           <img
             src={poster_url}
             alt={`${title}${year ? ` (${year})` : ''}`}
-            className="h-full w-full object-cover"
+            className="max-h-full max-w-full object-contain"   {/* 👈 não corta */}
+            loading="eager"
+            decoding="async"
           />
         ) : (
-          <div className="grid h-full w-full place-items-center text-white/50">Sem imagem</div>
+          <div className="text-white/50">Sem imagem</div>
         )}
 
+        {/* badge de nota (opcional) */}
         {details?.vote_average != null && (
           <div className="absolute top-2 right-2 rounded-md bg-black/60 px-2 py-1 text-xs ring-1 ring-white/10">
             ⭐ {details.vote_average.toFixed(1)}

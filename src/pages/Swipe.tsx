@@ -376,11 +376,13 @@ export default function Swipe() {
       </div>
 
       {/* centro */}
-      <div className="flex-1 px-4 pb-3 overflow-visible">
-        {/* 112px ≈ top bar; 168px ≈ área fixa dos botões + folga */}
-        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px-168px)]">
-          <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0">
+     <div className="flex-1 px-4 pb-3 overflow-hidden">
+        {/* 56px ≈ topbar; 176px ≈ área dos botões + folga; safe-area p/ iPhone */}
+        <div
+            className="w-full max-w-md mx-auto"
+            style={{ height: 'calc(100dvh - 56px - 176px - env(safe-area-inset-bottom))' }}
+        >
+            <div className="h-full">
               <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
                 {current ? (
                   <SwipeCard
@@ -625,7 +627,9 @@ function SwipeCard({
       className="h-full will-change-transform relative"
       variants={variants} custom={exitDir}
       initial="initial" animate="enter" exit="exit"
-      style={{ x }} drag="x" dragElastic={0.2} dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
+      style={{ x }}
+      drag="x" dragElastic={0.2}
+      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
@@ -634,35 +638,56 @@ function SwipeCard({
         if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
       }}
     >
-      {/* Overlay feedback */}
+      {/* Overlay de feedback (usa likeOpacity/dislikeOpacity) */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
-        <motion.div style={{ opacity: dislikeOpacity }} className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20">
-          <div className="flex items-center gap-1"><XIcon className="w-5 h-5" /><span>NOPE</span></div>
+        <motion.div
+          style={{ opacity: dislikeOpacity }}
+          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20"
+        >
+          NOPE
         </motion.div>
-        <motion.div style={{ opacity: likeOpacity }} className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20">
-          <div className="flex items-center gap-1"><Heart className="w-5 h-5" /><span>LIKE</span></div>
+        <motion.div
+          style={{ opacity: likeOpacity }}
+          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20"
+        >
+          LIKE
         </motion.div>
       </div>
 
-      {/* Conteúdo */}
-      <div className="h-full flex flex-col">
-        <div className="flex-1 min-h-0">
-          <MovieCarousel title={movie.title} year={movie.year} poster_url={movie.poster_url || ''} details={details} fullHeight />
+      {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
+      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
+        <div className="min-h-0">
+          <MovieCarousel
+            title={movie.title}
+            year={movie.year}
+            poster_url={movie.poster_url || ''}
+            details={details}
+            fullHeight
+          />
         </div>
 
-        {/* Meta compacta */}
-        <div className="mt-1 text-white shrink-0">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
-              {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
-            </h3>
-            <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
+        <div className="text-white shrink-0">
+          <h3 className="text-[15px] font-semibold leading-tight line-clamp-2">
+            {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
+          </h3>
+
+          {details?.genres?.length ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {details.genres.slice(0, 3).map(g => (
+                <span key={g.id} className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90">{g.name}</span>
+              ))}
             </div>
+          ) : null}
+
+          <div className="mt-1">
+            <span className="text-[11px] text-white/70 mr-1.5">Classificação:</span>
+            <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
+              {details?.age_rating?.trim() || '—'}
+            </span>
           </div>
         </div>
       </div>
     </motion.div>
   )
 }
+
