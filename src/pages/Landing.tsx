@@ -4,6 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Clapperboard, Heart, Users, Play, Film, Sparkles, X as XIcon } from 'lucide-react'
 import { discoverMovies } from '../lib/functions'
 import { supabase } from '../lib/supabase'
+import type { DiscoverFilters } from '../lib/functions'
+
+const LANDING_FILTERS: DiscoverFilters = {
+  genres: [],
+  excludeGenres: [],
+}
 
 type CarouselItem = {
   title: string
@@ -100,7 +106,10 @@ export default function Landing() {
     (async () => {
       try {
         const randomPage = 1 + Math.floor(Math.random() * 5)
-        const data = await discoverMovies({ page: randomPage, filters: {} })
+        const data = await discoverMovies({
+              page: randomPage,
+              filters: LANDING_FILTERS,
+        })
         const list = (data?.results ?? [])
           .filter((m: any) => m?.poster_url)
           .slice(0, 8)
