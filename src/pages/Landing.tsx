@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Clapperboard, Heart, Users, Play, Film, Sparkles } from 'lucide-react'
+import { Clapperboard, Heart, Users, Play, Film, Sparkles, X as XIcon } from 'lucide-react'
 import { discoverMovies } from '../lib/functions'
 import { supabase } from '../lib/supabase'
 
@@ -346,13 +346,28 @@ export default function Landing() {
               </div>
 
               {/* ações mock */}
-              <div className="mt-4 flex items-center justify-center gap-4 pb-2">
-                <button className="grid h-12 w-12 place-items-center rounded-full bg-red-500 text-white shadow-lg">✕</button>
-                <button className="grid h-12 w-12 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/10">
-                  <Play className="h-5 w-5" />
+              <div className="mt-4 flex items-center justify-center gap-5 pb-2">
+                <button
+                    className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl"
+                    aria-label="Deslike"
+                >
+                    <XIcon className="w-8 h-8" />
                 </button>
-                <button className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500 text-white shadow-lg">❤</button>
-              </div>
+
+                <button
+                    className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/10"
+                    aria-label="Ver trailer"
+                >
+                    <Play className="w-5 h-5" />
+                </button>
+
+                <button
+                    className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl"
+                    aria-label="Like"
+                >
+                    <Heart className="w-8 h-8" />
+                </button>
+                </div>
             </div>
           </div>
         </motion.div>
