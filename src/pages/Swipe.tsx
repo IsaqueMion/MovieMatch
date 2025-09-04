@@ -77,15 +77,21 @@ export default function Swipe() {
   const [online, setOnline] = useState<OnlineUser[]>([])
 
   // 🔎 filtros
-  const currentYear = new Date().getFullYear()
-  const DEFAULT_FILTERS: DiscoverFilters = {
+    const currentYear = new Date().getFullYear()
+    const DEFAULT_FILTERS: DiscoverFilters = {
     genres: [],
+    excludeGenres: [],
     yearMin: 1990,
     yearMax: currentYear,
     ratingMin: 0,
+    voteCountMin: 0,
+    runtimeMin: 60,
+    runtimeMax: 220,
     language: '',
     sortBy: 'popularity.desc',
-  }
+    includeAdult: false,
+    }
+
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
 
@@ -174,12 +180,17 @@ export default function Swipe() {
             .maybeSingle()
           if (sf) {
             effectiveFilters = {
-              genres: sf.genres ?? [],
-              yearMin: sf.year_min ?? 1990,
-              yearMax: sf.year_max ?? currentYear,
-              ratingMin: typeof sf.rating_min === 'number' ? Number(sf.rating_min) : 0,
-              language: sf.language ?? '',
-              sortBy: sf.sort_by ?? 'popularity.desc',
+                genres: sf.genres ?? [],
+                excludeGenres: sf.exclude_genres ?? [],
+                yearMin: sf.year_min ?? 1990,
+                yearMax: sf.year_max ?? currentYear,
+                ratingMin: typeof sf.rating_min === 'number' ? Number(sf.rating_min) : 0,
+                voteCountMin: typeof sf.vote_count_min === 'number' ? Number(sf.vote_count_min) : 0,
+                runtimeMin: typeof sf.runtime_min === 'number' ? Number(sf.runtime_min) : 60,
+                runtimeMax: typeof sf.runtime_max === 'number' ? Number(sf.runtime_max) : 220,
+                language: sf.language ?? '',
+                sortBy: sf.sort_by ?? 'popularity.desc',
+                includeAdult: !!sf.include_adult,
             }
           }
         } catch {}
@@ -604,6 +615,83 @@ export default function Swipe() {
                   })}
                 </div>
               </div>
+              <div className="mb-4">
+                <div className="text-sm mb-1">Excluir gêneros</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {GENRES.map(g => {
+                    const checked = filters.excludeGenres?.includes(g.id) ?? false
+                    return (
+                        <label key={g.id}
+                        className={`text-sm px-2 py-1 rounded-md border ${checked ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'} cursor-pointer inline-flex items-center gap-2`}>
+                        <input
+                            type="checkbox"
+                            className="accent-emerald-500"
+                            checked={checked}
+                            onChange={(e) => {
+                            setFilters(f => {
+                                const set = new Set(f.excludeGenres ?? [])
+                                if (e.target.checked) set.add(g.id); else set.delete(g.id)
+                                return { ...f, excludeGenres: Array.from(set) }
+                            })
+                            }}
+                        />
+                        {g.name}
+                        </label>
+                    )
+                    })}
+                </div>
+                </div>
+
+                <div className="mb-4">
+                <div className="flex items-center justify-between">
+                    <div className="text-sm">Duração (min–max, min)</div>
+                    <div className="text-xs text-white/70">
+                    {filters.runtimeMin ?? 60} – {filters.runtimeMax ?? 220} min
+                    </div>
+                </div>
+                <div className="mt-2">
+                    <input
+                    type="range" min={40} max={300} value={filters.runtimeMin ?? 60}
+                    onChange={(e) => {
+                        const v = Math.max(40, Math.min(300, Number(e.target.value || 60)))
+                        setFilters(f => ({ ...f, runtimeMin: Math.min(v, f.runtimeMax ?? 300) }))
+                    }}
+                    className="w-full"
+                    />
+                    <input
+                    type="range" min={40} max={300} value={filters.runtimeMax ?? 220}
+                    onChange={(e) => {
+                        const v = Math.max(40, Math.min(300, Number(e.target.value || 220)))
+                        setFilters(f => ({ ...f, runtimeMax: Math.max(v, f.runtimeMin ?? 40) }))
+                    }}
+                    className="w-full mt-1"
+                    />
+                </div>
+                </div>
+
+<div className="mb-4">
+  <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
+  <div className="text-xs text-white/70 mb-1">≥ {filters.voteCountMin ?? 0}</div>
+  <input
+    type="range" min={0} max={2000} step={10}
+    value={filters.voteCountMin ?? 0}
+    onChange={(e) => setFilters(f => ({ ...f, voteCountMin: Number(e.target.value || 0) }))}
+    className="w-full"
+  />
+</div>
+
+<div className="mb-4">
+  <label className="inline-flex items-center gap-2 text-sm">
+    <input
+      type="checkbox"
+      className="accent-emerald-500"
+      checked={!!filters.includeAdult}
+      onChange={(e) => setFilters(f => ({ ...f, includeAdult: e.target.checked }))}
+    />
+    Permitir conteúdo adulto
+  </label>
+</div>
+
 
               {/* Ano */}
               <div className="mb-4">
@@ -659,14 +747,19 @@ export default function Swipe() {
                     if (sessionId && userId) {
                       try {
                         await supabase.from('session_filters').upsert({
-                          session_id: sessionId,
-                          genres: fSnap.genres ?? [],
-                          year_min: fSnap.yearMin ?? 1990,
-                          year_max: fSnap.yearMax ?? currentYear,
-                          rating_min: fSnap.ratingMin ?? 0,
-                          language: fSnap.language ?? '',
-                          sort_by: fSnap.sortBy ?? 'popularity.desc',
-                          updated_by: userId,
+                        session_id: sessionId,
+                        genres: fSnap.genres ?? [],
+                        exclude_genres: fSnap.excludeGenres ?? [],
+                        year_min: fSnap.yearMin ?? 1990,
+                        year_max: fSnap.yearMax ?? currentYear,
+                        rating_min: fSnap.ratingMin ?? 0,
+                        vote_count_min: fSnap.voteCountMin ?? 0,
+                        runtime_min: fSnap.runtimeMin ?? 60,
+                        runtime_max: fSnap.runtimeMax ?? 220,
+                        language: fSnap.language ?? '',
+                        sort_by: fSnap.sortBy ?? 'popularity.desc',
+                        include_adult: !!fSnap.includeAdult,
+                        updated_by: userId,
                         }, { onConflict: 'session_id' })
                       } catch {}
                     }

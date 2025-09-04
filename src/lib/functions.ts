@@ -1,13 +1,18 @@
 import { supabase } from '../lib/supabase'
 
 export type DiscoverFilters = {
-  genres?: number[]
-  yearMin?: number
-  yearMax?: number
-  ratingMin?: number
-  language?: string
-  sortBy?: string
-}
+  genres: number[];
+  excludeGenres: number[];
+  yearMin?: number;
+  yearMax?: number;
+  ratingMin?: number;
+  voteCountMin?: number;
+  runtimeMin?: number;
+  runtimeMax?: number;
+  language?: string;
+  sortBy?: string;
+  includeAdult?: boolean;
+};
 
 export type MovieDetails = {
   tmdb_id: number
