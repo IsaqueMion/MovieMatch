@@ -766,6 +766,8 @@ function SwipeCard({
   const x = useMotionValue(0)
   const likeOpacity = useTransform(x, [40, DRAG_LIMIT], [0, 1])
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -40], [1, 0])
+  const dragRef = useRef(false)
+  
   useEffect(() => { x.set(0) }, [x])
 
   return (
@@ -773,13 +775,17 @@ function SwipeCard({
       className="h-full will-change-transform relative"
       variants={variants} custom={exitDir}
       initial="initial" animate="enter" exit="exit"
-      style={{ x }} drag="x" dragElastic={0.2} dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onDragStart={() => onDragState(true)}
+      style={{ x }} 
+      drag="x" dragElastic={0.2} 
+      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
+      onDragStart={() => { dragRef.current = true; onDragState(true) }} 
       onDragEnd={(_, info) => {
         onDragState(false)
         const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
         const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
         if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
+        // pequena folga pra evitar “tap fantasma” logo após soltar
+        setTimeout(() => { dragRef.current = false }, 80)
       }}
     >
       {/* Overlay feedback */}
@@ -794,10 +800,40 @@ function SwipeCard({
 
       {/* Conteúdo */}
       <div className="h-full flex flex-col">
-        <div className="flex-1 min-h-0">
-          <MovieCarousel title={movie.title} year={movie.year} poster_url={movie.poster_url || ''} details={details} fullHeight />
-        </div>
+        <div className="relative min-h-0">
+            <MovieCarousel
+                title={movie.title}
+                year={movie.year}
+                poster_url={movie.poster_url || ''}
+                details={details}
+                fullHeight
+            />
 
+            {/* Tap-zones: metade esquerda = dislike, metade direita = like */}
+            <div className="absolute inset-0 z-[5] grid grid-cols-2">
+                <button
+                type="button"
+                aria-label="Deslike"
+                className="h-full w-full bg-transparent cursor-pointer"
+                onClick={() => {
+                    if (dragRef.current) return
+                    try { navigator.vibrate?.(8) } catch {}
+                    onDecision(-1)
+                }}
+                />
+                <button
+                type="button"
+                aria-label="Like"
+                className="h-full w-full bg-transparent cursor-pointer"
+                onClick={() => {
+                    if (dragRef.current) return
+                    try { navigator.vibrate?.(8) } catch {}
+                    onDecision(1)
+                }}
+                />
+            </div>
+        </div>
+        
         {/* Meta compacta */}
         <div className="mt-1 text-white shrink-0">
           <div className="flex items-center justify-between">
