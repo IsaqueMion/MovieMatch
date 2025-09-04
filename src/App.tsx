@@ -1,6 +1,7 @@
 import { Toaster } from 'sonner'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Landing from './pages/Landing'
+import Session from './pages/Session'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <main className="max-w-5xl mx-auto p-4">
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/s/:code" element={<Session />} />
         </Routes>
       </main>
 
