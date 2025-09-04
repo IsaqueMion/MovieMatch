@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase' // 👈 ajustado
+import { supabase } from '../lib/supabase'
 import { discoverMovies, getMovieDetails, type MovieDetails, type DiscoverFilters } from '../lib/functions'
 import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
@@ -158,7 +158,7 @@ export default function Swipe() {
 
         await supabase.from('session_members').upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
 
-        // carregar filtros salvos (se houver)
+        // filtros salvos
         let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
         try {
           const { data: sf } = await supabase
@@ -209,23 +209,35 @@ export default function Swipe() {
     if (!sessionId) return
     const channel = supabase
       .channel(`sess-${sessionId}`)
-      .on('postgres_changes',
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'reactions', filter: `session_id=eq.${sessionId}` },
         async (payload) => {
           if (payload.new?.value !== 1) return
           const movieId = payload.new.movie_id as number
+
           const { count } = await supabase
             .from('reactions')
             .select('user_id', { count: 'exact', head: true })
-            .eq('session_id', sessionId).eq('movie_id', movieId).eq('value', 1)
+            .eq('session_id', sessionId)
+            .eq('movie_id', movieId)
+            .eq('value', 1)
+
           if ((count ?? 0) >= 2 && !matchedRef.current.has(movieId)) {
             matchedRef.current.add(movieId)
+
             const { data: mv } = await supabase
-              .from('movies').select('title, year, poster_url').eq('id', movieId).maybeSingle()
-            setMatchModal({ title: mv?.title ?? `Filme #${movieId}`, poster_url: mv?.poster_url ?? null, year: mv?.year ?? null })
+              .from('movies')
+              .select('title, year, poster_url')
+              .eq('id', movieId)
+              .maybeSingle()
+
+            const title = mv?.title ?? `Filme #${movieId}`
+            setMatchModal({ title, poster_url: mv?.poster_url ?? null, year: mv?.year ?? null })
           }
         }
-      ).subscribe()
+      )
+      .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [sessionId])
 
@@ -243,7 +255,9 @@ export default function Swipe() {
       setOnline(dedup)
     })
     ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') ch.track({ user_id: userId, display_name: displayName, joined_at: new Date().toISOString() })
+      if (status === 'SUBSCRIBED') {
+        ch.track({ user_id: userId, display_name: displayName, joined_at: new Date().toISOString() })
+      }
     })
     return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
   }, [sessionId, userId, displayName])
@@ -264,57 +278,51 @@ export default function Swipe() {
     } finally { setLoadingMore(false) }
   }
 
-async function react(value: 1 | -1) {
-  if (!sessionId || !userId || !current) return
-  if (clickGuardRef.current || busy) return
+  async function react(value: 1 | -1) {
+    if (!sessionId || !userId || !current) return
+    if (clickGuardRef.current || busy) return
 
-  clickGuardRef.current = true
-  setBusy(true)
-  setLastDir(value === 1 ? 'like' : 'dislike')
+    clickGuardRef.current = true
+    setBusy(true)
+    setLastDir(value === 1 ? 'like' : 'dislike')
 
-  try {
-    // 1) Garante o filme na tabela (unicidade por tmdb_id) e pega o id REAL
-    const { data: upserted, error: movieErr } = await supabase
-      .from('movies')
-      .upsert(
-        {
-          tmdb_id: current.tmdb_id,
-          title: current.title,
-          year: current.year ?? null,
-          poster_url: current.poster_url ?? null,
-        },
-        { onConflict: 'tmdb_id' }
-      )
-      .select('id')
-      .single()
+    try {
+      const { data: upserted, error: movieErr } = await supabase
+        .from('movies')
+        .upsert(
+          {
+            tmdb_id: current.tmdb_id,
+            title: current.title,
+            year: current.year ?? null,
+            poster_url: current.poster_url ?? null,
+          },
+          { onConflict: 'tmdb_id' }
+        )
+        .select('id')
+        .single()
 
-    if (movieErr) throw movieErr
+      if (movieErr) throw movieErr
+      const movieId = Number(upserted?.id)
+      if (!movieId) throw new Error('Falha ao obter movie.id')
 
-    const movieRowId = upserted?.id
-    if (typeof movieRowId !== 'number') {
-      throw new Error('Falha ao obter movie.id')
+      const { error: rxErr } = await supabase
+        .from('reactions')
+        .upsert(
+          { session_id: sessionId, user_id: userId, movie_id: movieId, value },
+          { onConflict: 'session_id,user_id,movie_id' }
+        )
+      if (rxErr) throw rxErr
+
+      historyRef.current.push(movieId)
+    } catch (e: any) {
+      console.error('reactions upsert error:', e)
+      toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
+    } finally {
+      await goNext()
+      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
     }
-
-    // 2) Grava a reação
-    const { error: rxErr } = await supabase
-      .from('reactions')
-      .upsert(
-        { session_id: sessionId, user_id: userId, movie_id: movieRowId, value },
-        { onConflict: 'session_id,user_id,movie_id' }
-      )
-
-    if (rxErr) throw rxErr
-
-    // 3) Guarda para poder desfazer
-    historyRef.current.push(movieRowId)
-  } catch (e: any) {
-    console.error('reactions upsert error:', e)
-    toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
-  } finally {
-    await goNext()
-    setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
   }
-}
+
   async function undo() {
     if (!sessionId || !userId || busy) return
     const last = historyRef.current.pop()
@@ -323,8 +331,11 @@ async function react(value: 1 | -1) {
     try {
       setI(idx => { const v = Math.max(0, idx - 1); saveProgress(sessionId, filters, v); return v })
       const { error } = await supabase
-        .from('reactions').delete()
-        .eq('session_id', sessionId).eq('user_id', userId).eq('movie_id', last)
+        .from('reactions')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', userId)
+        .eq('movie_id', last)
       if (error) throw error
       setUndoMsg('Último swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
@@ -342,9 +353,13 @@ async function react(value: 1 | -1) {
 
   const cardVariants = {
     initial: { opacity: 0, y: 12, scale: 0.985, rotate: 0, x: 0 },
-    enter:   { opacity: 1, y: 0,  scale: 1,    rotate: 0, x: 0, transition: { type: 'spring', stiffness: 260, damping: 26, mass: 0.9 } },
+    enter:   { opacity: 1, y: 0,  scale: 1,    rotate: 0, x: 0,
+               transition: { type: 'spring', stiffness: 260, damping: 26, mass: 0.9 } },
     exit:    (dir: 'like' | 'dislike' | null) => ({
-      x: dir === 'dislike' ? -140 : 140, rotate: dir === 'dislike' ? -8 : 8, opacity: 0, transition: { duration: 0.22, ease: 'easeOut' }
+      x: dir === 'dislike' ? -140 : 140,
+      rotate: dir === 'dislike' ? -8 : 8,
+      opacity: 0,
+      transition: { duration: 0.22, ease: 'easeOut' }
     }),
   } as const
 
@@ -361,139 +376,134 @@ async function react(value: 1 | -1) {
   const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
   const clampYear = (v: number) => Math.max(1900, Math.min(currentYear, v))
 
-return (
-  <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-    {/* Top bar */}
-    <div className="shrink-0 px-3 pt-2">
-      <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
-        <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
-          <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
-            Sessão <span className="font-semibold">{code}</span>
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            {online.length} online
-          </span>
-          {filtersCount > 0 && (
-            <button
-              onClick={() => setOpenFilters(true)}
-              className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] hover:bg-white/15"
-              title="Editar filtros"
-            >
-              {filtersCount} filtros
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setOpenFilters(true)} title="Filtros" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-            <SlidersHorizontal className="w-4 h-4" />
-          </button>
-          <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-            <Share2 className="w-4 h-4" />
-          </button>
-          <Link to={`/s/${code}/matches`} title="Ver matches" className="p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white">
-            <Star className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-    </div>
-
-    {/* centro */}
-    <div className="flex-1 px-4 pb-3 overflow-visible">
-      {/* 56px ≈ topbar; 176px ≈ botões + folga; inclui safe-area */}
-      <div
-        className="w-full max-w-md mx-auto"
-        style={{ height: 'calc(100dvh - 56px - 176px - env(safe-area-inset-bottom))' }}
-      >
-        <div className="h-full">
-          <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
-            {current ? (
-              <SwipeCard
-                key={current.movie_id}
-                movie={current}
-                details={det}
-                variants={cardVariants}
-                exitDir={lastDir}
-                onDragState={setDragging}
-                onDecision={(v) => react(v)}
-              />
-            ) : (
-              <motion.div
-                key="empty"
-                className="h-full grid place-items-center text-white/80"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              >
-                <div className="text-center">
-                  <p>Acabaram os filmes deste lote 😉</p>
-                  {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
-                </div>
-              </motion.div>
+  return (
+    <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
+      {/* Top bar (compacta) */}
+      <div className="shrink-0 px-3 pt-2">
+        <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
+          <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
+            <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
+              Sessão <span className="font-semibold">{code}</span>
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {online.length} online
+            </span>
+            {filtersCount > 0 && (
+              <button onClick={() => setOpenFilters(true)} className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] hover:bg-white/15" title="Editar filtros">
+                {filtersCount} filtros
+              </button>
             )}
-          </AnimatePresence>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setOpenFilters(true)} title="Filtros" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+            <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
+              <Share2 className="w-4 h-4" />
+            </button>
+            <Link to={`/s/${code}/matches`} title="Ver matches" className="p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white">
+              <Star className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
 
-    {/* Ações */}
-    <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom)+16px)] pointer-events-none">
-      <div className="flex items-center justify-center gap-5 pointer-events-auto">
-        <motion.button
-          onClick={() => react(-1)} disabled={busy || dragging || !current}
-          className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
-          aria-label="Deslike" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-        >
-          <XIcon className="w-6 h-6" />
-        </motion.button>
-
-        <motion.button
-          onClick={() => undo()} disabled={busy || dragging || historyRef.current.length === 0}
-          className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
-          aria-label="Desfazer" whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }} title="Desfazer (Backspace)"
-        >
-          <Undo2 className="w-6 h-6" />
-        </motion.button>
-
-        <motion.button
-          onClick={() => react(1)} disabled={busy || dragging || !current}
-          className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
-          aria-label="Like" whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-        >
-          <Heart className="w-6 h-6" />
-        </motion.button>
+      {/* centro */}
+      <div className="flex-1 px-4 pb-3 overflow-hidden">
+        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
+          <div className="h-full flex flex-col">
+            <div className="flex-1 min-h-0">
+              <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
+                {current ? (
+                  <SwipeCard
+                    key={current.movie_id}
+                    movie={current}
+                    details={det}
+                    variants={cardVariants}
+                    exitDir={lastDir}
+                    onDragState={setDragging}
+                    onDecision={(v) => react(v)}
+                  />
+                ) : (
+                  <motion.div key="empty" className="h-full grid place-items-center text-white/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <div className="text-center">
+                      <p>Acabaram os filmes deste lote 😉</p>
+                      {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    {/* Banner UNDO */}
-    <AnimatePresence>
-      {undoMsg && (
-        <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none">
-          <motion.div
-            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-            className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow"
+      {/* Ações */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30">
+        <div className="flex items-center justify-center gap-5">
+          <motion.button
+            onClick={() => react(-1)}
+            disabled={busy || dragging || !current}
+            className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
+            aria-label="Deslike"
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}
           >
-            {undoMsg}
-          </motion.div>
+            <XIcon className="w-8 h-8" />
+          </motion.button>
+
+          <motion.button
+            onClick={() => undo()}
+            disabled={busy || dragging || historyRef.current.length === 0}
+            className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
+            aria-label="Desfazer"
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} title="Desfazer (Backspace)"
+          >
+            <Undo2 className="w-6 h-6" />
+          </motion.button>
+
+          <motion.button
+            onClick={() => react(1)}
+            disabled={busy || dragging || !current}
+            className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
+            aria-label="Like"
+            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }} transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+          >
+            <Heart className="w-8 h-8" />
+          </motion.button>
         </div>
-      )}
-    </AnimatePresence>
+      </div>
+
+      {/* Banner UNDO */}
+      <AnimatePresence>
+        {undoMsg && (
+          <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none">
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}
+              className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow">
+              {undoMsg}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Modal Filtros */}
       <AnimatePresence>
         {openFilters && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/60" onClick={() => setOpenFilters(false)} />
-            <motion.div initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0,  scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0,  scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }}
               transition={{ type: 'spring', stiffness: 300, damping: 22 }}
               className="relative z-10 w-[min(92vw,38rem)] max-h-[90dvh] overflow-auto rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white"
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold">Filtros</h3>
-                <button className="text-sm px-2 py-1 rounded-md bg-white/10 hover:bg-white/15" onClick={() => setFilters({ ...DEFAULT_FILTERS })} title="Limpar todos os filtros">Limpar</button>
+                <button className="text-sm px-2 py-1 rounded-md bg-white/10 hover:bg-white/15" onClick={() => setFilters({ ...DEFAULT_FILTERS })} title="Limpar todos os filtros">
+                  Limpar
+                </button>
               </div>
 
               {/* Gêneros */}
@@ -504,7 +514,10 @@ return (
                     const checked = filters.genres?.includes(g.id) ?? false
                     return (
                       <label key={g.id} className={`text-sm px-2 py-1 rounded-md border ${checked ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'} cursor-pointer inline-flex items-center gap-2`}>
-                        <input type="checkbox" className="accent-emerald-500" checked={checked}
+                        <input
+                          type="checkbox"
+                          className="accent-emerald-500"
+                          checked={checked}
                           onChange={(e) => {
                             setFilters(f => {
                               const set = new Set(f.genres ?? [])
@@ -545,14 +558,16 @@ return (
                 <div>
                   <label className="block text-sm mb-1">Idioma original</label>
                   <Select
-                    value={filters.language ?? ''} onChange={(v: string) => setFilters((f) => ({ ...f, language: v }))}
+                    value={filters.language ?? ''}
+                    onChange={(v: string) => setFilters((f) => ({ ...f, language: v }))}
                     options={[{ value: '', label: 'Qualquer' }, { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' }]}
                   />
                 </div>
                 <div>
                   <label className="block text-sm mb-1">Ordenar por</label>
                   <Select
-                    value={filters.sortBy ?? 'popularity.desc'} onChange={(v: string) => setFilters((f) => ({ ...f, sortBy: v }))}
+                    value={filters.sortBy ?? 'popularity.desc'}
+                    onChange={(v: string) => setFilters((f) => ({ ...f, sortBy: v }))}
                     options={[
                       { value: 'popularity.desc', label: 'Popularidade (desc)' },
                       { value: 'vote_average.desc', label: 'Nota (desc)' },
@@ -564,7 +579,8 @@ return (
 
               <div className="flex items-center justify-end gap-2">
                 <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => setOpenFilters(false)}>Cancelar</button>
-                <button className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+                <button
+                  className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
                   onClick={async () => {
                     setOpenFilters(false)
                     const fSnap = { ...filters }
@@ -599,10 +615,15 @@ return (
         {matchModal && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMatchModal(null)} />
-            <motion.div initial={{ scale: 0.96, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0, y: 6 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22 }} className="relative z-10 w-[min(92vw,28rem)] rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white">
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 6 }} transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+              className="relative z-10 w-[min(92vw,28rem)] rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white"
+            >
               <div className="flex items-center gap-3">
-                {matchModal.poster_url ? <img src={matchModal.poster_url} alt={matchModal.title} className="w-16 h-24 object-cover rounded-md ring-1 ring-white/10" /> : null}
+                {matchModal.poster_url ? (
+                  <img src={matchModal.poster_url} alt={matchModal.title} className="w-16 h-24 object-cover rounded-md ring-1 ring-white/10" />
+                ) : null}
                 <div className="min-w-0">
                   <h3 className="text-lg font-semibold">Deu match!</h3>
                   <p className="text-sm text-white/80 truncate">
@@ -624,7 +645,7 @@ return (
   )
 }
 
-/* ========= Persistência local do progresso ========= */
+/* ========= Persistência de progresso ========= */
 function filtersSig(f: DiscoverFilters) {
   return [(f.genres ?? []).join(','), f.yearMin ?? '', f.yearMax ?? '', f.ratingMin ?? '', f.language ?? '', f.sortBy ?? ''].join('|')
 }
@@ -666,9 +687,7 @@ function SwipeCard({
       className="h-full will-change-transform relative"
       variants={variants} custom={exitDir}
       initial="initial" animate="enter" exit="exit"
-      style={{ x }}
-      drag="x" dragElastic={0.2}
-      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
+      style={{ x }} drag="x" dragElastic={0.2} dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
@@ -677,38 +696,33 @@ function SwipeCard({
         if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
       }}
     >
-      {/* Overlay de feedback (usa likeOpacity/dislikeOpacity) */}
+      {/* Overlay feedback */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
-        <motion.div
-          style={{ opacity: dislikeOpacity }}
-          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20"
-        >
-          NOPE
+        <motion.div style={{ opacity: dislikeOpacity }} className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20">
+          <div className="flex items-center gap-1"><XIcon className="w-5 h-5" /><span>NOPE</span></div>
         </motion.div>
-        <motion.div
-          style={{ opacity: likeOpacity }}
-          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20"
-        >
-          LIKE
+        <motion.div style={{ opacity: likeOpacity }} className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20">
+          <div className="flex items-center gap-1"><Heart className="w-5 h-5" /><span>LIKE</span></div>
         </motion.div>
       </div>
 
-      {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
-      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        <div className="min-h-0">
-          <MovieCarousel
-            title={movie.title}
-            year={movie.year}
-            poster_url={movie.poster_url || ''}
-            details={details}
-            fullHeight
-          />
+      {/* Conteúdo */}
+      <div className="h-full flex flex-col">
+        <div className="flex-1 min-h-0">
+          <MovieCarousel title={movie.title} year={movie.year} poster_url={movie.poster_url || ''} details={details} fullHeight />
         </div>
 
-        <div className="text-white shrink-0">
-          <h3 className="text-[15px] font-semibold leading-tight line-clamp-2">
-            {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
-          </h3>
+        {/* Meta compacta */}
+        <div className="mt-1 text-white shrink-0">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
+              {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
+            </h3>
+            <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
+            </div>
+          </div>
 
           {details?.genres?.length ? (
             <div className="mt-1 flex flex-wrap gap-1">
@@ -729,4 +743,3 @@ function SwipeCard({
     </motion.div>
   )
 }
-

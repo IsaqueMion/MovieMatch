@@ -1,44 +1,172 @@
-// src/components/MovieCarousel.tsx
+import { useEffect, useMemo, useState } from 'react'
 import type { MovieDetails } from '../lib/functions'
 
 type Props = {
   title: string
   year: number | null
   poster_url: string
-  fullHeight?: boolean
   details?: MovieDetails
+  fullHeight?: boolean
 }
 
-export default function MovieCarousel({ title, year, poster_url, fullHeight, details }: Props) {
-  // dentro do MovieCarousel
-const container =
-  fullHeight
-    ? 'h-full w-full overflow-hidden rounded-2xl ring-1 ring-white/10 bg-neutral-900/70'
-    : 'aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 bg-neutral-900/70'
+// três tipos possíveis de slide
+type SlideKind = 'poster' | 'trailer' | 'synopsis'
 
-return (
-  <div className={`relative ${fullHeight ? 'h-full' : ''}`}>
-    <div className={container}>
-      {poster_url ? (
-        <img
-          src={poster_url}
-          alt={`${title}${year ? ` (${year})` : ''}`}
-          className="h-full w-full object-contain"   // 👈 aqui é o segredo
-          loading="eager"
-          decoding="async"
-        />
-      ) : (
-        <div className="grid h-full w-full place-items-center text-white/50">Sem imagem</div>
-      )}
+export default function MovieCarousel({
+  title,
+  year,
+  poster_url,
+  details,
+  fullHeight = true,
+}: Props) {
+  const hasTrailer = details?.trailer?.site === 'YouTube' && !!details?.trailer?.key
 
-      {/* opcional: badge de nota */}
-      {details?.vote_average != null && (
-        <div className="absolute top-2 right-2 rounded-md bg-black/60 px-2 py-1 text-xs ring-1 ring-white/10">
-          ⭐ {details.vote_average.toFixed(1)}
+  // lista de slides (apenas strings, tipadas)
+  const slides = useMemo<SlideKind[]>(() => {
+    const arr: SlideKind[] = ['poster']
+    if (hasTrailer) arr.push('trailer')
+    arr.push('synopsis')
+    return arr
+  }, [hasTrailer])
+
+  const [slide, setSlide] = useState(0)
+
+  // se a quantidade de slides mudar, mantém índice válido
+  useEffect(() => {
+    if (slide > slides.length - 1) setSlide(0)
+  }, [slides.length, slide])
+
+  // ao trocar de filme, volta ao primeiro slide
+  useEffect(() => {
+    setSlide(0)
+  }, [poster_url, title])
+
+  const next = () => setSlide((s) => (s + 1) % slides.length)
+  const prev = () => setSlide((s) => (s - 1 + slides.length) % slides.length)
+
+  const youtubeEmbed: string | null =
+    hasTrailer ? `https://www.youtube.com/embed/${details!.trailer!.key}?playsinline=1&rel=0` : null
+
+  const slideKey: SlideKind = slides[slide] ?? 'poster'
+
+  return (
+    <div className="w-full h-full select-none">
+      <div className="relative h-full overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5">
+        {/* área do slide */}
+        <div className={`relative h-full ${fullHeight ? '' : 'min-h-[520px]'} bg-neutral-950 text-white`}>
+          {/* Poster */}
+          <FadeSlide visible={slideKey === 'poster'}>
+            <div className="w-full h-full flex items-center justify-center bg-black p-2">
+              <img
+                src={poster_url}
+                alt={`${title}${year ? ` (${year})` : ''}`}
+                className="max-h-full max-w-full object-contain"
+                draggable={false}
+                loading="eager"
+                decoding="async"
+              />
+            </div>
+          </FadeSlide>
+
+          {/* Trailer */}
+          <FadeSlide visible={slideKey === 'trailer'}>
+            {youtubeEmbed ? (
+              <div className="w-full h-full flex items-center justify-center bg-black pb-24">
+                <div className="relative h-full aspect-[9/16] max-h-full z-10">
+                  <iframe
+                    className="absolute inset-0 w-full h-full"
+                    src={youtubeEmbed}
+                    title={`${title} trailer`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    style={{ zIndex: 10 }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <Skeleton>Carregando trailer…</Skeleton>
+            )}
+          </FadeSlide>
+
+          {/* Sinopse */}
+          <FadeSlide visible={slideKey === 'synopsis'}>
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full max-w-sm mx-auto bg-white text-gray-900 p-4 rounded-xl shadow-lg">
+                <h3 className="font-semibold text-lg">
+                  {title}{year ? ` (${year})` : ''}
+                </h3>
+                <div className="mt-0.5 text-sm text-gray-600">
+                  {details?.runtime ? `${details.runtime} min` : '—'}
+                  {details?.genres?.length ? ` • ${details.genres.map(g => g.name).join(' • ')}` : ''}
+                </div>
+                <div className="mt-3 text-sm leading-relaxed max-h-64 overflow-y-auto pr-1">
+                  {details?.overview || <Skeleton>Carregando sinopse…</Skeleton>}
+                </div>
+              </div>
+            </div>
+          </FadeSlide>
+
+          {/* setas laterais (não cobrem barra do YouTube) */}
+          {slides.length > 1 && (
+            <>
+              <button
+                onClick={prev}
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-white/15 hover:bg-white/25 transition px-3 py-2 rounded-full backdrop-blur"
+                aria-label="Anterior"
+              >
+                ‹
+              </button>
+              <button
+                onClick={next}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-white/15 hover:bg-white/25 transition px-3 py-2 rounded-full backdrop-blur"
+                aria-label="Próximo"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          {/* Dots sobrepostos dentro do card (esconde no trailer) */}
+          {slides.length > 1 && slideKey !== 'trailer' && (
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-2 bg-black/20 rounded-full px-2 py-1 backdrop-blur">
+              {slides.map((kind, idx) => (
+                <button
+                  key={kind}
+                  onClick={() => setSlide(idx)}
+                  className={`w-2.5 h-2.5 rounded-full transition ${idx === slide ? 'bg-white' : 'bg-white/50'}`}
+                  aria-label={`Ir para ${kind}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
+function FadeSlide({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className={`absolute inset-0 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      style={{ zIndex: visible ? 1 : 0 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function Skeleton({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full max-w-sm p-4">
+        <div className="animate-pulse space-y-3">
+          <div className="h-48 bg-gray-200 rounded" />
+          <div className="h-4 bg-gray-200 rounded" />
+          <div className="h-4 bg-gray-200 rounded w-2/3" />
+          {children ? <div className="text-xs text-gray-500">{children}</div> : null}
+        </div>
+      </div>
+    </div>
+  )
 }
