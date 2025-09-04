@@ -10,6 +10,19 @@ type MatchItem = {
   likes: number
 }
 
+// Linha do SELECT que vem de reactions + join com movies
+type ReactionRow = {
+  movie_id: number
+  value: 1 | -1
+  user_id: string | null
+  // created_at é opcional aqui; não usamos agora
+  movies: {
+    title: string | null
+    year: number | null
+    poster_url: string | null
+  } | null
+}
+
 export default function Matches() {
   const { code = '' } = useParams()
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -20,20 +33,24 @@ export default function Matches() {
   useEffect(() => {
     (async () => {
       setLoading(true)
-      // 1) id da sessão pelo code
+
       const { data: sess } = await supabase
         .from('sessions')
         .select('id, code')
         .eq('code', code.toUpperCase())
         .maybeSingle()
-      if (!sess) { setSessionId(null); setItems([]); setLoading(false); return }
-      setSessionId(sess.id)
 
-      // 2) reações (like) + join com movies; agregação no cliente
+      if (!sess) {
+        setSessionId(null)
+        setItems([])
+        setLoading(false)
+        return
+      }
+
+      setSessionId(sess.id)
       await loadMatches(sess.id)
       setLoading(false)
     })()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code])
 
   // tempo real: quando inserir/deletar reação, recarrega
@@ -41,10 +58,12 @@ export default function Matches() {
     if (!sessionId) return
     const ch = supabase
       .channel(`matches-${sessionId}`)
-      .on('postgres_changes',
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'reactions', filter: `session_id=eq.${sessionId}` },
         () => loadMatches(sessionId)
-      ).subscribe()
+      )
+      .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [sessionId])
 
@@ -55,24 +74,43 @@ export default function Matches() {
       .eq('session_id', sid)
       .eq('value', 1)
 
-    // agrega por movie_id (conta usuários distintos)
-    const map = new Map<number, { title: string; year: number | null; poster_url: string | null; users: Set<string> }>()
-    for (const r of (data ?? [])) {
-      const m = map.get(r.movie_id) ?? {
-        title: r.movies?.title ?? '—',
-        year: r.movies?.year ?? null,
-        poster_url: r.movies?.poster_url ?? null,
-        users: new Set<string>(),
-      }
-      if (r.user_id) m.users.add(String(r.user_id))
-      map.set(r.movie_id, m)
+    const rows = (data ?? []) as ReactionRow[]
+
+    // agrega por movie_id: usuários únicos que deram like
+    const map = new Map<
+      number,
+      { title: string; year: number | null; poster_url: string | null; users: Set<string> }
+    >()
+
+    for (const r of rows) {
+      const curr =
+        map.get(r.movie_id) ??
+        {
+          title: r.movies?.title ?? '—',
+          year: r.movies?.year ?? null,
+          poster_url: r.movies?.poster_url ?? null,
+          users: new Set<string>(),
+        }
+
+      if (r.user_id) curr.users.add(String(r.user_id))
+      map.set(r.movie_id, curr)
     }
+
     const list: MatchItem[] = []
-    for (const [movie_id, m] of map.entries()) {
+    map.forEach((m, movie_id) => {
       const likes = m.users.size
-      if (likes >= 2) list.push({ movie_id, title: m.title, year: m.year, poster_url: m.poster_url, likes })
-    }
-    // ordena por mais likes (depois título)
+      if (likes >= 2) {
+        list.push({
+          movie_id,
+          title: m.title,
+          year: m.year,
+          poster_url: m.poster_url,
+          likes,
+        })
+      }
+    })
+
+    // ordena por likes (depois título)
     list.sort((a, b) => (b.likes - a.likes) || a.title.localeCompare(b.title))
     setItems(list)
   }
@@ -101,7 +139,9 @@ export default function Matches() {
       <div className="mx-auto max-w-5xl px-4 py-4">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold">Matches — {code.toUpperCase()}</h1>
-          <Link to={`/s/${code}`} className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15">Voltar ao swipe</Link>
+          <Link to={`/s/${code}`} className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15">
+            Voltar ao swipe
+          </Link>
         </div>
 
         {items.length === 0 ? (
