@@ -22,6 +22,7 @@ export default function Landing() {
 
   // --- Auth anônima ---
   const [userId, setUserId] = useState<string | null>(null)
+  const [, setStatus] = useState<string>('')
 
   useEffect(() => {
     (async () => {
