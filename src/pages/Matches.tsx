@@ -2,21 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
-type MovieJoin = {
-  title: string | null
-  year: number | null
-  poster_url: string | null
-}
-
-// A linha do SELECT pode vir com movies como OBJETO ou ARRAY
-type ReactionRow = {
-  movie_id: number
-  value: 1 | -1
-  user_id: string | null
-  created_at?: string | null
-  movies: MovieJoin | MovieJoin[] | null
-}
-
 type MatchItem = {
   movie_id: number
   title: string
