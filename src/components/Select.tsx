@@ -63,8 +63,8 @@ export default function Select({
       {open && (
         <div
           ref={popRef}
-          className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg
-                     bg-neutral-900 text-white ring-1 ring-white/10 shadow-xl"
+          className="absolute z-50 bottom-full mb-1 left-0 w-full overflow-hidden rounded-lg
+                    bg-neutral-900 text-white ring-1 ring-white/10 shadow-xl"
         >
           <ul className="max-h-60 overflow-auto py-1">
             {options.map(opt => {
