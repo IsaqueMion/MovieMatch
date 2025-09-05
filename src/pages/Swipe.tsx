@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 import { discoverMovies, getMovieDetails, type MovieDetails, type DiscoverFilters } from '../lib/functions'
 import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
-import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate  } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
 
@@ -893,6 +893,7 @@ function SwipeCard({
       dragControls={dragControls}
       dragListener={false}
       dragElastic={0.2}
+      dragMomentum={false} 
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
       onPointerDown={handlePointerDown}
       onDragStart={() => onDragState(true)}
@@ -900,7 +901,11 @@ function SwipeCard({
         onDragState(false)
         const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
         const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
+        if (passDistance || passVelocity) {
+          onDecision(info.offset.x > 0 ? 1 : -1)
+        } else {
+          animate(x, 0, { type: 'spring', stiffness: 350, damping: 28 })
+        }
       }}
     >
       {/* Overlay feedback */}
