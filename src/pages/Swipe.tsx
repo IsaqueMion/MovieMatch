@@ -35,6 +35,35 @@ const GENRES = [
   { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
   { id: 37, name: 'Faroeste' },
 ]
+const LANGUAGES = [
+  { value: '',  label: 'Qualquer' },
+  { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' },
+  { value: 'fr', label: 'Francês' },   { value: 'de', label: 'Alemão' },  { value: 'it', label: 'Italiano' },
+  { value: 'ja', label: 'Japonês' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chinês' },
+  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: 'Árabe' },
+  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holandês' },{ value: 'sv', label: 'Sueco' },
+  { value: 'no', label: 'Norueguês' }, { value: 'fi', label: 'Finlandês'},{ value: 'da', label: 'Dinamarquês' },
+  { value: 'pl', label: 'Polonês' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
+  { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
+  { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio'},{ value: 'vi', label: 'Vietnamita' },
+  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'popularity.desc',           label: 'Popularidade (↓)' },
+  { value: 'popularity.asc',            label: 'Popularidade (↑)' },
+  { value: 'vote_average.desc',         label: 'Nota (↓)' },
+  { value: 'vote_average.asc',          label: 'Nota (↑)' },
+  { value: 'vote_count.desc',           label: 'Votos (↓)' },
+  { value: 'vote_count.asc',            label: 'Votos (↑)' },
+  { value: 'primary_release_date.desc', label: 'Lançamento (recente)' },
+  { value: 'primary_release_date.asc',  label: 'Lançamento (antigo)' },
+  { value: 'revenue.desc',              label: 'Bilheteria (↓)' },
+  { value: 'revenue.asc',               label: 'Bilheteria (↑)' },
+  { value: 'original_title.asc',        label: 'Título A→Z' },
+  { value: 'original_title.desc',       label: 'Título Z→A' },
+];
+
 
 export default function Swipe() {
   const { code } = useParams()
@@ -586,204 +615,269 @@ export default function Swipe() {
       {/* Modal Filtros */}
       <AnimatePresence>
         {openFilters && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          >
             <div className="absolute inset-0 bg-black/60" onClick={() => setOpenFilters(false)} />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0,  scale: 1 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.98 }}
               transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-              className="relative z-10 w-[min(92vw,38rem)] max-h-[90dvh] overflow-auto rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white"
+              className="relative z-10 w-[min(92vw,44rem)] max-h-[92dvh] overflow-auto rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-5 text-white"
             >
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold">Filtros</h3>
-                <button className="text-sm px-2 py-1 rounded-md bg-white/10 hover:bg-white/15" onClick={() => setFilters({ ...DEFAULT_FILTERS })} title="Limpar todos os filtros">
-                  Limpar
-                </button>
-              </div>
-
-              {/* Gêneros */}
-              <div className="mb-4">
-                <div className="text-sm mb-1">Gêneros</div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {GENRES.map(g => {
-                    const checked = filters.genres?.includes(g.id) ?? false
-                    return (
-                      <label key={g.id} className={`text-sm px-2 py-1 rounded-md border ${checked ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'} cursor-pointer inline-flex items-center gap-2`}>
-                        <input
-                          type="checkbox"
-                          className="accent-emerald-500"
-                          checked={checked}
-                          onChange={(e) => {
-                            setFilters(f => {
-                              const set = new Set(f.genres ?? [])
-                              if (e.target.checked) set.add(g.id); else set.delete(g.id)
-                              return { ...f, genres: Array.from(set) }
-                            })
-                          }}
-                        />
-                        {g.name}
-                      </label>
-                    )
-                  })}
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold">Filtros</h3>
+                  <p className="text-white/70 text-sm">Refine as recomendações com mais controle.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="text-sm px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
+                    onClick={() => setFilters({ ...DEFAULT_FILTERS })}
+                    title="Limpar todos os filtros"
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    className="text-sm px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
+                    onClick={() => setOpenFilters(false)}
+                  >
+                    Fechar
+                  </button>
                 </div>
               </div>
 
-              {/* Excluir gêneros */}
-              <div className="mb-4">
-                <div className="text-sm mb-1">Excluir gêneros</div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {GENRES.map(g => {
-                    const checked = filters.excludeGenres?.includes(g.id) ?? false
-                    return (
-                      <label key={g.id}
-                        className={`text-sm px-2 py-1 rounded-md border ${checked ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'} cursor-pointer inline-flex items-center gap-2`}>
-                        <input
-                          type="checkbox"
-                          className="accent-emerald-500"
-                          checked={checked}
-                          onChange={(e) => {
-                            setFilters(f => {
-                              const set = new Set(f.excludeGenres ?? [])
-                              if (e.target.checked) set.add(g.id); else set.delete(g.id)
-                              return { ...f, excludeGenres: Array.from(set) }
-                            })
-                          }}
-                        />
-                        {g.name}
-                      </label>
-                    )
-                  })}
-                </div>
+              {/* Grid de seções */}
+              <div className="space-y-4">
+                {/* Gêneros incluir/excluir */}
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <h4 className="font-medium">Gêneros</h4>
+                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* Incluir */}
+                    <div>
+                      <div className="text-xs text-white/70 mb-1">Incluir</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {GENRES.map(g => {
+                          const checked = filters.genres?.includes(g.id) ?? false
+                          return (
+                            <button
+                              key={`inc-${g.id}`}
+                              onClick={() => {
+                                setFilters(f => {
+                                  const s = new Set<number>(f.genres ?? [])
+                                  if (checked) {
+                                    s.delete(g.id)
+                                  } else {
+                                    s.add(g.id)
+                                  }
+                                  return { ...f, genres: Array.from(s) }
+                                })
+                              }}
+                              className={`px-2.5 py-1 rounded-full border text-xs ${
+                                checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
+                              }`}
+                              type="button"
+                            >
+                              {g.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {/* Excluir */}
+                    <div>
+                      <div className="text-xs text-white/70 mb-1">Excluir</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {GENRES.map(g => {
+                          const checked = filters.excludeGenres?.includes(g.id) ?? false
+                          return (
+                            <button
+                              key={`exc-${g.id}`}
+                              onClick={() => {
+                                setFilters(f => {
+                                  const s = new Set<number>(f.excludeGenres ?? [])
+                                  if (checked) {
+                                    s.delete(g.id)
+                                  } else {
+                                    s.add(g.id)
+                                  }
+                                  return { ...f, excludeGenres: Array.from(s) }
+                                })
+                              }}
+                              className={`px-2.5 py-1 rounded-full border text-xs ${
+                                checked ? 'bg-rose-600/30 border-rose-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
+                              }`}
+                              type="button"
+                            >
+                              {g.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Ano + Duração + Popularidade + Adulto */}
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <h4 className="font-medium">Período, duração e relevância</h4>
+
+                  {/* Ano */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Ano (intervalo)</span>
+                      <span className="text-xs text-white/70">{yearMinLocal} – {yearMaxLocal}</span>
+                    </div>
+                    <div className="mt-2">
+                      <input
+                        type="range" min={1900} max={currentYear} value={yearMinLocal}
+                        onChange={(e) => {
+                          const v = clampYear(Number(e.target.value || 1900))
+                          setFilters(f => ({ ...f, yearMin: Math.min(v, f.yearMax ?? currentYear) }))
+                        }}
+                        className="w-full"
+                      />
+                      <input
+                        type="range" min={1900} max={currentYear} value={yearMaxLocal}
+                        onChange={(e) => {
+                          const v = clampYear(Number(e.target.value || currentYear))
+                          setFilters(f => ({ ...f, yearMax: Math.max(v, f.yearMin ?? 1900) }))
+                        }}
+                        className="w-full mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Duração */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Duração (min–max, min)</span>
+                      <span className="text-xs text-white/70">
+                        {filters.runtimeMin ?? 60} – {filters.runtimeMax ?? 220} min
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <input
+                        type="range" min={40} max={300} value={filters.runtimeMin ?? 60}
+                        onChange={(e) => {
+                          const v = Math.max(40, Math.min(300, Number(e.target.value || 60)))
+                          setFilters(f => ({ ...f, runtimeMin: Math.min(v, f.runtimeMax ?? 300) }))
+                        }}
+                        className="w-full"
+                      />
+                      <input
+                        type="range" min={40} max={300} value={filters.runtimeMax ?? 220}
+                        onChange={(e) => {
+                          const v = Math.max(40, Math.min(300, Number(e.target.value || 220)))
+                          setFilters(f => ({ ...f, runtimeMax: Math.max(v, f.runtimeMin ?? 40) }))
+                        }}
+                        className="w-full mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Popularidade + Adulto */}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
+                      <div className="text-xs text-white/70 mb-1">≥ {filters.voteCountMin ?? 0}</div>
+                      <input
+                        type="range" min={0} max={2000} step={10}
+                        value={filters.voteCountMin ?? 0}
+                        onChange={(e) => setFilters(f => ({ ...f, voteCountMin: Number(e.target.value || 0) }))}
+                        className="w-full"
+                      />
+                    </div>
+                    <label className="inline-flex items-center gap-2 text-sm mt-6 sm:mt-0">
+                      <input
+                        type="checkbox" className="accent-emerald-500"
+                        checked={!!filters.includeAdult}
+                        onChange={(e) => setFilters(f => ({ ...f, includeAdult: e.target.checked }))}
+                      />
+                      Permitir conteúdo adulto
+                    </label>
+                  </div>
+                </section>
+
+                {/* Nota / Idioma / Ordenar */}
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <h4 className="font-medium">Qualidade e idioma</h4>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm mb-1">Nota mínima</label>
+                      <div className="text-xs text-white/70 mb-1">≥ {filters.ratingMin ?? 0}</div>
+                      <input
+                        type="range" min={0} max={10} step={0.5}
+                        value={filters.ratingMin ?? 0}
+                        onChange={(e) => setFilters(f => ({ ...f, ratingMin: Number(e.target.value || 0) }))}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-1">Idioma original</label>
+                      <Select
+                        value={filters.language ?? ''}
+                        onChange={(v: string) => setFilters(f => ({ ...f, language: v }))}
+                        options={LANGUAGES}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-1">Ordenar por</label>
+                      <Select
+                        value={filters.sortBy ?? 'popularity.desc'}
+                        onChange={(v: string) => setFilters(f => ({ ...f, sortBy: v }))}
+                        options={SORT_OPTIONS}
+                      />
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              {/* Duração */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">Duração (min–max, min)</div>
-                  <div className="text-xs text-white/70">{filters.runtimeMin ?? 60} – {filters.runtimeMax ?? 220} min</div>
-                </div>
-                <div className="mt-2">
-                  <input
-                    type="range" min={40} max={300} value={filters.runtimeMin ?? 60}
-                    onChange={(e) => {
-                      const v = Math.max(40, Math.min(300, Number(e.target.value || 60)))
-                      setFilters(f => ({ ...f, runtimeMin: Math.min(v, f.runtimeMax ?? 300) }))
+              {/* Footer fixo (Aplicar) */}
+              <div className="sticky bottom-0 -mx-5 mt-5 bg-neutral-900/80 backdrop-blur border-t border-white/10 px-5 py-3">
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
+                    onClick={() => setOpenFilters(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+                    onClick={async () => {
+                      setOpenFilters(false)
+                      const fSnap = { ...filters }
+                      if (sessionId && userId) {
+                        try {
+                          await supabase.from('session_filters').upsert({
+                            session_id: sessionId,
+                            genres: fSnap.genres ?? [],
+                            exclude_genres: fSnap.excludeGenres ?? [],
+                            year_min: fSnap.yearMin ?? 1990,
+                            year_max: fSnap.yearMax ?? currentYear,
+                            rating_min: fSnap.ratingMin ?? 0,
+                            vote_count_min: fSnap.voteCountMin ?? 0,
+                            runtime_min: fSnap.runtimeMin ?? 60,
+                            runtime_max: fSnap.runtimeMax ?? 220,
+                            language: fSnap.language ?? '',
+                            sort_by: fSnap.sortBy ?? 'popularity.desc',
+                            include_adult: !!fSnap.includeAdult,
+                            updated_by: userId,
+                          }, { onConflict: 'session_id' })
+                        } catch {}
+                      }
+                      clearProgress(sessionId, fSnap)
+                      await resetAndLoad(false, fSnap, sessionId)
                     }}
-                    className="w-full"
-                  />
-                  <input
-                    type="range" min={40} max={300} value={filters.runtimeMax ?? 220}
-                    onChange={(e) => {
-                      const v = Math.max(40, Math.min(300, Number(e.target.value || 220)))
-                      setFilters(f => ({ ...f, runtimeMax: Math.max(v, f.runtimeMin ?? 40) }))
-                    }}
-                    className="w-full mt-1"
-                  />
+                  >
+                    Aplicar filtros
+                  </button>
                 </div>
-              </div>
-
-              {/* Popularidade */}
-              <div className="mb-4">
-                <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
-                <div className="text-xs text-white/70 mb-1">≥ {filters.voteCountMin ?? 0}</div>
-                <input
-                  type="range" min={0} max={2000} step={10}
-                  value={filters.voteCountMin ?? 0}
-                  onChange={(e) => setFilters(f => ({ ...f, voteCountMin: Number(e.target.value || 0) }))}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Adulto */}
-              <div className="mb-4">
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="accent-emerald-500"
-                    checked={!!filters.includeAdult}
-                    onChange={(e) => setFilters(f => ({ ...f, includeAdult: e.target.checked }))}
-                  />
-                  Permitir conteúdo adulto
-                </label>
-              </div>
-
-              {/* Ano */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm">Ano (intervalo)</div>
-                  <div className="text-xs text-white/70">{yearMinLocal} – {yearMaxLocal}</div>
-                </div>
-                <div className="mt-2">
-                  <input type="range" min={1900} max={currentYear} value={yearMinLocal}
-                    onChange={(e) => { const v = clampYear(Number(e.target.value || 1900)); setFilters(f => ({ ...f, yearMin: Math.min(v, f.yearMax ?? currentYear) })) }} className="w-full" />
-                  <input type="range" min={1900} max={currentYear} value={yearMaxLocal}
-                    onChange={(e) => { const v = clampYear(Number(e.target.value || currentYear)); setFilters(f => ({ ...f, yearMax: Math.max(v, f.yearMin ?? 1900) })) }} className="w-full mt-1" />
-                </div>
-              </div>
-
-              {/* Nota/Idioma/Ordenar */}
-              <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm mb-1">Nota mínima</label>
-                  <div className="text-xs text-white/70 mb-1">≥ {filters.ratingMin ?? 0}</div>
-                  <input type="range" min={0} max={10} step={0.5} value={filters.ratingMin ?? 0}
-                    onChange={e => setFilters(f => ({ ...f, ratingMin: Number(e.target.value || 0) }))} className="w-full" />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">Idioma original</label>
-                  <Select
-                    value={filters.language ?? ''}
-                    onChange={(v: string) => setFilters((f) => ({ ...f, language: v }))}
-                    options={[{ value: '', label: 'Qualquer' }, { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' }]}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">Ordenar por</label>
-                  <Select
-                    value={filters.sortBy ?? 'popularity.desc'}
-                    onChange={(v: string) => setFilters((f) => ({ ...f, sortBy: v }))}
-                    options={[
-                      { value: 'popularity.desc', label: 'Popularidade (desc)' },
-                      { value: 'vote_average.desc', label: 'Nota (desc)' },
-                      { value: 'primary_release_date.desc', label: 'Lançamento (recente)' },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => setOpenFilters(false)}>Cancelar</button>
-                <button
-                  className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
-                  onClick={async () => {
-                    setOpenFilters(false)
-                    const fSnap = { ...filters }
-                    if (sessionId && userId) {
-                      try {
-                        await supabase.from('session_filters').upsert({
-                          session_id: sessionId,
-                          genres: fSnap.genres ?? [],
-                          exclude_genres: fSnap.excludeGenres ?? [],
-                          year_min: fSnap.yearMin ?? 1990,
-                          year_max: fSnap.yearMax ?? currentYear,
-                          rating_min: fSnap.ratingMin ?? 0,
-                          vote_count_min: fSnap.voteCountMin ?? 0,
-                          runtime_min: fSnap.runtimeMin ?? 60,
-                          runtime_max: fSnap.runtimeMax ?? 220,
-                          language: fSnap.language ?? '',
-                          sort_by: fSnap.sortBy ?? 'popularity.desc',
-                          include_adult: !!fSnap.includeAdult,
-                          updated_by: userId,
-                        }, { onConflict: 'session_id' })
-                      } catch {}
-                    }
-                    clearProgress(sessionId, fSnap)
-                    await resetAndLoad(false, fSnap, sessionId)
-                  }}
-                >
-                  Aplicar filtros
-                </button>
               </div>
             </motion.div>
           </motion.div>
