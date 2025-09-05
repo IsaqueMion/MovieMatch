@@ -61,6 +61,20 @@ const LANGUAGES = [
   { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio'},{ value: 'vi', label: 'Vietnamita' },
   { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
 ]
+const REGIONS = [
+  { value: 'BR', label: 'Brasil (BR)' },
+  { value: 'US', label: 'Estados Unidos (US)' },
+  { value: 'GB', label: 'Reino Unido (GB)' },
+  { value: 'PT', label: 'Portugal (PT)' },
+  { value: 'ES', label: 'Espanha (ES)' },
+  { value: 'FR', label: 'França (FR)' },
+  { value: 'DE', label: 'Alemanha (DE)' },
+  { value: 'IT', label: 'Itália (IT)' },
+  { value: 'JP', label: 'Japão (JP)' },
+  { value: 'KR', label: 'Coreia do Sul (KR)' },
+  { value: 'AR', label: 'Argentina (AR)' },
+  { value: 'MX', label: 'México (MX)' },
+]
 
 const SORT_OPTIONS = [
   { value: 'popularity.desc',           label: 'Popularidade (↓)' },
@@ -782,7 +796,7 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                /* ======= NOVO: Catálogos de streaming ======= */
+                {/* ======= NOVO: Catálogos de streaming ======= */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Catálogos de streaming</h4>
 
@@ -855,15 +869,11 @@ export default function Swipe() {
                   {/* Região */}
                   <div className="mt-4">
                     <label className="block text-sm mb-1">Região do catálogo</label>
-                    <select
-                      className="w-full rounded-md bg-white/10 ring-1 ring-white/10 px-2 py-1.5"
+                    <Select
                       value={filters.watchRegion ?? 'BR'}
-                      onChange={(e) => setFilters(f => ({ ...f, watchRegion: e.target.value.toUpperCase() }))}
-                    >
-                      {['BR','US','GB','ES','FR','DE','IT','JP','KR','IN','AR','MX','PT'].map(cc => (
-                        <option key={cc} value={cc}>{cc}</option>
-                      ))}
-                    </select>
+                      onChange={(v: string) => setFilters(f => ({ ...f, watchRegion: v }))}
+                      options={REGIONS}
+                    />
                     <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por país (ex.: BR para Brasil).</div>
                   </div>
                 </section>
