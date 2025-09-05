@@ -90,7 +90,7 @@ export default function Swipe() {
   const seenRef = useRef(new Set<number>())
 
   // direção do último swipe
-  const [lastDir, setLastDir] = useState<'like' | 'dislike' | null>(null)
+  //const [lastDir, setLastDir] = useState<'like' | 'dislike' | null>(null)
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
@@ -396,7 +396,7 @@ export default function Swipe() {
 
     clickGuardRef.current = true
     setBusy(true)
-    setLastDir(value === 1 ? 'like' : 'dislike')
+    //setLastDir(value === 1 ? 'like' : 'dislike')
 
     try {
       const { data: upserted, error: movieErr } = await supabase
@@ -581,14 +581,13 @@ export default function Swipe() {
         <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
-              <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
+              <AnimatePresence mode="wait" initial={false}>
                 {current ? (
                   <SwipeCard
                     key={current.movie_id}
                     movie={current}
                     details={det}
                     variants={cardVariants}
-                    exitDir={lastDir}
                     onDragState={setDragging}
                     onDecision={(v) => react(v)}
                   />
@@ -1010,12 +1009,11 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
 
 /** Card com motionValue próprio */
 function SwipeCard({
-  movie, details, variants, exitDir, onDragState, onDecision,
+  movie, details, variants, onDragState, onDecision,
 }: {
   movie: Movie
   details?: MovieDetails
   variants: any
-  exitDir: 'like' | 'dislike' | null
   onDragState: (dragging: boolean) => void
   onDecision: (value: 1 | -1) => void
 }) {
@@ -1038,7 +1036,7 @@ function SwipeCard({
     <motion.div
       className="h-full will-change-transform relative"
       variants={variants}
-      initial="initial" animate="enter" exit="exit"
+      initial="initial" animate="enter"
       style={{ x, rotate, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
