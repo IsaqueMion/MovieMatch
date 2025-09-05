@@ -1042,7 +1042,8 @@ function SwipeCard({
       className="h-full will-change-transform relative"
       variants={variants} custom={exitDir}
       initial="initial" animate="enter" exit="exit"
-      style={{ x }}
+      // 👇 garante que o navegador permita o gesto horizontal no mobile
+      style={{ x, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
       dragListener={false}
@@ -1050,6 +1051,8 @@ function SwipeCard({
       dragMomentum={false}
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
       onPointerDown={handlePointerDown}
+      // 👇 em alguns devices o PointerEvent não dispara; garantimos via touch
+      onTouchStart={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
