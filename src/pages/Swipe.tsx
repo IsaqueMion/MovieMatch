@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+// src/pages/Swipe.tsx
+import type React from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { discoverMovies, getMovieDetails, type MovieDetails, type DiscoverFilters } from '../lib/functions'
 import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
 
@@ -58,7 +60,7 @@ export default function Swipe() {
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
 
-  // direção do último swipe (resolve inversões)
+  // direção do último swipe
   const [lastDir, setLastDir] = useState<'like' | 'dislike' | null>(null)
 
   // histórico p/ UNDO (guarda movie.id real)
@@ -77,8 +79,8 @@ export default function Swipe() {
   const [online, setOnline] = useState<OnlineUser[]>([])
 
   // 🔎 filtros
-    const currentYear = new Date().getFullYear()
-    const DEFAULT_FILTERS: DiscoverFilters = {
+  const currentYear = new Date().getFullYear()
+  const DEFAULT_FILTERS: DiscoverFilters = {
     genres: [],
     excludeGenres: [],
     yearMin: 1990,
@@ -90,28 +92,28 @@ export default function Swipe() {
     language: '',
     sortBy: 'popularity.desc',
     includeAdult: false,
-    }
-
+  }
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
 
+  // “novo match” (badge na estrela)
   const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
   const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
   const lastSeenMatchAt = useMemo(() => (LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0), [LS_KEY])
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
 
-
   const current = movies[i]
 
   const filtersCount =
     (filters.genres?.length ?? 0) +
+    (filters.excludeGenres?.length ?? 0) +
     (filters.yearMin ? 1 : 0) +
     (filters.yearMax ? 1 : 0) +
     ((filters.ratingMin ?? 0) > 0 ? 1 : 0) +
     (filters.language && filters.language !== '' ? 1 : 0) +
     (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0)
 
-  async function loadPage(pageToLoad: number, f: DiscoverFilters = filters) {
+  const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
     const data = await discoverMovies({ page: pageToLoad, filters: f })
     const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
     unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
@@ -120,9 +122,9 @@ export default function Swipe() {
       setPage(pageToLoad)
     }
     return unique.length
-  }
+  }, [filters])
 
-  async function resetAndLoad(resume = false, f?: DiscoverFilters, sessionRef?: string | null) {
+  const resetAndLoad = useCallback(async (resume = false, f?: DiscoverFilters, sessionRef?: string | null) => {
     const effective = f ?? filters
     const sid = sessionRef ?? sessionId
     setLoading(true)
@@ -146,7 +148,7 @@ export default function Swipe() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters, sessionId, loadPage])
 
   useEffect(() => {
     (async () => {
@@ -180,17 +182,17 @@ export default function Swipe() {
             .maybeSingle()
           if (sf) {
             effectiveFilters = {
-                genres: sf.genres ?? [],
-                excludeGenres: sf.exclude_genres ?? [],
-                yearMin: sf.year_min ?? 1990,
-                yearMax: sf.year_max ?? currentYear,
-                ratingMin: typeof sf.rating_min === 'number' ? Number(sf.rating_min) : 0,
-                voteCountMin: typeof sf.vote_count_min === 'number' ? Number(sf.vote_count_min) : 0,
-                runtimeMin: typeof sf.runtime_min === 'number' ? Number(sf.runtime_min) : 60,
-                runtimeMax: typeof sf.runtime_max === 'number' ? Number(sf.runtime_max) : 220,
-                language: sf.language ?? '',
-                sortBy: sf.sort_by ?? 'popularity.desc',
-                includeAdult: !!sf.include_adult,
+              genres: sf.genres ?? [],
+              excludeGenres: sf.exclude_genres ?? [],
+              yearMin: sf.year_min ?? 1990,
+              yearMax: sf.year_max ?? currentYear,
+              ratingMin: typeof sf.rating_min === 'number' ? Number(sf.rating_min) : 0,
+              voteCountMin: typeof sf.vote_count_min === 'number' ? Number(sf.vote_count_min) : 0,
+              runtimeMin: typeof sf.runtime_min === 'number' ? Number(sf.runtime_min) : 60,
+              runtimeMax: typeof sf.runtime_max === 'number' ? Number(sf.runtime_max) : 220,
+              language: sf.language ?? '',
+              sortBy: sf.sort_by ?? 'popularity.desc',
+              includeAdult: !!sf.include_adult,
             }
           }
         } catch {}
@@ -207,6 +209,7 @@ export default function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, displayName])
 
+  // carrega detalhes do atual
   useEffect(() => {
     (async () => {
       if (!current) return
@@ -222,24 +225,24 @@ export default function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.tmdb_id])
 
-  //PREFETCH dos PRÓXIMOS
-    useEffect(() => {
+  // PREFETCH dos PRÓXIMOS
+  useEffect(() => {
     if (!movies.length) return
     const toPrefetch = [i + 1, i + 2]
-
     toPrefetch.forEach(idx => {
-        const m = movies[idx]
-        if (!m) return
-        const key = m.tmdb_id
-        if (!detailsCache[key]) {
+      const m = movies[idx]
+      if (!m) return
+      const key = m.tmdb_id
+      if (!detailsCache[key]) {
         getMovieDetails(key)
-            .then(det => setDetailsCache(prev => ({ ...prev, [key]: det })))
-            .catch(() => {})
-        }
+          .then(det => setDetailsCache(prev => ({ ...prev, [key]: det })))
+          .catch(() => {})
+      }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [i, movies]) // ← assim evitamos re-executar só por mudar o cache
+  }, [i, movies])
 
+  // realtime de match
   useEffect(() => {
     if (!sessionId) return
     const channel = supabase
@@ -260,7 +263,6 @@ export default function Swipe() {
 
           if ((count ?? 0) >= 2 && !matchedRef.current.has(movieId)) {
             matchedRef.current.add(movieId)
-
             const { data: mv } = await supabase
               .from('movies')
               .select('title, year, poster_url')
@@ -269,7 +271,7 @@ export default function Swipe() {
 
             const title = mv?.title ?? `Filme #${movieId}`
             setMatchModal({ title, poster_url: mv?.poster_url ?? null, year: mv?.year ?? null })
-            setLatestMatchAt(Date.now()) // <-- marca que chegou match novo
+            setLatestMatchAt(Date.now())
           }
         }
       )
@@ -277,44 +279,32 @@ export default function Swipe() {
     return () => { supabase.removeChannel(channel) }
   }, [sessionId])
 
+  // inicializa badge "novo match"
   useEffect(() => {
     if (!sessionId) return
     ;(async () => {
-        const { data, error } = await supabase
+      const { data, error } = await supabase
         .from('reactions')
         .select('movie_id, user_id, created_at')
         .eq('session_id', sessionId)
         .eq('value', 1)
+      if (error) return
 
-        if (error) return
-
-        const byMovie = new Map<number, { users: Set<string>, latest: number }>()
-        for (const r of (data ?? [])) {
+      const byMovie = new Map<number, { users: Set<string>, latest: number }>()
+      for (const r of (data ?? [])) {
         const m = byMovie.get(r.movie_id) ?? { users: new Set<string>(), latest: 0 }
         if (r.user_id) m.users.add(String(r.user_id))
         const ts = r.created_at ? new Date(r.created_at as unknown as string).getTime() : 0
         if (ts > m.latest) m.latest = ts
         byMovie.set(r.movie_id, m)
-        }
-
-        let newest = 0
-        for (const m of byMovie.values()) {
+      }
+      let newest = 0
+      for (const m of byMovie.values()) {
         if (m.users.size >= 2 && m.latest > newest) newest = m.latest
-        }
-        if (newest) setLatestMatchAt(newest)
+      }
+      if (newest) setLatestMatchAt(newest)
     })()
-    }, [sessionId])
-
-    useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-        if (busy || dragging) return;
-        if (e.key === 'ArrowRight') { e.preventDefault(); react(1); }
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); react(-1); }
-        else if (e.key === 'Backspace') { e.preventDefault(); undo(); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    }, [busy, dragging, react, undo]);
+  }, [sessionId])
 
   // presença
   useEffect(() => {
@@ -337,9 +327,14 @@ export default function Swipe() {
     return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
   }, [sessionId, userId, displayName])
 
-  async function goNext() {
+  // ============== FUNÇÕES ESTÁVEIS ==============
+  const goNext = useCallback(async () => {
     const nextIndex = i + 1
-    if (nextIndex < movies.length) { setI(nextIndex); saveProgress(sessionId, filters, nextIndex); return }
+    if (nextIndex < movies.length) {
+      setI(nextIndex)
+      saveProgress(sessionId, filters, nextIndex)
+      return
+    }
     if (loadingMore) return
     setLoadingMore(true)
     try {
@@ -348,12 +343,13 @@ export default function Swipe() {
       while (added === 0 && tries < 2) { tries++; added = await loadPage(page + 1 + tries) }
       if (added > 0) {
         const newIndex = movies.length
-        setI(newIndex); saveProgress(sessionId, filters, newIndex)
+        setI(newIndex)
+        saveProgress(sessionId, filters, newIndex)
       }
     } finally { setLoadingMore(false) }
-  }
+  }, [i, movies.length, sessionId, filters, loadingMore, loadPage, page])
 
-  async function react(value: 1 | -1) {
+  const react = useCallback(async (value: 1 | -1) => {
     if (!sessionId || !userId || !current) return
     if (clickGuardRef.current || busy) return
 
@@ -396,9 +392,9 @@ export default function Swipe() {
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
     }
-  }
+  }, [sessionId, userId, current, busy, goNext])
 
-  async function undo() {
+  const undo = useCallback(async () => {
     if (!sessionId || !userId || busy) return
     const last = historyRef.current.pop()
     if (!last) return
@@ -418,7 +414,24 @@ export default function Swipe() {
       console.error(e)
       toast.error(`Não foi possível desfazer: ${e.message ?? e}`)
     } finally { setBusy(false) }
-  }
+  }, [sessionId, userId, busy, filters])
+
+  // atalhos de teclado (sem depender de react/undo no effect)
+  const reactRef = useRef(react)
+  const undoRef = useRef(undo)
+  useEffect(() => { reactRef.current = react }, [react])
+  useEffect(() => { undoRef.current = undo }, [undo])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (busy || dragging) return
+      if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }
+      else if (e.key === 'Backspace') { e.preventDefault(); undoRef.current?.() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [busy, dragging])
+  // ===============================================
 
   async function shareInvite() {
     const invite = `${window.location.origin}/join?code=${(code ?? '').toUpperCase()}`
@@ -479,15 +492,15 @@ export default function Swipe() {
               <Share2 className="w-4 h-4" />
             </button>
             <Link
-                to={`/s/${code}/matches`}
-                onClick={() => { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) }}
-                title="Ver matches"
-                className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+              to={`/s/${code}/matches`}
+              onClick={() => { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) }}
+              title="Ver matches"
+              className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
             >
-                <Star className="w-4 h-4" />
-                {hasNewMatch && (
-                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-neutral-900" />
-                )}
+              <Star className="w-4 h-4" />
+              {hasNewMatch && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-neutral-900" />
+              )}
             </Link>
           </div>
         </div>
@@ -615,83 +628,85 @@ export default function Swipe() {
                   })}
                 </div>
               </div>
+
+              {/* Excluir gêneros */}
               <div className="mb-4">
                 <div className="text-sm mb-1">Excluir gêneros</div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {GENRES.map(g => {
+                  {GENRES.map(g => {
                     const checked = filters.excludeGenres?.includes(g.id) ?? false
                     return (
-                        <label key={g.id}
+                      <label key={g.id}
                         className={`text-sm px-2 py-1 rounded-md border ${checked ? 'bg-white/15 border-white/30' : 'bg-white/5 border-white/10'} cursor-pointer inline-flex items-center gap-2`}>
                         <input
-                            type="checkbox"
-                            className="accent-emerald-500"
-                            checked={checked}
-                            onChange={(e) => {
+                          type="checkbox"
+                          className="accent-emerald-500"
+                          checked={checked}
+                          onChange={(e) => {
                             setFilters(f => {
-                                const set = new Set(f.excludeGenres ?? [])
-                                if (e.target.checked) set.add(g.id); else set.delete(g.id)
-                                return { ...f, excludeGenres: Array.from(set) }
+                              const set = new Set(f.excludeGenres ?? [])
+                              if (e.target.checked) set.add(g.id); else set.delete(g.id)
+                              return { ...f, excludeGenres: Array.from(set) }
                             })
-                            }}
+                          }}
                         />
                         {g.name}
-                        </label>
+                      </label>
                     )
-                    })}
+                  })}
                 </div>
-                </div>
+              </div>
 
-                <div className="mb-4">
+              {/* Duração */}
+              <div className="mb-4">
                 <div className="flex items-center justify-between">
-                    <div className="text-sm">Duração (min–max, min)</div>
-                    <div className="text-xs text-white/70">
-                    {filters.runtimeMin ?? 60} – {filters.runtimeMax ?? 220} min
-                    </div>
+                  <div className="text-sm">Duração (min–max, min)</div>
+                  <div className="text-xs text-white/70">{filters.runtimeMin ?? 60} – {filters.runtimeMax ?? 220} min</div>
                 </div>
                 <div className="mt-2">
-                    <input
+                  <input
                     type="range" min={40} max={300} value={filters.runtimeMin ?? 60}
                     onChange={(e) => {
-                        const v = Math.max(40, Math.min(300, Number(e.target.value || 60)))
-                        setFilters(f => ({ ...f, runtimeMin: Math.min(v, f.runtimeMax ?? 300) }))
+                      const v = Math.max(40, Math.min(300, Number(e.target.value || 60)))
+                      setFilters(f => ({ ...f, runtimeMin: Math.min(v, f.runtimeMax ?? 300) }))
                     }}
                     className="w-full"
-                    />
-                    <input
+                  />
+                  <input
                     type="range" min={40} max={300} value={filters.runtimeMax ?? 220}
                     onChange={(e) => {
-                        const v = Math.max(40, Math.min(300, Number(e.target.value || 220)))
-                        setFilters(f => ({ ...f, runtimeMax: Math.max(v, f.runtimeMin ?? 40) }))
+                      const v = Math.max(40, Math.min(300, Number(e.target.value || 220)))
+                      setFilters(f => ({ ...f, runtimeMax: Math.max(v, f.runtimeMin ?? 40) }))
                     }}
                     className="w-full mt-1"
-                    />
+                  />
                 </div>
-                </div>
+              </div>
 
-<div className="mb-4">
-  <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
-  <div className="text-xs text-white/70 mb-1">≥ {filters.voteCountMin ?? 0}</div>
-  <input
-    type="range" min={0} max={2000} step={10}
-    value={filters.voteCountMin ?? 0}
-    onChange={(e) => setFilters(f => ({ ...f, voteCountMin: Number(e.target.value || 0) }))}
-    className="w-full"
-  />
-</div>
+              {/* Popularidade */}
+              <div className="mb-4">
+                <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
+                <div className="text-xs text-white/70 mb-1">≥ {filters.voteCountMin ?? 0}</div>
+                <input
+                  type="range" min={0} max={2000} step={10}
+                  value={filters.voteCountMin ?? 0}
+                  onChange={(e) => setFilters(f => ({ ...f, voteCountMin: Number(e.target.value || 0) }))}
+                  className="w-full"
+                />
+              </div>
 
-<div className="mb-4">
-  <label className="inline-flex items-center gap-2 text-sm">
-    <input
-      type="checkbox"
-      className="accent-emerald-500"
-      checked={!!filters.includeAdult}
-      onChange={(e) => setFilters(f => ({ ...f, includeAdult: e.target.checked }))}
-    />
-    Permitir conteúdo adulto
-  </label>
-</div>
-
+              {/* Adulto */}
+              <div className="mb-4">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="accent-emerald-500"
+                    checked={!!filters.includeAdult}
+                    onChange={(e) => setFilters(f => ({ ...f, includeAdult: e.target.checked }))}
+                  />
+                  Permitir conteúdo adulto
+                </label>
+              </div>
 
               {/* Ano */}
               <div className="mb-4">
@@ -747,19 +762,19 @@ export default function Swipe() {
                     if (sessionId && userId) {
                       try {
                         await supabase.from('session_filters').upsert({
-                        session_id: sessionId,
-                        genres: fSnap.genres ?? [],
-                        exclude_genres: fSnap.excludeGenres ?? [],
-                        year_min: fSnap.yearMin ?? 1990,
-                        year_max: fSnap.yearMax ?? currentYear,
-                        rating_min: fSnap.ratingMin ?? 0,
-                        vote_count_min: fSnap.voteCountMin ?? 0,
-                        runtime_min: fSnap.runtimeMin ?? 60,
-                        runtime_max: fSnap.runtimeMax ?? 220,
-                        language: fSnap.language ?? '',
-                        sort_by: fSnap.sortBy ?? 'popularity.desc',
-                        include_adult: !!fSnap.includeAdult,
-                        updated_by: userId,
+                          session_id: sessionId,
+                          genres: fSnap.genres ?? [],
+                          exclude_genres: fSnap.excludeGenres ?? [],
+                          year_min: fSnap.yearMin ?? 1990,
+                          year_max: fSnap.yearMax ?? currentYear,
+                          rating_min: fSnap.ratingMin ?? 0,
+                          vote_count_min: fSnap.voteCountMin ?? 0,
+                          runtime_min: fSnap.runtimeMin ?? 60,
+                          runtime_max: fSnap.runtimeMax ?? 220,
+                          language: fSnap.language ?? '',
+                          sort_by: fSnap.sortBy ?? 'popularity.desc',
+                          include_adult: !!fSnap.includeAdult,
+                          updated_by: userId,
                         }, { onConflict: 'session_id' })
                       } catch {}
                     }
@@ -799,20 +814,16 @@ export default function Swipe() {
               <div className="mt-4 flex items-center justify-end gap-2">
                 <button onClick={() => setMatchModal(null)} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15">Continuar</button>
                 <Link
-                    to={`/s/${code}/matches`}
-                    className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
-                    onClick={() => {
-                        // ✅ marca como "visto" para esconder o pontinho
-                        if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
-                        // ✅ também zera o "novo match" atual para sumir imediatamente
-                        setLatestMatchAt(0)
-                        // fecha o modal
-                        setMatchModal(null)
-                    }}
+                  to={`/s/${code}/matches`}
+                  className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+                  onClick={() => {
+                    if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
+                    setLatestMatchAt(0)
+                    setMatchModal(null)
+                  }}
                 >
-                    Ver matches
+                  Ver matches
                 </Link>
-
               </div>
             </motion.div>
           </motion.div>
@@ -859,27 +870,38 @@ function SwipeCard({
   const x = useMotionValue(0)
   const likeOpacity = useTransform(x, [40, DRAG_LIMIT], [0, 1])
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -40], [1, 0])
-  const dragRef = useRef(false)
-  
   useEffect(() => { x.set(0) }, [x])
+
+  // controla quando o drag pode iniciar
+  const dragControls = useDragControls()
+  function handlePointerDown(e: React.PointerEvent) {
+    const target = e.target as HTMLElement
+    // Não iniciar drag se começou em elementos interativos
+    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) {
+      return
+    }
+    dragControls.start(e)
+  }
 
   return (
     <motion.div
       className="h-full will-change-transform relative"
       variants={variants} custom={exitDir}
       initial="initial" animate="enter" exit="exit"
-      style={{ x }} 
-      drag="x" dragElastic={0.2} 
+      style={{ x }}
+      drag="x"
+      dragControls={dragControls}
+      dragListener={false}
+      dragElastic={0.2}
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onDragStart={() => { dragRef.current = true; onDragState(true) }}
+      onPointerDown={handlePointerDown}
+      onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
-      onDragState(false)
-      const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
-      const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-      if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
-      setTimeout(() => { dragRef.current = false }, 80)
-    }}
-
+        onDragState(false)
+        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
+        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
+        if (passDistance || passVelocity) onDecision(info.offset.x > 0 ? 1 : -1)
+      }}
     >
       {/* Overlay feedback */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
@@ -892,65 +914,49 @@ function SwipeCard({
       </div>
 
       {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
-        <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        {/* 👇 ESTE BLOCO TROCA */}
+      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
+        {/* Pôster / Carousel */}
         <div className="relative min-h-0 h-full">
-            <MovieCarousel
+          <MovieCarousel
             title={movie.title}
             year={movie.year}
             poster_url={movie.poster_url || ''}
             details={details}
             fullHeight
-            />
-
-            {/* Tap-zones: metade esquerda = dislike, metade direita = like */}
-            <div className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-2">
-            <button
-                type="button"
-                aria-label="Deslike"
-                className="h-full w-full bg-transparent pointer-events-auto"
-                onClick={() => {
-                if (dragRef.current) return
-                try { navigator.vibrate?.(8) } catch {}
-                onDecision(-1)
-                }}
-            />
-            <button
-                type="button"
-                aria-label="Like"
-                className="h-full w-full bg-transparent pointer-events-auto"
-                onClick={() => {
-                if (dragRef.current) return
-                try { navigator.vibrate?.(8) } catch {}
-                onDecision(1)
-                }}
-            />
-            </div>
+          />
         </div>
-        {/* 👆 FIM DO BLOCO TROCADO */}
 
         {/* Meta abaixo */}
-        <div className="text-white shrink-0">
-            <h3 className="text-[15px] font-semibold leading-tight line-clamp-2">
-            {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
+        <div className="text-white shrink-0 select-text" data-interactive="true">
+          {/* linha 1: título + nota */}
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
+              {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
             </h3>
-
-            {details?.genres?.length ? (
-            <div className="mt-1 flex flex-wrap gap-1">
-                {details.genres.slice(0, 3).map(g => (
-                <span key={g.id} className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90">{g.name}</span>
-                ))}
+            <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
             </div>
-            ) : null}
+          </div>
 
-            <div className="mt-1">
+          {/* linha 2: gêneros */}
+          {details?.genres?.length ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {details.genres.slice(0, 3).map(g => (
+                <span key={g.id} className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90">{g.name}</span>
+              ))}
+            </div>
+          ) : null}
+
+          {/* linha 3: classificação indicativa */}
+          <div className="mt-1">
             <span className="text-[11px] text-white/70 mr-1.5">Classificação:</span>
             <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-                {details?.age_rating?.trim() || '—'}
+              {details?.age_rating?.trim() || '—'}
             </span>
-            </div>
+          </div>
         </div>
-        </div>
+      </div>
     </motion.div>
   )
 }

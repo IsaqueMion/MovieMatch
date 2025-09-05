@@ -88,7 +88,10 @@ export default function MovieCarousel({
           {/* Trailer */}
           <FadeSlide visible={slideKey === 'trailer'}>
             {youtubeEmbed ? (
-              <div className="w-full h-full flex items-center justify-center bg-black pb-24">
+              <div
+                className="w-full h-full flex items-center justify-center bg-black pb-24"
+                data-interactive="true"   // 👈 impede drag aqui
+              >
                 <div className="relative h-full aspect-[9/16] max-h-full z-10">
                   <iframe
                     className="absolute inset-0 w-full h-full"
@@ -96,7 +99,6 @@ export default function MovieCarousel({
                     title={`${title} trailer`}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
-                    style={{ zIndex: 10 }}
                   />
                 </div>
               </div>
