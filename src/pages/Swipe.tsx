@@ -515,15 +515,10 @@ export default function Swipe() {
   }
 
   const cardVariants = {
-    initial: { opacity: 0, y: 12, scale: 0.985, rotate: 0, x: 0 },
-    enter:   { opacity: 1, y: 0,  scale: 1,    rotate: 0, x: 0,
-               transition: { type: 'spring', stiffness: 260, damping: 26, mass: 0.9 } },
-    exit:    (dir: 'like' | 'dislike' | null) => ({
-      x: dir === 'dislike' ? -140 : 140,
-      rotate: dir === 'dislike' ? -8 : 8,
-      opacity: 0,
-      transition: { duration: 0.22, ease: 'easeOut' }
-    }),
+    initial: { opacity: 0, y: 12, scale: 0.985, x: 0 },
+    enter:   { opacity: 1, y: 0,  scale: 1,    x: 0,
+              transition: { type: 'spring', stiffness: 260, damping: 24, mass: 0.85 } },
+    exit:    { opacity: 0, transition: { duration: 0.18 } },
   } as const
 
   if (loading) {
@@ -1025,9 +1020,11 @@ function SwipeCard({
   onDecision: (value: 1 | -1) => void
 }) {
   const x = useMotionValue(0)
-  const likeOpacity = useTransform(x, [40, DRAG_LIMIT], [0, 1])
-  const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -40], [1, 0])
+  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-10, 0, 10])
+  const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
+  const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
   useEffect(() => { x.set(0) }, [x])
+
 
   // controla quando o drag pode iniciar
   const dragControls = useDragControls()
@@ -1040,38 +1037,60 @@ function SwipeCard({
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      variants={variants} custom={exitDir}
+      variants={variants}
       initial="initial" animate="enter" exit="exit"
-      // 👇 garante que o navegador permita o gesto horizontal no mobile
-      style={{ x, touchAction: 'pan-y' }}
+      style={{ x, rotate, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
       dragListener={false}
-      dragElastic={0.2}
+      dragElastic={0.18}
       dragMomentum={false}
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
       onPointerDown={handlePointerDown}
-      // 👇 em alguns devices o PointerEvent não dispara; garantimos via touch
       onTouchStart={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
+
         const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
         const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        if (passDistance || passVelocity) {
-          onDecision(info.offset.x > 0 ? 1 : -1)
+        const shouldSwipe = passDistance || passVelocity
+
+        if (shouldSwipe) {
+          const dir = info.offset.x > 0 ? 1 : -1
+          const endX = dir * (window.innerWidth + 180)
+
+          const controls = animate(x.get(), endX, {
+            type: 'spring',
+            stiffness: 340,
+            damping: 30,
+            velocity: info.velocity.x,
+            onUpdate: (v) => x.set(v),   // 👈 aplica no MotionValue
+          })
+          controls.then(() => onDecision(dir === 1 ? 1 : -1))
         } else {
-          animate(x, 0, { type: 'spring', stiffness: 350, damping: 28 })
+          animate(x.get(), 0, {
+          type: 'spring',
+          stiffness: 380,
+          damping: 32,
+          onUpdate: (v) => x.set(v),
+          })
         }
       }}
     >
       {/* Overlay feedback */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
-        <motion.div style={{ opacity: dislikeOpacity }} className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20">
-          <div className="flex items-center gap-1"><XIcon className="w-5 h-5" /><span>NOPE</span></div>
+        <motion.div
+          style={{ opacity: dislikeOpacity, scale: useTransform(x, [-DRAG_LIMIT, -64, 0], [1.08, 1, 0.9]) }}
+          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20"
+        >
+          NOPE
         </motion.div>
-        <motion.div style={{ opacity: likeOpacity }} className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20">
-          <div className="flex items-center gap-1"><Heart className="w-5 h-5" /><span>LIKE</span></div>
+        <motion.div
+          style={{ opacity: likeOpacity, scale: useTransform(x, [0, 64, DRAG_LIMIT], [0.9, 1, 1.08]) }}
+          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20"
+        >
+          LIKE
         </motion.div>
       </div>
 
