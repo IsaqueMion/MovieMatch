@@ -6,9 +6,10 @@ import { supabase } from '../lib/supabase'
 import { discoverMovies, getMovieDetails, type MovieDetails, type DiscoverFilters } from '../lib/functions'
 import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
-import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate  } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
+import AgeGateModal from '../components/AgeGateModal'
 
 type Movie = {
   movie_id: number
@@ -21,7 +22,7 @@ type Movie = {
 
 const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
-const SWIPE_VELOCITY = 800
+the SWIPE_VELOCITY = 800
 const EXIT_DURATION_MS = 240
 
 type OnlineUser = { id: string; name: string }
@@ -47,7 +48,7 @@ const LANGUAGES = [
   { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
   { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio'},{ value: 'vi', label: 'Vietnamita' },
   { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
-];
+]
 
 const SORT_OPTIONS = [
   { value: 'popularity.desc',           label: 'Popularidade (↓)' },
@@ -62,8 +63,7 @@ const SORT_OPTIONS = [
   { value: 'revenue.asc',               label: 'Bilheteria (↑)' },
   { value: 'original_title.asc',        label: 'Título A→Z' },
   { value: 'original_title.desc',       label: 'Título Z→A' },
-];
-
+]
 
 export default function Swipe() {
   const { code } = useParams()
@@ -124,6 +124,10 @@ export default function Swipe() {
   }
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
+
+  // verificação de idade
+  const [isAdult, setIsAdult] = useState(false)
+  const [showAgeGate, setShowAgeGate] = useState(false)
 
   // “novo match” (badge na estrela)
   const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
@@ -193,6 +197,14 @@ export default function Swipe() {
         setUserId(uid)
 
         await supabase.from('users').upsert({ id: uid, display_name: displayName })
+
+        // ler se já é adulto
+        const { data: prof } = await supabase
+          .from('users')
+          .select('is_adult')
+          .eq('id', uid)
+          .maybeSingle()
+        setIsAdult(!!prof?.is_adult)
 
         const { data: sess, error: sessErr } = await supabase
           .from('sessions').select('id, code').eq('code', code!.toUpperCase()).single()
@@ -445,7 +457,7 @@ export default function Swipe() {
     } finally { setBusy(false) }
   }, [sessionId, userId, busy, filters])
 
-  // atalhos de teclado (sem depender de react/undo no effect)
+  // atalhos de teclado
   const reactRef = useRef(react)
   const undoRef = useRef(undo)
   useEffect(() => { reactRef.current = react }, [react])
@@ -466,6 +478,40 @@ export default function Swipe() {
     const invite = `${window.location.origin}/join?code=${(code ?? '').toUpperCase()}`
     try { await navigator.clipboard.writeText(invite); toast('Link copiado!', { description: invite }) }
     catch { toast('Copie o link:', { description: invite }) }
+  }
+
+  // aceita birthdate opcional — se vier, valida 18+
+  const confirmAdult = async (birthdateISO?: string) => {
+    if (birthdateISO) {
+      const age = calcAge(birthdateISO)
+      if (age < 18) {
+        toast.error('Você precisa ter 18+ para ver esse conteúdo.')
+        setShowAgeGate(false)
+        setFilters(f => ({ ...f, includeAdult: false }))
+        return
+      }
+    }
+    if (!userId) {
+      setIsAdult(true)
+      setFilters(f => ({ ...f, includeAdult: true }))
+      setShowAgeGate(false)
+      return
+    }
+    try {
+      await supabase.from('users').update({ is_adult: true, ...(birthdateISO ? { birthdate: birthdateISO } : {}) }).eq('id', userId)
+      try { localStorage.setItem('mm:isAdult', '1') } catch {}
+      setIsAdult(true)
+      setFilters(f => ({ ...f, includeAdult: true }))
+      setShowAgeGate(false)
+      toast.success('Verificação concluída. Conteúdo adulto ativado.')
+    } catch (e: any) {
+      toast.error(`Falha ao confirmar maioridade: ${e?.message ?? e}`)
+    }
+  }
+
+  const cancelAdult = () => {
+    setShowAgeGate(false)
+    setFilters(f => ({ ...f, includeAdult: false }))
   }
 
   const cardVariants = {
@@ -668,17 +714,11 @@ export default function Swipe() {
                               onClick={() => {
                                 setFilters(f => {
                                   const s = new Set<number>(f.genres ?? [])
-                                  if (checked) {
-                                    s.delete(g.id)
-                                  } else {
-                                    s.add(g.id)
-                                  }
+                                  if (checked) s.delete(g.id); else s.add(g.id)
                                   return { ...f, genres: Array.from(s) }
                                 })
                               }}
-                              className={`px-2.5 py-1 rounded-full border text-xs ${
-                                checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                              }`}
+                              className={`px-2.5 py-1 rounded-full border text-xs ${checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                               type="button"
                             >
                               {g.name}
@@ -699,17 +739,11 @@ export default function Swipe() {
                               onClick={() => {
                                 setFilters(f => {
                                   const s = new Set<number>(f.excludeGenres ?? [])
-                                  if (checked) {
-                                    s.delete(g.id)
-                                  } else {
-                                    s.add(g.id)
-                                  }
+                                  if (checked) s.delete(g.id); else s.add(g.id)
                                   return { ...f, excludeGenres: Array.from(s) }
                                 })
                               }}
-                              className={`px-2.5 py-1 rounded-full border text-xs ${
-                                checked ? 'bg-rose-600/30 border-rose-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                              }`}
+                              className={`px-2.5 py-1 rounded-full border text-xs ${checked ? 'bg-rose-600/30 border-rose-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                               type="button"
                             >
                               {g.name}
@@ -791,11 +825,20 @@ export default function Swipe() {
                         className="w-full"
                       />
                     </div>
-                    <label className="inline-flex items-center gap-2 text-sm mt-6 sm:mt-0">
+                    <label className="inline-flex items-center gap-2 text-sm" data-interactive="true">
                       <input
-                        type="checkbox" className="accent-emerald-500"
+                        type="checkbox"
+                        className="accent-emerald-500"
                         checked={!!filters.includeAdult}
-                        onChange={(e) => setFilters(f => ({ ...f, includeAdult: e.target.checked }))}
+                        onChange={(e) => {
+                          const wantAdult = e.target.checked
+                          if (wantAdult) {
+                            if (!isAdult) { setShowAgeGate(true); return }
+                            setFilters(f => ({ ...f, includeAdult: true }))
+                          } else {
+                            setFilters(f => ({ ...f, includeAdult: false }))
+                          }
+                        }}
                       />
                       Permitir conteúdo adulto
                     </label>
@@ -924,9 +967,21 @@ export default function Swipe() {
         )}
       </AnimatePresence>
 
+      {/* ÚNICA instância do AgeGateModal */}
+      <AgeGateModal open={showAgeGate} onClose={cancelAdult} onConfirmed={confirmAdult} />
+
       <Toaster richColors position="bottom-center" />
     </main>
   )
+}
+
+function calcAge(birthdateISO: string): number {
+  const today = new Date()
+  const dob = new Date(birthdateISO)
+  let age = today.getFullYear() - dob.getFullYear()
+  const m = today.getMonth() - dob.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+  return age
 }
 
 /* ========= Persistência de progresso ========= */
@@ -970,10 +1025,7 @@ function SwipeCard({
   const dragControls = useDragControls()
   function handlePointerDown(e: React.PointerEvent) {
     const target = e.target as HTMLElement
-    // Não iniciar drag se começou em elementos interativos
-    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) {
-      return
-    }
+    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
     dragControls.start(e)
   }
 
@@ -987,7 +1039,7 @@ function SwipeCard({
       dragControls={dragControls}
       dragListener={false}
       dragElastic={0.2}
-      dragMomentum={false} 
+      dragMomentum={false}
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
       onPointerDown={handlePointerDown}
       onDragStart={() => onDragState(true)}
