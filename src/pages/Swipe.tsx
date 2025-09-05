@@ -37,6 +37,17 @@ const GENRES = [
   { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
   { id: 37, name: 'Faroeste' },
 ]
+// Principais provedores (IDs TMDB) — ajuste conforme seu público/país
+const PROVIDERS_BR = [
+  { id: 8,   name: 'Netflix' },
+  { id: 119, name: 'Prime Video' },
+  { id: 337, name: 'Disney+' },
+  { id: 384, name: 'Max' },         // (HBO Max / Max)
+  { id: 307, name: 'Globoplay' },
+  { id: 350, name: 'Apple TV+' },
+  { id: 531, name: 'Paramount+' },
+  { id: 619, name: 'Star+' },       // se não retornar, remova/ajuste
+]
 const LANGUAGES = [
   { value: '',  label: 'Qualquer' },
   { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' },
@@ -122,7 +133,11 @@ export default function Swipe() {
     language: '',
     sortBy: 'popularity.desc',
     includeAdult: false,
+    providers: [],
+    watchRegion: 'BR',
+    monetization: ['flatrate'], // padrão: streaming por assinatura
   }
+
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
 
@@ -235,6 +250,10 @@ export default function Swipe() {
               language: sf.language ?? '',
               sortBy: sf.sort_by ?? 'popularity.desc',
               includeAdult: !!sf.include_adult,
+
+              providers: Array.isArray(sf.providers) ? sf.providers : [],
+              watchRegion: sf.watch_region ?? 'BR',
+              monetization: Array.isArray(sf.monetization) ? sf.monetization : ['flatrate'],
             }
           }
         } catch {}
@@ -763,6 +782,92 @@ export default function Swipe() {
                   </div>
                 </section>
 
+                /* ======= NOVO: Catálogos de streaming ======= */
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                  <h4 className="font-medium">Catálogos de streaming</h4>
+
+                  {/* Provedores */}
+                  <div className="mt-3">
+                    <div className="text-xs text-white/70 mb-1">Provedores (OR)</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PROVIDERS_BR.map(p => {
+                        const checked = (filters.providers ?? []).includes(p.id)
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setFilters(f => {
+                                const s = new Set<number>(f.providers ?? [])
+                                if (checked) s.delete(p.id); else s.add(p.id)
+                                return { ...f, providers: Array.from(s) }
+                              })
+                            }}
+                            className={`px-2.5 py-1 rounded-full border text-xs ${
+                              checked ? 'bg-sky-600/30 border-sky-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
+                            }`}
+                          >
+                            {p.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="text-xs text-white/60 mt-1">
+                      Dica: seleção é combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
+                    </div>
+                  </div>
+
+                  {/* Monetização */}
+                  <div className="mt-4">
+                    <div className="text-xs text-white/70 mb-1">Tipo de oferta</div>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      {[
+                        { k: 'flatrate', label: 'Assinatura' },
+                        { k: 'free',     label: 'Gratuito' },
+                        { k: 'ads',      label: 'Com anúncios' },
+                        { k: 'rent',     label: 'Aluguel' },
+                        { k: 'buy',      label: 'Compra' },
+                      ].map(({ k, label }) => {
+                        const checked = (filters.monetization ?? []).includes(k as any)
+                        return (
+                          <label key={k} className={`px-2 py-1 rounded-md border cursor-pointer ${
+                            checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          }`}>
+                            <input
+                              type="checkbox"
+                              className="accent-emerald-500 mr-1"
+                              checked={checked}
+                              onChange={(e) => {
+                                setFilters(f => {
+                                  const s = new Set<string>(f.monetization ?? [])
+                                  if (e.target.checked) s.add(k); else s.delete(k)
+                                  return { ...f, monetization: Array.from(s) as any }
+                                })
+                              }}
+                            />
+                            {label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Região */}
+                  <div className="mt-4">
+                    <label className="block text-sm mb-1">Região do catálogo</label>
+                    <select
+                      className="w-full rounded-md bg-white/10 ring-1 ring-white/10 px-2 py-1.5"
+                      value={filters.watchRegion ?? 'BR'}
+                      onChange={(e) => setFilters(f => ({ ...f, watchRegion: e.target.value.toUpperCase() }))}
+                    >
+                      {['BR','US','GB','ES','FR','DE','IT','JP','KR','IN','AR','MX','PT'].map(cc => (
+                        <option key={cc} value={cc}>{cc}</option>
+                      ))}
+                    </select>
+                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por país (ex.: BR para Brasil).</div>
+                  </div>
+                </section>
+
                 {/* Ano + Duração + Popularidade + Adulto */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Período, duração e relevância</h4>
@@ -919,6 +1024,11 @@ export default function Swipe() {
                             sort_by: fSnap.sortBy ?? 'popularity.desc',
                             include_adult: !!fSnap.includeAdult,
                             updated_by: userId,
+
+                            //só envia se sua tabela tiver as colunas (se não tiver, pode remover)
+                            ...(fSnap.providers ? { providers: fSnap.providers } : {}),
+                            ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
+                            ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
                           }, { onConflict: 'session_id' })
                         } catch {}
                       }

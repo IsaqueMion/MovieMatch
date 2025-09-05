@@ -1,18 +1,25 @@
 import { supabase } from '../lib/supabase'
 
+export type MonetizationType = 'flatrate' | 'free' | 'ads' | 'rent' | 'buy'
+
 export type DiscoverFilters = {
-  genres: number[];
-  excludeGenres: number[];
-  yearMin?: number;
-  yearMax?: number;
-  ratingMin?: number;
-  voteCountMin?: number;
-  runtimeMin?: number;
-  runtimeMax?: number;
-  language?: string;
-  sortBy?: string;
-  includeAdult?: boolean;
-};
+  genres: number[]
+  excludeGenres: number[]
+  yearMin?: number
+  yearMax?: number
+  ratingMin?: number
+  voteCountMin?: number
+  runtimeMin?: number
+  runtimeMax?: number
+  language?: string
+  sortBy?: string
+  includeAdult?: boolean
+
+  // NOVO: streaming
+  providers?: number[]          // IDs da TMDB
+  watchRegion?: string          // ex: 'BR', 'US'
+  monetization?: MonetizationType[] // tipos de oferta
+}
 
 export type MovieDetails = {
   tmdb_id: number
