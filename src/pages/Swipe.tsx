@@ -10,6 +10,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls,
 import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
 import AgeGateModal from '../components/AgeGateModal'
+import confetti from 'canvas-confetti'
 
 type Movie = {
   movie_id: number
@@ -367,6 +368,15 @@ export default function Swipe() {
     })
     return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
   }, [sessionId, userId, displayName])
+
+  useEffect(() => {
+  if (!matchModal) return
+  // breve atraso pra modal montar
+  const t = setTimeout(() => {
+    confetti({ particleCount: 100, spread: 70, startVelocity: 45, origin: { y: 0.3 } })
+  }, 120)
+  return () => clearTimeout(t)
+}, [matchModal])
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
