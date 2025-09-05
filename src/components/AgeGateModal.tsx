@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 
 type Props = {
   open: boolean
-  onConfirm: (birthdateISO?: string) => void
-  onCancel: () => void
+  onConfirm: (birthdateISO?: string) => void | Promise<void>
+  onCancel: () => void | Promise<void>
 }
 
 export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {

@@ -968,7 +968,11 @@ export default function Swipe() {
       </AnimatePresence>
 
       {/* ÚNICA instância do AgeGateModal */}
-      <AgeGateModal open={showAgeGate} onClose={cancelAdult} onConfirmed={confirmAdult} />
+      <AgeGateModal
+        open={showAgeGate}
+        onConfirm={confirmAdult}
+        onCancel={cancelAdult}
+      />
 
       <Toaster richColors position="bottom-center" />
     </main>
