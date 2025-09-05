@@ -582,7 +582,7 @@ export default function Swipe() {
       </div>
 
       {/* centro */}
-      <div className="flex-1 px-4 pb-3 overflow-hidden">
+      <div className="flex-1 px-4 pb-28 overflow-hidden">
         <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
@@ -612,36 +612,40 @@ export default function Swipe() {
       </div>
 
       {/* Ações */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30">
-        <div className="flex items-center justify-center gap-5">
+      <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+        <div className="flex items-center justify-center gap-4 sm:gap-5">
           <motion.button
             onClick={() => react(-1)}
             disabled={busy || dragging || !current}
-            className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
+            className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Deslike"
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }} transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
           >
-            <XIcon className="w-8 h-8" />
+            <XIcon className="w-7 h-7 sm:w-8 sm:h-8" />
           </motion.button>
 
           <motion.button
             onClick={() => undo()}
             disabled={busy || dragging || historyRef.current.length === 0}
-            className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
+            className="w-10 h-10 sm:w-12 sm:h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
             aria-label="Desfazer"
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }} title="Desfazer (Backspace)"
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            title="Desfazer (Backspace)"
           >
-            <Undo2 className="w-6 h-6" />
+            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6" />
           </motion.button>
 
           <motion.button
             onClick={() => react(1)}
             disabled={busy || dragging || !current}
-            className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
+            className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Like"
-            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }} transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 18 }}
           >
-            <Heart className="w-8 h-8" />
+            <Heart className="w-7 h-7 sm:w-8 sm:h-8" />
           </motion.button>
         </div>
       </div>
