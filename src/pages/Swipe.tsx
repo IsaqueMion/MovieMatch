@@ -100,6 +100,7 @@ export default function Swipe() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [noResults, setNoResults] = useState(false)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
 
@@ -174,7 +175,10 @@ export default function Swipe() {
     (filters.yearMax ? 1 : 0) +
     ((filters.ratingMin ?? 0) > 0 ? 1 : 0) +
     (filters.language && filters.language !== '' ? 1 : 0) +
-    (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0)
+    (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0)+
+    (filters.watchRegion ? 1 : 0) +
+    ((filters.providers?.length ?? 0) > 0 ? 1 : 0) +
+    ((filters.monetization?.length ?? 0) > 0 ? 1 : 0);
 
   const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
     const data = await discoverMovies({ page: pageToLoad, filters: f })
@@ -191,19 +195,23 @@ export default function Swipe() {
     const effective = f ?? filters
     const sid = sessionRef ?? sessionId
     setLoading(true)
+    setNoResults(false)
     setMovies([]); setI(0); setPage(1)
     seenRef.current.clear()
     try {
       const target = resume ? loadProgress(sid, effective) : 0
       let acc = 0
       let pageToLoad = 1
+      let anyAdded = false
       while (acc <= target) {
         const added = await loadPage(pageToLoad, effective)
+        if (added > 0) anyAdded = true
         if (added === 0) break
         acc += added
         pageToLoad++
         if (pageToLoad > 30) break
       }
+      if (!anyAdded) setNoResults(true)
       setI(resume ? target : 0)
     } catch (e: any) {
       console.error(e)
@@ -212,6 +220,7 @@ export default function Swipe() {
       setLoading(false)
     }
   }, [filters, sessionId, loadPage])
+
 
   useEffect(() => {
     (async () => {
@@ -292,7 +301,12 @@ export default function Swipe() {
       if (detailsCache[key]) return
       try {
         const det = await getMovieDetails(key)
-        setDetailsCache(prev => ({ ...prev, [key]: det }))
+          setDetailsCache(prev => {
+            const next: Record<number, MovieDetails> = { ...prev, [key]: det }
+            const keys = Object.keys(next)
+            if (keys.length > 300) delete next[Number(keys[0]) as unknown as number]
+            return next
+          })
       } catch (e) {
         console.error('details error', e)
       }
@@ -310,7 +324,14 @@ export default function Swipe() {
       const key = m.tmdb_id
       if (!detailsCache[key]) {
         getMovieDetails(key)
-          .then(det => setDetailsCache(prev => ({ ...prev, [key]: det })))
+          .then(det => {
+            setDetailsCache(prev => {
+              const next: Record<number, MovieDetails> = { ...prev, [key]: det }
+              const keys = Object.keys(next)
+              if (keys.length > 300) delete next[Number(keys[0]) as unknown as number]
+              return next
+            })
+          })
           .catch(() => {})
       }
     })
@@ -636,9 +657,48 @@ export default function Swipe() {
                   />
                 ) : (
                   <motion.div key="empty" className="h-full grid place-items-center text-white/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <div className="text-center">
-                      <p>Acabaram os filmes deste lote 😉</p>
-                      {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
+                    <div className="text-center max-w-sm">
+                      {noResults ? (
+                        <>
+                          <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
+                          <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
+                          <div className="mt-3 flex items-center justify-center gap-2">
+                            <button
+                              className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
+                              onClick={async () => {
+                                const relaxed: DiscoverFilters = {
+                                  ...filters,
+                                  ratingMin: 0,
+                                  voteCountMin: 0,
+                                  runtimeMin: 40,
+                                  runtimeMax: 240,
+                                  providers: [],          // remover provedores costuma destravar
+                                }
+                                setFilters(relaxed)
+                                clearProgress(sessionId, relaxed)
+                                await resetAndLoad(false, relaxed, sessionId)
+                              }}
+                            >
+                              Relaxar filtros
+                            </button>
+                            <button
+                              className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+                              onClick={async () => {
+                                setFilters({ ...DEFAULT_FILTERS })
+                                clearProgress(sessionId, DEFAULT_FILTERS)
+                                await resetAndLoad(false, DEFAULT_FILTERS, sessionId)
+                              }}
+                            >
+                              Limpar tudo
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p>Acabaram os filmes deste lote 😉</p>
+                          {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -1185,15 +1245,15 @@ function SwipeCard({
         const shouldSwipe = passDistance || passVelocity
 
         if (shouldSwipe) {
+          try { navigator.vibrate?.(12) } catch {}
           const dir = info.offset.x > 0 ? 1 : -1
           const endX = dir * (window.innerWidth + 180)
-
           const controls = animate(x.get(), endX, {
             type: 'spring',
             stiffness: 340,
             damping: 30,
             velocity: info.velocity.x,
-            onUpdate: (v) => x.set(v),   // 👈 aplica no MotionValue
+            onUpdate: (v) => x.set(v),
           })
           controls.then(() => onDecision(dir === 1 ? 1 : -1))
         } else {
