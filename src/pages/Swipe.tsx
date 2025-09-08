@@ -498,8 +498,10 @@ export default function Swipe() {
       console.error('reactions upsert error:', e)
       toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
     } finally {
-      await goNext()
-      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
+        // deixa 1 frame pra animação de exit engatar
+        await new Promise(res => setTimeout(res, 16))
+        await goNext()
+        setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
     }
   }, [sessionId, userId, current, busy, goNext])
 
@@ -582,18 +584,6 @@ export default function Swipe() {
     setFilters(f => ({ ...f, includeAdult: false }))
   }
 
-  const cardVariants = {
-    initial: { opacity: 0, y: 12, scale: 0.985, x: 0, rotate: 0 },
-    enter:   { opacity: 1, y: 0,  scale: 1,    x: 0, rotate: 0,
-              transition: { type: 'spring', stiffness: 260, damping: 24, mass: 0.85 } },
-    exit:    (dir: 'like' | 'dislike' | null) => ({
-      x: dir === 'dislike' ? -window.innerWidth * 0.8 : window.innerWidth * 0.8,
-      rotate: dir === 'dislike' ? -10 : 10,
-      opacity: 0,
-      transition: { duration: 0.22, ease: 'easeOut' }
-    }),
-  } as const
-
   if (loading) {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
@@ -660,8 +650,7 @@ export default function Swipe() {
                     key={current.movie_id}
                     movie={current}
                     details={det}
-                    variants={cardVariants}
-                    exitDir={lastDir}
+                    exitDir={lastDir}          // 👈 passa a direção
                     onDragState={setDragging}
                     onDecision={(v) => react(v)}
                   />
@@ -1213,12 +1202,10 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
 
 /** Card com motionValue próprio */
 function SwipeCard({
-  movie, details, variants, exitDir, onDragState, onDecision,
+  movie, details, onDragState, onDecision,
 }: {
   movie: Movie
   details?: MovieDetails
-  variants: any
-  exitDir: 'like' | 'dislike' | null
   onDragState: (dragging: boolean) => void
   onDecision: (value: 1 | -1) => void
 }) {
@@ -1240,9 +1227,10 @@ function SwipeCard({
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      variants={variants}
-      custom={exitDir}
-      initial="initial" animate="enter"
+      // se quiser manter um fade-in simples:
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
       style={{ x, rotate, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
