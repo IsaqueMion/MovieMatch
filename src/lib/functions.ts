@@ -37,14 +37,17 @@ export type MovieDetails = {
 export async function discoverMovies(opts: { page?: number; filters?: DiscoverFilters }) {
   const { data, error } = await supabase.functions.invoke('discover', { body: opts })
   if (error) throw error
-  return data as { results: Array<{
-    movie_id: number
-    tmdb_id: number
-    title: string
-    year: number | null
-    poster_url: string | null
-    genres: number[]
-  }> }
+  return data as {
+    hint?: 'relax_providers'
+    results: Array<{
+      movie_id: number
+      tmdb_id: number
+      title: string
+      year: number | null
+      poster_url: string | null
+      genres: number[]
+    }>
+  }
 }
 
 export async function getMovieDetails(tmdb_id: number): Promise<MovieDetails> {

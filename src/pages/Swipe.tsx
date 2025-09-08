@@ -101,6 +101,7 @@ export default function Swipe() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [noResults, setNoResults] = useState(false)
+  const [discoverHint, setDiscoverHint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
 
@@ -182,6 +183,8 @@ export default function Swipe() {
 
   const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
     const data = await discoverMovies({ page: pageToLoad, filters: f })
+    if (pageToLoad === 1) setDiscoverHint(data?.hint ?? null)
+
     const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
     unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
     if (unique.length > 0) {
@@ -196,6 +199,7 @@ export default function Swipe() {
     const sid = sessionRef ?? sessionId
     setLoading(true)
     setNoResults(false)
+    setDiscoverHint(null)
     setMovies([]); setI(0); setPage(1)
     seenRef.current.clear()
     try {
@@ -661,7 +665,11 @@ export default function Swipe() {
                       {noResults ? (
                         <>
                           <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
-                          <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
+                          {discoverHint === 'relax_providers' ? (
+                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catálogos de streaming selecionados.</p>
+                          ) : (
+                            <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
+                          )}
                           <div className="mt-3 flex items-center justify-center gap-2">
                             <button
                               className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
@@ -672,7 +680,7 @@ export default function Swipe() {
                                   voteCountMin: 0,
                                   runtimeMin: 40,
                                   runtimeMax: 240,
-                                  providers: [],          // remover provedores costuma destravar
+                                  providers: [], // remover provedores costuma destravar
                                 }
                                 setFilters(relaxed)
                                 clearProgress(sessionId, relaxed)
