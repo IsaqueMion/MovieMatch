@@ -38,24 +38,27 @@ const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
-// deixe mais tempo pro “exit” terminar antes de liberar clique
-const EXIT_DURATION_MS = 900
+// mais tempo pro “exit” terminar antes de liberar clique
+const EXIT_DURATION_MS = 1250
 
-// animação do swipe: tween (sem molinha) bem suave e lenta
+// animação do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
   type: 'tween' as const,
-  duration: 0.85,
-  ease: [0.22, 0.7, 0.25, 1],
+  duration: 1.1,
+  ease: 'easeOut' as const,
 }
 
 // animação de “voltar ao centro” quando não passa do limiar
 const TWEEN_SNAP = {
   type: 'tween' as const,
-  duration: 0.4,
-  ease: [0.2, 0.0, 0.2, 1],
+  duration: 0.38,
+  ease: 'easeOut' as const,
 }
 
 type OnlineUser = { id: string; name: string }
+
+// handle exposto pelo card para swipe imperativo (botões/teclas)
+export type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
 
 const GENRES = [
   { id: 28, name: 'Ação' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animação' },
@@ -67,12 +70,12 @@ const GENRES = [
   { id: 37, name: 'Faroeste' },
 ]
 
-// Principais provedores (IDs TMDB) — ajuste conforme seu público/país
+// Principais provedores (IDs TMDB)
 const PROVIDERS_BR = [
   { id: 8,   name: 'Netflix' },
   { id: 119, name: 'Prime Video' },
   { id: 337, name: 'Disney+' },
-  { id: 384, name: 'Max' },         // (HBO Max / Max)
+  { id: 384, name: 'Max' },
   { id: 307, name: 'Globoplay' },
   { id: 350, name: 'Apple TV+' },
   { id: 531, name: 'Paramount+' },
@@ -180,7 +183,7 @@ export default function Swipe() {
     includeAdult: false,
     providers: [],
     watchRegion: 'BR',
-    monetization: ['flatrate'], // padrão: streaming por assinatura
+    monetization: ['flatrate'],
   }
 
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
@@ -257,11 +260,7 @@ export default function Swipe() {
   useEffect(() => {
     (async () => {
       try {
-        if (!code) {
-          setLoading(false)
-          toast.error('Código da sessão ausente na URL.')
-          return
-        }
+        if (!code) return
         let { data: userData } = await supabase.auth.getUser()
         if (!userData?.user) {
           const { data: auth, error: authErr } = await supabase.auth.signInAnonymously()
@@ -468,7 +467,6 @@ export default function Swipe() {
   }, [matchModal])
 
   // ===== animação imperativa p/ botões/teclas =====
-  type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
   const cardRef = useRef<SwipeCardHandle | null>(null)
 
   // ============== FUNÇÕES ESTÁVEIS ==============
@@ -668,9 +666,6 @@ export default function Swipe() {
               className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
             >
               <Star className="w-4 h-4" />
-              {hasNewMatch && (
-                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-neutral-900" />
-              )}
             </Link>
           </div>
         </div>
@@ -771,7 +766,7 @@ export default function Swipe() {
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             title="Desfazer (Backspace)"
           >
-            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6" />
+            <Undo2 className="w-5 h-5 sm:w-6 h-6" />
           </motion.button>
 
           <motion.button
@@ -1001,8 +996,8 @@ export default function Swipe() {
                         type="range" min={1900} max={currentYear} value={yearMaxLocal}
                         onChange={(e) => {
                           const v = clampYear(Number(e.target.value || currentYear))
-                          setFilters(f => ({ ...f, yearMax: Math.max(v, f.yearMin ?? 1900) }))
-                        }}
+                          setFilters(f => ({ ...f, yearMax: Math.max(v, f.yearMin ?? 1900) }))}
+                        }
                         className="w-full mt-1"
                       />
                     </div>
@@ -1247,7 +1242,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   ref
 ) {
   const x = useMotionValue(0)
-  // rotação sutil pra não parecer “balanço”
+  // rotação sutil só durante o arrasto
   const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
   const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
@@ -1267,18 +1262,15 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
       const dir = value === 1 ? 1 : -1
       const endX = dir * (window.innerWidth + 180)
       try { navigator.vibrate?.(10) } catch {}
-      const controls = animate(x.get(), endX, {
-        ...TWEEN_SWIPE,
-        onUpdate: (v) => x.set(v),
-      })
+      const controls = animate(x, endX, TWEEN_SWIPE)
       controls.then(() => onDecision(value))
     }
-  }), [onDecision])
+  }), [onDecision, x])
 
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      // sem “balanço”: só um fade curtinho pra não piscar
+      // sem “balanço”: só um fade curtinho ao montar
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.12 }}
@@ -1305,17 +1297,11 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
           const endX = dir * (window.innerWidth + 180)
 
           // tween lento e suave
-          const controls = animate(x.get(), endX, {
-            ...TWEEN_SWIPE,
-            onUpdate: (v) => x.set(v),
-          })
+          const controls = animate(x, endX, TWEEN_SWIPE)
           controls.then(() => onDecision(dir === 1 ? 1 : -1))
         } else {
           // volta ao centro com tween curto (sem molinha)
-          animate(x.get(), 0, {
-            ...TWEEN_SNAP,
-            onUpdate: (v) => x.set(v),
-          })
+          animate(x, 0, TWEEN_SNAP)
         }
       }}
     >
