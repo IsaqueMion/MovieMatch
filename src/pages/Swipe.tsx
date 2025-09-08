@@ -37,7 +37,33 @@ type Movie = {
 const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
-const EXIT_DURATION_MS = 240
+// ↓ mais tempo pra animação terminar antes de liberar novos cliques
+const EXIT_DURATION_MS = 420
+
+// springs mais suaves
+const SPRING_SWIPE = {
+  type: 'spring' as const,
+  stiffness: 170,
+  damping: 26,
+  mass: 1.05,
+  restDelta: 0.5,
+  restSpeed: 10,
+}
+const SPRING_SNAP = {
+  type: 'spring' as const,
+  stiffness: 210,
+  damping: 28,
+  mass: 1.05,
+  restDelta: 0.5,
+}
+
+// limita/atenua a velocidade do gesto pra não “arremessar”
+const VELOCITY_SCALE = 0.45
+const MAX_VELOCITY = 1800
+function scaledVelocity(v: number) {
+  const s = v * VELOCITY_SCALE
+  return Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, s))
+}
 
 type OnlineUser = { id: string; name: string }
 
@@ -1246,26 +1272,27 @@ const SwipeCard = forwardRef<SwipeHandle, {
     swipe: (value: 1 | -1) => {
       if (exitingRef.current) return
       exitingRef.current = true
-      try { navigator.vibrate?.(12) } catch {}
+      try { navigator.vibrate?.(10) } catch {}
+
       const dir = value === 1 ? 1 : -1
       const endX = dir * (window.innerWidth + 180)
+
       const controls = animate(x.get(), endX, {
-        type: 'spring',
-        stiffness: 340,
-        damping: 30,
-        velocity: 1200,
+        ...SPRING_SWIPE,
+        // dá um “empurrão” moderado mesmo sem gesto
+        velocity: scaledVelocity(1400),
         onUpdate: (v) => x.set(v),
       })
       controls.then(() => onDecision(value))
     }
-  }), [onDecision, x])
+  }))
 
   return (
     <motion.div
       className="h-full will-change-transform relative"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 2, mass: 1 }}
       style={{ x, rotate, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
@@ -1286,22 +1313,19 @@ const SwipeCard = forwardRef<SwipeHandle, {
 
         if (shouldSwipe) {
           exitingRef.current = true
-          try { navigator.vibrate?.(12) } catch {}
+          try { navigator.vibrate?.(10) } catch {}
           const dir = info.offset.x > 0 ? 1 : -1
           const endX = dir * (window.innerWidth + 180)
+
           const controls = animate(x.get(), endX, {
-            type: 'spring',
-            stiffness: 340,
-            damping: 30,
-            velocity: info.velocity.x,
+            ...SPRING_SWIPE,
+            velocity: scaledVelocity(info.velocity.x),
             onUpdate: (v) => x.set(v),
           })
           controls.then(() => onDecision(dir === 1 ? 1 : -1))
         } else {
           animate(x.get(), 0, {
-            type: 'spring',
-            stiffness: 380,
-            damping: 32,
+            ...SPRING_SNAP,
             onUpdate: (v) => x.set(v),
           })
         }
