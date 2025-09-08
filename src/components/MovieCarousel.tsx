@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { MovieDetails } from '../lib/functions'
+import { tmdbPosterSrcs } from '../lib/images'
+
 
 type Props = {
   title: string
@@ -73,16 +75,12 @@ export default function MovieCarousel({
         <div className={`relative h-full ${fullHeight ? '' : 'min-h-[520px]'} bg-neutral-950 text-white`}>
           {/* Poster */}
           <FadeSlide visible={slideKey === 'poster'}>
-            <div className="w-full h-full flex items-center justify-center bg-black p-2">
-              <img
-                src={poster_url}
-                alt={`${title}${year ? ` (${year})` : ''}`}
-                className="max-h-full max-w-full object-contain"
-                draggable={false}
-                loading="eager"
-                decoding="async"
-              />
-            </div>
+            <PosterResponsive
+              title={title}
+              year={year}
+              poster_url={poster_url}
+              fullHeight={fullHeight}
+            />
           </FadeSlide>
 
           {/* Trailer */}
@@ -186,6 +184,50 @@ function Skeleton({ children }: { children?: React.ReactNode }) {
           {children ? <div className="text-xs text-gray-500">{children}</div> : null}
         </div>
       </div>
+    </div>
+  )
+}
+
+function PosterResponsive({
+  title, year, poster_url, fullHeight,
+}: { title: string; year: number | null; poster_url: string; fullHeight?: boolean }) {
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState(false)
+  const { src, srcSet, sizes } = tmdbPosterSrcs(poster_url)
+  const alt = `${title}${year ? ` (${year})` : ''}`
+
+  return (
+    <div className="w-full h-full relative bg-black">
+      {/* skeleton suave enquanto carrega */}
+      {!loaded && !error && (
+        <div className="absolute inset-0 rounded-2xl bg-white/5 animate-pulse" />
+      )}
+
+      {!error ? (
+        <img
+          src={src || poster_url}
+          srcSet={srcSet}
+          sizes={sizes}
+          alt={alt}
+          className={`w-full h-full ${fullHeight ? 'object-cover' : 'object-contain'} rounded-2xl transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          // visível: carregue rápido; próximas telas usarão lazy naturalmente
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+        />
+      ) : (
+        // fallback elegante quando falhar
+        <div className="w-full h-full rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] ring-1 ring-white/10 grid place-items-center text-center p-4">
+          <div>
+            <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-white/10 grid place-items-center text-white/80">🎬</div>
+            <p className="text-white/80 text-sm">Sem pôster disponível</p>
+            <p className="text-white/60 text-xs line-clamp-2 mt-1">{alt}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
