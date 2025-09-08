@@ -36,7 +36,7 @@ type Movie = {
 
 const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
-the const SWIPE_VELOCITY = 800
+const SWIPE_VELOCITY = 800
 const EXIT_DURATION_MS = 240
 
 type OnlineUser = { id: string; name: string }
