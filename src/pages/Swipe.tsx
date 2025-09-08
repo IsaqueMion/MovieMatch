@@ -101,7 +101,6 @@ export default function Swipe() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [noResults, setNoResults] = useState(false)
-  const [discoverHint, setDiscoverHint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
 
@@ -116,9 +115,6 @@ export default function Swipe() {
   // aux
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
-
-  // direção do último swipe
-  const [lastDir, setLastDir] = useState<'like' | 'dislike' | null>(null)
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
@@ -176,14 +172,13 @@ export default function Swipe() {
     (filters.yearMax ? 1 : 0) +
     ((filters.ratingMin ?? 0) > 0 ? 1 : 0) +
     (filters.language && filters.language !== '' ? 1 : 0) +
-    (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0)+
+    (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0) +
     (filters.watchRegion ? 1 : 0) +
     ((filters.providers?.length ?? 0) > 0 ? 1 : 0) +
-    ((filters.monetization?.length ?? 0) > 0 ? 1 : 0);
+    ((filters.monetization?.length ?? 0) > 0 ? 1 : 0)
 
   const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
     const data = await discoverMovies({ page: pageToLoad, filters: f })
-    if (pageToLoad === 1) setDiscoverHint(data?.hint ?? null)
 
     const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
     unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
@@ -199,7 +194,6 @@ export default function Swipe() {
     const sid = sessionRef ?? sessionId
     setLoading(true)
     setNoResults(false)
-    setDiscoverHint(null)
     setMovies([]); setI(0); setPage(1)
     seenRef.current.clear()
     try {
@@ -305,12 +299,12 @@ export default function Swipe() {
       if (detailsCache[key]) return
       try {
         const det = await getMovieDetails(key)
-          setDetailsCache(prev => {
-            const next: Record<number, MovieDetails> = { ...prev, [key]: det }
-            const keys = Object.keys(next)
-            if (keys.length > 300) delete next[Number(keys[0]) as unknown as number]
-            return next
-          })
+        setDetailsCache(prev => {
+          const next: Record<number, MovieDetails> = { ...prev, [key]: det }
+          const keys = Object.keys(next)
+          if (keys.length > 300) delete next[Number(keys[0]) as unknown as number]
+          return next
+        })
       } catch (e) {
         console.error('details error', e)
       }
@@ -428,13 +422,13 @@ export default function Swipe() {
   }, [sessionId, userId, displayName])
 
   useEffect(() => {
-  if (!matchModal) return
-  // breve atraso pra modal montar
-  const t = setTimeout(() => {
-    confetti({ particleCount: 100, spread: 70, startVelocity: 45, origin: { y: 0.3 } })
-  }, 120)
-  return () => clearTimeout(t)
-}, [matchModal])
+    if (!matchModal) return
+    // breve atraso pra modal montar
+    const t = setTimeout(() => {
+      confetti({ particleCount: 100, spread: 70, startVelocity: 45, origin: { y: 0.3 } })
+    }, 120)
+    return () => clearTimeout(t)
+  }, [matchModal])
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
@@ -464,7 +458,6 @@ export default function Swipe() {
 
     clickGuardRef.current = true
     setBusy(true)
-    setLastDir(value === 1 ? 'like' : 'dislike')
 
     try {
       const { data: upserted, error: movieErr } = await supabase
@@ -498,10 +491,10 @@ export default function Swipe() {
       console.error('reactions upsert error:', e)
       toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
     } finally {
-        // deixa 1 frame pra animação de exit engatar
-        await new Promise(res => setTimeout(res, 16))
-        await goNext()
-        setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
+      // deixa 1 frame pra animação de exit engatar (quando vier de drag)
+      await new Promise(res => setTimeout(res, 16))
+      await goNext()
+      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
     }
   }, [sessionId, userId, current, busy, goNext])
 
@@ -597,6 +590,8 @@ export default function Swipe() {
   const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
   const clampYear = (v: number) => Math.max(1900, Math.min(currentYear, v))
 
+  const showProviderHint = noResults && (filters.providers?.length ?? 0) > 0
+
   return (
     <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
       {/* Top bar (compacta) */}
@@ -644,13 +639,12 @@ export default function Swipe() {
         <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
-              <AnimatePresence mode="wait" initial={false} onExitComplete={() => setLastDir(null)}>
+              <AnimatePresence mode="wait" initial={false}>
                 {current ? (
                   <SwipeCard
                     key={current.movie_id}
                     movie={current}
                     details={det}
-                    exitDir={lastDir}          // 👈 passa a direção
                     onDragState={setDragging}
                     onDecision={(v) => react(v)}
                   />
@@ -660,8 +654,8 @@ export default function Swipe() {
                       {noResults ? (
                         <>
                           <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
-                          {discoverHint === 'relax_providers' ? (
-                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catálogos de streaming selecionados.</p>
+                          {showProviderHint ? (
+                            <p className="text-white/60 mt-1">Dica: remova ou reduza os <span className="font-semibold">catálogos de streaming</span> selecionados.</p>
                           ) : (
                             <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
                           )}
@@ -1098,7 +1092,7 @@ export default function Swipe() {
                             include_adult: !!fSnap.includeAdult,
                             updated_by: userId,
 
-                            //só envia se sua tabela tiver as colunas (se não tiver, pode remover)
+                            // envie somente se sua tabela tiver essas colunas
                             ...(fSnap.providers ? { providers: fSnap.providers } : {}),
                             ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
                             ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
@@ -1215,7 +1209,6 @@ function SwipeCard({
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
   useEffect(() => { x.set(0) }, [x])
 
-
   // controla quando o drag pode iniciar
   const dragControls = useDragControls()
   function handlePointerDown(e: React.PointerEvent) {
@@ -1227,7 +1220,7 @@ function SwipeCard({
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      // se quiser manter um fade-in simples:
+      // entrada suave
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 22 }}
@@ -1262,10 +1255,10 @@ function SwipeCard({
           controls.then(() => onDecision(dir === 1 ? 1 : -1))
         } else {
           animate(x.get(), 0, {
-          type: 'spring',
-          stiffness: 380,
-          damping: 32,
-          onUpdate: (v) => x.set(v),
+            type: 'spring',
+            stiffness: 380,
+            damping: 32,
+            onUpdate: (v) => x.set(v),
           })
         }
       }}
