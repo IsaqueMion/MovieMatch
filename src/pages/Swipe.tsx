@@ -37,37 +37,26 @@ type Movie = {
 const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
-// ↓ mais tempo pra animação terminar antes de liberar novos cliques
-const EXIT_DURATION_MS = 420
 
-// springs mais suaves
-const SPRING_SWIPE = {
-  type: 'spring' as const,
-  stiffness: 170,
-  damping: 26,
-  mass: 1.05,
-  restDelta: 0.5,
-  restSpeed: 10,
-}
-const SPRING_SNAP = {
-  type: 'spring' as const,
-  stiffness: 210,
-  damping: 28,
-  mass: 1.05,
-  restDelta: 0.5,
+// deixe mais tempo pro “exit” terminar antes de liberar clique
+const EXIT_DURATION_MS = 900
+
+// animação do swipe: tween (sem molinha) bem suave e lenta
+const TWEEN_SWIPE = {
+  type: 'tween' as const,
+  duration: 0.85,
+  ease: [0.22, 0.7, 0.25, 1],
 }
 
-// limita/atenua a velocidade do gesto pra não “arremessar”
-const VELOCITY_SCALE = 0.45
-const MAX_VELOCITY = 1800
-function scaledVelocity(v: number) {
-  const s = v * VELOCITY_SCALE
-  return Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, s))
+// animação de “voltar ao centro” quando não passa do limiar
+const TWEEN_SNAP = {
+  type: 'tween' as const,
+  duration: 0.4,
+  ease: [0.2, 0.0, 0.2, 1],
 }
 
 type OnlineUser = { id: string; name: string }
 
-// Gêneros
 const GENRES = [
   { id: 28, name: 'Ação' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animação' },
   { id: 35, name: 'Comédia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentário' },
@@ -78,12 +67,12 @@ const GENRES = [
   { id: 37, name: 'Faroeste' },
 ]
 
-// Principais provedores (IDs TMDB)
+// Principais provedores (IDs TMDB) — ajuste conforme seu público/país
 const PROVIDERS_BR = [
   { id: 8,   name: 'Netflix' },
   { id: 119, name: 'Prime Video' },
   { id: 337, name: 'Disney+' },
-  { id: 384, name: 'Max' },
+  { id: 384, name: 'Max' },         // (HBO Max / Max)
   { id: 307, name: 'Globoplay' },
   { id: 350, name: 'Apple TV+' },
   { id: 531, name: 'Paramount+' },
@@ -134,8 +123,6 @@ const SORT_OPTIONS = [
   { value: 'original_title.desc',       label: 'Título Z→A' },
 ]
 
-type SwipeHandle = { swipe: (value: 1 | -1) => void }
-
 export default function Swipe() {
   const { code } = useParams()
 
@@ -162,7 +149,7 @@ export default function Swipe() {
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
 
-  // histórico p/ UNDO
+  // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
 
   // banner UNDO
@@ -210,7 +197,6 @@ export default function Swipe() {
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
 
   const current = movies[i]
-  const cardRef = useRef<SwipeHandle | null>(null)
 
   const filtersCount =
     (filters.genres?.length ?? 0) +
@@ -271,7 +257,11 @@ export default function Swipe() {
   useEffect(() => {
     (async () => {
       try {
-        if (!code) return
+        if (!code) {
+          setLoading(false)
+          toast.error('Código da sessão ausente na URL.')
+          return
+        }
         let { data: userData } = await supabase.auth.getUser()
         if (!userData?.user) {
           const { data: auth, error: authErr } = await supabase.auth.signInAnonymously()
@@ -477,6 +467,10 @@ export default function Swipe() {
     return () => clearTimeout(t)
   }, [matchModal])
 
+  // ===== animação imperativa p/ botões/teclas =====
+  type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
+  const cardRef = useRef<SwipeCardHandle | null>(null)
+
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
     const nextIndex = i + 1
@@ -502,6 +496,9 @@ export default function Swipe() {
   const react = useCallback(async (value: 1 | -1) => {
     if (!sessionId || !userId || !current) return
     if (clickGuardRef.current || busy) return
+
+    // anima o card saindo devagar (mesma animação do drag)
+    cardRef.current?.swipe(value)
 
     clickGuardRef.current = true
     setBusy(true)
@@ -538,7 +535,7 @@ export default function Swipe() {
       console.error('reactions upsert error:', e)
       toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
     } finally {
-      // dá 1 frame pro exit “grudar”
+      // deixa 1 frame pra animação de exit engatar
       await new Promise(res => setTimeout(res, 16))
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
@@ -575,8 +572,8 @@ export default function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging) return
-      if (e.key === 'ArrowRight') { e.preventDefault(); cardRef.current?.swipe(1) }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); cardRef.current?.swipe(-1) }
+      if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }
       else if (e.key === 'Backspace') { e.preventDefault(); undoRef.current?.() }
     }
     window.addEventListener('keydown', onKey)
@@ -755,7 +752,7 @@ export default function Swipe() {
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
         <div className="flex items-center justify-center gap-4 sm:gap-5">
           <motion.button
-            onClick={() => { if (!busy && !dragging && current) cardRef.current?.swipe(-1) }}
+            onClick={() => react(-1)}
             disabled={busy || dragging || !current}
             className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Deslike"
@@ -778,7 +775,7 @@ export default function Swipe() {
           </motion.button>
 
           <motion.button
-            onClick={() => { if (!busy && !dragging && current) cardRef.current?.swipe(1) }}
+            onClick={() => react(1)}
             disabled={busy || dragging || !current}
             className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Like"
@@ -981,7 +978,7 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* Período + duração + relevância */}
+                {/* Ano + Duração + Popularidade + Adulto */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Período, duração e relevância</h4>
 
@@ -1071,7 +1068,7 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* Qualidade e idioma */}
+                {/* Nota / Idioma / Ordenar */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Qualidade e idioma</h4>
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1239,8 +1236,8 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
   try { const k = progressKey(sessionId, f); if (k) localStorage.removeItem(k) } catch {}
 }
 
-/** Card com motionValue próprio + swipe imperativo */
-const SwipeCard = forwardRef<SwipeHandle, {
+/** Card com motionValue próprio */
+const SwipeCard = forwardRef<SwipeCardHandle, {
   movie: Movie
   details?: MovieDetails
   onDragState: (dragging: boolean) => void
@@ -1250,14 +1247,11 @@ const SwipeCard = forwardRef<SwipeHandle, {
   ref
 ) {
   const x = useMotionValue(0)
-  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-10, 0, 10])
+  // rotação sutil pra não parecer “balanço”
+  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
   const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
-  const likeScale = useTransform(x, [0, 64, DRAG_LIMIT], [0.9, 1, 1.08])
-  const dislikeScale = useTransform(x, [-DRAG_LIMIT, -64, 0], [1.08, 1, 0.9])
-
   useEffect(() => { x.set(0) }, [x])
-  const exitingRef = useRef(false)
 
   // controla quando o drag pode iniciar
   const dragControls = useDragControls()
@@ -1267,32 +1261,27 @@ const SwipeCard = forwardRef<SwipeHandle, {
     dragControls.start(e)
   }
 
-  // expõe swipe imperativo pros botões
+  // permite “swipe” imperativo (botões/teclas)
   useImperativeHandle(ref, () => ({
     swipe: (value: 1 | -1) => {
-      if (exitingRef.current) return
-      exitingRef.current = true
-      try { navigator.vibrate?.(10) } catch {}
-
       const dir = value === 1 ? 1 : -1
       const endX = dir * (window.innerWidth + 180)
-
+      try { navigator.vibrate?.(10) } catch {}
       const controls = animate(x.get(), endX, {
-        ...SPRING_SWIPE,
-        // dá um “empurrão” moderado mesmo sem gesto
-        velocity: scaledVelocity(1400),
+        ...TWEEN_SWIPE,
         onUpdate: (v) => x.set(v),
       })
       controls.then(() => onDecision(value))
     }
-  }))
+  }), [onDecision])
 
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 200, damping: 2, mass: 1 }}
+      // sem “balanço”: só um fade curtinho pra não piscar
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12 }}
       style={{ x, rotate, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
@@ -1305,27 +1294,26 @@ const SwipeCard = forwardRef<SwipeHandle, {
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
-        if (exitingRef.current) return
 
         const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
         const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
         const shouldSwipe = passDistance || passVelocity
 
         if (shouldSwipe) {
-          exitingRef.current = true
           try { navigator.vibrate?.(10) } catch {}
           const dir = info.offset.x > 0 ? 1 : -1
           const endX = dir * (window.innerWidth + 180)
 
+          // tween lento e suave
           const controls = animate(x.get(), endX, {
-            ...SPRING_SWIPE,
-            velocity: scaledVelocity(info.velocity.x),
+            ...TWEEN_SWIPE,
             onUpdate: (v) => x.set(v),
           })
           controls.then(() => onDecision(dir === 1 ? 1 : -1))
         } else {
+          // volta ao centro com tween curto (sem molinha)
           animate(x.get(), 0, {
-            ...SPRING_SNAP,
+            ...TWEEN_SNAP,
             onUpdate: (v) => x.set(v),
           })
         }
@@ -1334,14 +1322,14 @@ const SwipeCard = forwardRef<SwipeHandle, {
       {/* Overlay feedback */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
         <motion.div
-          style={{ opacity: dislikeOpacity, scale: dislikeScale }}
-          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20"
+          style={{ opacity: dislikeOpacity }}
+          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-6deg] bg-black/20"
         >
           NOPE
         </motion.div>
         <motion.div
-          style={{ opacity: likeOpacity, scale: likeScale }}
-          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20"
+          style={{ opacity: likeOpacity }}
+          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[6deg] bg-black/20"
         >
           LIKE
         </motion.div>
