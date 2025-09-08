@@ -1,9 +1,22 @@
 // src/pages/Swipe.tsx
 import type React from 'react'
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+} from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { discoverMovies, getMovieDetails, type MovieDetails, type DiscoverFilters } from '../lib/functions'
+import {
+  discoverMovies,
+  getMovieDetails,
+  type MovieDetails,
+  type DiscoverFilters,
+} from '../lib/functions'
 import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
 import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion'
@@ -23,11 +36,12 @@ type Movie = {
 
 const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
-const SWIPE_VELOCITY = 800
+the const SWIPE_VELOCITY = 800
 const EXIT_DURATION_MS = 240
 
 type OnlineUser = { id: string; name: string }
 
+// Gêneros
 const GENRES = [
   { id: 28, name: 'Ação' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animação' },
   { id: 35, name: 'Comédia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentário' },
@@ -37,17 +51,19 @@ const GENRES = [
   { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
   { id: 37, name: 'Faroeste' },
 ]
-// Principais provedores (IDs TMDB) — ajuste conforme seu público/país
+
+// Principais provedores (IDs TMDB)
 const PROVIDERS_BR = [
   { id: 8,   name: 'Netflix' },
   { id: 119, name: 'Prime Video' },
   { id: 337, name: 'Disney+' },
-  { id: 384, name: 'Max' },         // (HBO Max / Max)
+  { id: 384, name: 'Max' },
   { id: 307, name: 'Globoplay' },
   { id: 350, name: 'Apple TV+' },
   { id: 531, name: 'Paramount+' },
-  { id: 619, name: 'Star+' },       // se não retornar, remova/ajuste
+  { id: 619, name: 'Star+' },
 ]
+
 const LANGUAGES = [
   { value: '',  label: 'Qualquer' },
   { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' },
@@ -61,6 +77,7 @@ const LANGUAGES = [
   { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio'},{ value: 'vi', label: 'Vietnamita' },
   { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
 ]
+
 const REGIONS = [
   { value: 'BR', label: 'Brasil (BR)' },
   { value: 'US', label: 'Estados Unidos (US)' },
@@ -91,6 +108,8 @@ const SORT_OPTIONS = [
   { value: 'original_title.desc',       label: 'Título Z→A' },
 ]
 
+type SwipeHandle = { swipe: (value: 1 | -1) => void }
+
 export default function Swipe() {
   const { code } = useParams()
 
@@ -101,6 +120,7 @@ export default function Swipe() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [noResults, setNoResults] = useState(false)
+  const [discoverHint, setDiscoverHint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
 
@@ -116,7 +136,7 @@ export default function Swipe() {
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
 
-  // histórico p/ UNDO (guarda movie.id real)
+  // histórico p/ UNDO
   const historyRef = useRef<number[]>([])
 
   // banner UNDO
@@ -164,6 +184,7 @@ export default function Swipe() {
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
 
   const current = movies[i]
+  const cardRef = useRef<SwipeHandle | null>(null)
 
   const filtersCount =
     (filters.genres?.length ?? 0) +
@@ -179,6 +200,7 @@ export default function Swipe() {
 
   const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
     const data = await discoverMovies({ page: pageToLoad, filters: f })
+    if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
 
     const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
     unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
@@ -194,6 +216,7 @@ export default function Swipe() {
     const sid = sessionRef ?? sessionId
     setLoading(true)
     setNoResults(false)
+    setDiscoverHint(null)
     setMovies([]); setI(0); setPage(1)
     seenRef.current.clear()
     try {
@@ -218,7 +241,6 @@ export default function Swipe() {
       setLoading(false)
     }
   }, [filters, sessionId, loadPage])
-
 
   useEffect(() => {
     (async () => {
@@ -423,7 +445,6 @@ export default function Swipe() {
 
   useEffect(() => {
     if (!matchModal) return
-    // breve atraso pra modal montar
     const t = setTimeout(() => {
       confetti({ particleCount: 100, spread: 70, startVelocity: 45, origin: { y: 0.3 } })
     }, 120)
@@ -491,7 +512,7 @@ export default function Swipe() {
       console.error('reactions upsert error:', e)
       toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
     } finally {
-      // deixa 1 frame pra animação de exit engatar (quando vier de drag)
+      // dá 1 frame pro exit “grudar”
       await new Promise(res => setTimeout(res, 16))
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
@@ -528,8 +549,8 @@ export default function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging) return
-      if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }
+      if (e.key === 'ArrowRight') { e.preventDefault(); cardRef.current?.swipe(1) }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); cardRef.current?.swipe(-1) }
       else if (e.key === 'Backspace') { e.preventDefault(); undoRef.current?.() }
     }
     window.addEventListener('keydown', onKey)
@@ -590,8 +611,6 @@ export default function Swipe() {
   const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
   const clampYear = (v: number) => Math.max(1900, Math.min(currentYear, v))
 
-  const showProviderHint = noResults && (filters.providers?.length ?? 0) > 0
-
   return (
     <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
       {/* Top bar (compacta) */}
@@ -642,6 +661,7 @@ export default function Swipe() {
               <AnimatePresence mode="wait" initial={false}>
                 {current ? (
                   <SwipeCard
+                    ref={cardRef}
                     key={current.movie_id}
                     movie={current}
                     details={det}
@@ -654,8 +674,8 @@ export default function Swipe() {
                       {noResults ? (
                         <>
                           <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
-                          {showProviderHint ? (
-                            <p className="text-white/60 mt-1">Dica: remova ou reduza os <span className="font-semibold">catálogos de streaming</span> selecionados.</p>
+                          {discoverHint === 'relax_providers' ? (
+                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catálogos de streaming selecionados.</p>
                           ) : (
                             <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
                           )}
@@ -669,7 +689,7 @@ export default function Swipe() {
                                   voteCountMin: 0,
                                   runtimeMin: 40,
                                   runtimeMax: 240,
-                                  providers: [], // remover provedores costuma destravar
+                                  providers: [],
                                 }
                                 setFilters(relaxed)
                                 clearProgress(sessionId, relaxed)
@@ -709,7 +729,7 @@ export default function Swipe() {
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
         <div className="flex items-center justify-center gap-4 sm:gap-5">
           <motion.button
-            onClick={() => react(-1)}
+            onClick={() => { if (!busy && !dragging && current) cardRef.current?.swipe(-1) }}
             disabled={busy || dragging || !current}
             className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Deslike"
@@ -732,7 +752,7 @@ export default function Swipe() {
           </motion.button>
 
           <motion.button
-            onClick={() => react(1)}
+            onClick={() => { if (!busy && !dragging && current) cardRef.current?.swipe(1) }}
             disabled={busy || dragging || !current}
             className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
             aria-label="Like"
@@ -853,7 +873,7 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* ======= NOVO: Catálogos de streaming ======= */}
+                {/* ======= Catálogos de streaming ======= */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Catálogos de streaming</h4>
 
@@ -935,7 +955,7 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* Ano + Duração + Popularidade + Adulto */}
+                {/* Período + duração + relevância */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Período, duração e relevância</h4>
 
@@ -1025,7 +1045,7 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* Nota / Idioma / Ordenar */}
+                {/* Qualidade e idioma */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                   <h4 className="font-medium">Qualidade e idioma</h4>
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1092,7 +1112,6 @@ export default function Swipe() {
                             include_adult: !!fSnap.includeAdult,
                             updated_by: userId,
 
-                            // envie somente se sua tabela tiver essas colunas
                             ...(fSnap.providers ? { providers: fSnap.providers } : {}),
                             ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
                             ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
@@ -1194,20 +1213,25 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
   try { const k = progressKey(sessionId, f); if (k) localStorage.removeItem(k) } catch {}
 }
 
-/** Card com motionValue próprio */
-function SwipeCard({
-  movie, details, onDragState, onDecision,
-}: {
+/** Card com motionValue próprio + swipe imperativo */
+const SwipeCard = forwardRef<SwipeHandle, {
   movie: Movie
   details?: MovieDetails
   onDragState: (dragging: boolean) => void
   onDecision: (value: 1 | -1) => void
-}) {
+}>(function SwipeCard(
+  { movie, details, onDragState, onDecision },
+  ref
+) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-10, 0, 10])
   const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
+  const likeScale = useTransform(x, [0, 64, DRAG_LIMIT], [0.9, 1, 1.08])
+  const dislikeScale = useTransform(x, [-DRAG_LIMIT, -64, 0], [1.08, 1, 0.9])
+
   useEffect(() => { x.set(0) }, [x])
+  const exitingRef = useRef(false)
 
   // controla quando o drag pode iniciar
   const dragControls = useDragControls()
@@ -1217,10 +1241,28 @@ function SwipeCard({
     dragControls.start(e)
   }
 
+  // expõe swipe imperativo pros botões
+  useImperativeHandle(ref, () => ({
+    swipe: (value: 1 | -1) => {
+      if (exitingRef.current) return
+      exitingRef.current = true
+      try { navigator.vibrate?.(12) } catch {}
+      const dir = value === 1 ? 1 : -1
+      const endX = dir * (window.innerWidth + 180)
+      const controls = animate(x.get(), endX, {
+        type: 'spring',
+        stiffness: 340,
+        damping: 30,
+        velocity: 1200,
+        onUpdate: (v) => x.set(v),
+      })
+      controls.then(() => onDecision(value))
+    }
+  }), [onDecision, x])
+
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      // entrada suave
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 260, damping: 22 }}
@@ -1236,12 +1278,14 @@ function SwipeCard({
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
+        if (exitingRef.current) return
 
         const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
         const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
         const shouldSwipe = passDistance || passVelocity
 
         if (shouldSwipe) {
+          exitingRef.current = true
           try { navigator.vibrate?.(12) } catch {}
           const dir = info.offset.x > 0 ? 1 : -1
           const endX = dir * (window.innerWidth + 180)
@@ -1266,13 +1310,13 @@ function SwipeCard({
       {/* Overlay feedback */}
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
         <motion.div
-          style={{ opacity: dislikeOpacity, scale: useTransform(x, [-DRAG_LIMIT, -64, 0], [1.08, 1, 0.9]) }}
+          style={{ opacity: dislikeOpacity, scale: dislikeScale }}
           className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-8deg] bg-black/20"
         >
           NOPE
         </motion.div>
         <motion.div
-          style={{ opacity: likeOpacity, scale: useTransform(x, [0, 64, DRAG_LIMIT], [0.9, 1, 1.08]) }}
+          style={{ opacity: likeOpacity, scale: likeScale }}
           className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[8deg] bg-black/20"
         >
           LIKE
@@ -1325,4 +1369,4 @@ function SwipeCard({
       </div>
     </motion.div>
   )
-}
+})
