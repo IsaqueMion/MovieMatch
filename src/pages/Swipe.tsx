@@ -503,6 +503,7 @@ export default function Swipe() {
 
     clickGuardRef.current = true
     setBusy(true)
+    const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
 
     try {
       const { data: upserted, error: movieErr } = await supabase
@@ -539,7 +540,7 @@ export default function Swipe() {
       // deixa 1 frame pra animação de exit engatar
       await new Promise(res => setTimeout(res, 16))
       await goNext()
-      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, EXIT_DURATION_MS + 60)
+      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
     }
   }, [sessionId, userId, current, busy, goNext])
 
