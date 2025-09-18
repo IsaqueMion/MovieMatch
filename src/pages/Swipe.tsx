@@ -6,6 +6,8 @@ import {
   useState,
   useMemo,
   useCallback,
+  useImperativeHandle,
+  forwardRef,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -42,7 +44,7 @@ const EXIT_DURATION_MS = 1250
 // animação do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
   type: 'tween' as const,
-  duration: 1.1,
+  duration: 0.45,
   ease: 'easeOut' as const,
 }
 
@@ -54,6 +56,10 @@ const TWEEN_SNAP = {
 }
 
 type OnlineUser = { id: string; name: string }
+
+// handle exposto pelo card para swipe imperativo (botões/teclas)
+export type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
+
 
 
 const GENRES = [
@@ -461,6 +467,9 @@ export default function Swipe() {
     return () => clearTimeout(t)
   }, [matchModal])
 
+  // ===== animação imperativa p/ botões/teclas =====
+  const cardRef = useRef<SwipeCardHandle | null>(null)
+
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
     const nextIndex = i + 1
@@ -486,6 +495,9 @@ export default function Swipe() {
   const react = useCallback(async (value: 1 | -1) => {
     if (!sessionId || !userId || !current) return
     if (clickGuardRef.current || busy) return
+
+    // anima o card saindo devagar (mesma animação do drag)
+    cardRef.current?.swipe(value)
 
     clickGuardRef.current = true
     setBusy(true)
@@ -669,6 +681,7 @@ export default function Swipe() {
               <AnimatePresence mode="wait" initial={false}>
                 {current ? (
                   <SwipeCard
+                    ref={cardRef}
                     key={current.movie_id}
                     movie={current}
                     details={det}
@@ -1221,17 +1234,15 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
 }
 
 /** Card com motionValue próprio */
-function SwipeCard({
-  movie,
-  details,
-  onDragState,
-  onDecision,
-}: {
+const SwipeCard = forwardRef<SwipeCardHandle, {
   movie: Movie
   details?: MovieDetails
   onDragState: (dragging: boolean) => void
   onDecision: (value: 1 | -1) => void
-}) {
+}>(function SwipeCard(
+  { movie, details, onDragState, onDecision },
+  ref
+) {
   const x = useMotionValue(0)
   // rotação sutil só durante o arrasto
   const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
@@ -1246,6 +1257,16 @@ function SwipeCard({
     if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
     dragControls.start(e)
   }
+
+  useImperativeHandle(ref, () => ({
+    swipe: (value: 1 | -1) => {
+      const dir = value === 1 ? 1 : -1
+      const endX = dir * (window.innerWidth + 180)
+      try { navigator.vibrate?.(10) } catch {}
+      const controls = animate(x, endX, TWEEN_SWIPE)
+      controls.then(() => onDecision(value))
+    },
+  }), [onDecision, x])
 
   return (
     <motion.div
@@ -1347,4 +1368,4 @@ function SwipeCard({
       </div>
     </motion.div>
   )
-}
+})
