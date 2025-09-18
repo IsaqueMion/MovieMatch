@@ -1,4 +1,4 @@
-// src/pages/Swipe.tsx
+﻿// src/pages/Swipe.tsx
 import type React from 'react'
 import {
   useEffect,
@@ -38,17 +38,17 @@ const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
-// mais tempo pro �exit� terminar antes de liberar clique
+// mais tempo pro ï¿½exitï¿½ terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
 
-// anima��o do swipe: tween (sem molinha), lenta e suave
+// animaï¿½ï¿½o do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
   type: 'tween' as const,
   duration: 0.45,
   ease: 'easeOut' as const,
 }
 
-// anima��o de �voltar ao centro� quando n�o passa do limiar
+// animaï¿½ï¿½o de ï¿½voltar ao centroï¿½ quando nï¿½o passa do limiar
 const TWEEN_SNAP = {
   type: 'tween' as const,
   duration: 0.38,
@@ -57,7 +57,7 @@ const TWEEN_SNAP = {
 
 type OnlineUser = { id: string; name: string }
 
-// handle exposto pelo card para swipe imperativo (bot�es/teclas)
+// handle exposto pelo card para swipe imperativo (botï¿½es/teclas)
 export type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
 
 function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
@@ -135,11 +135,11 @@ function NumberField({ label, value, min, max, step = 1, suffix, onChange }: Num
 
 
 const GENRES = [
-  { id: 28, name: 'A��o' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Anima��o' },
-  { id: 35, name: 'Com�dia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Document�rio' },
-  { id: 18, name: 'Drama' }, { id: 10751, name: 'Fam�lia' }, { id: 14, name: 'Fantasia' },
-  { id: 36, name: 'Hist�ria' }, { id: 27, name: 'Terror' }, { id: 10402, name: 'M�sica' },
-  { id: 9648, name: 'Mist�rio' }, { id: 10749, name: 'Romance' }, { id: 878, name: 'Fic��o cient�fica' },
+  { id: 28, name: 'Aï¿½ï¿½o' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animaï¿½ï¿½o' },
+  { id: 35, name: 'Comï¿½dia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentï¿½rio' },
+  { id: 18, name: 'Drama' }, { id: 10751, name: 'Famï¿½lia' }, { id: 14, name: 'Fantasia' },
+  { id: 36, name: 'Histï¿½ria' }, { id: 27, name: 'Terror' }, { id: 10402, name: 'Mï¿½sica' },
+  { id: 9648, name: 'Mistï¿½rio' }, { id: 10749, name: 'Romance' }, { id: 878, name: 'Ficï¿½ï¿½o cientï¿½fica' },
   { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
   { id: 37, name: 'Faroeste' },
 ]
@@ -158,16 +158,16 @@ const PROVIDERS_BR = [
 
 const LANGUAGES = [
   { value: '',  label: 'Qualquer' },
-  { value: 'pt', label: 'Portugu�s' }, { value: 'en', label: 'Ingl�s' }, { value: 'es', label: 'Espanhol' },
-  { value: 'fr', label: 'Franc�s' },   { value: 'de', label: 'Alem�o' },  { value: 'it', label: 'Italiano' },
-  { value: 'ja', label: 'Japon�s' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chin�s' },
-  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: '�rabe' },
-  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holand�s' },{ value: 'sv', label: 'Sueco' },
-  { value: 'no', label: 'Noruegu�s' }, { value: 'fi', label: 'Finland�s'},{ value: 'da', label: 'Dinamarqu�s' },
-  { value: 'pl', label: 'Polon�s' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
+  { value: 'pt', label: 'Portuguï¿½s' }, { value: 'en', label: 'Inglï¿½s' }, { value: 'es', label: 'Espanhol' },
+  { value: 'fr', label: 'Francï¿½s' },   { value: 'de', label: 'Alemï¿½o' },  { value: 'it', label: 'Italiano' },
+  { value: 'ja', label: 'Japonï¿½s' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chinï¿½s' },
+  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: 'ï¿½rabe' },
+  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holandï¿½s' },{ value: 'sv', label: 'Sueco' },
+  { value: 'no', label: 'Norueguï¿½s' }, { value: 'fi', label: 'Finlandï¿½s'},{ value: 'da', label: 'Dinamarquï¿½s' },
+  { value: 'pl', label: 'Polonï¿½s' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
   { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
-  { value: 'th', label: 'Tailand�s' }, { value: 'id', label: 'Indon�sio'},{ value: 'vi', label: 'Vietnamita' },
-  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'T�mil' },   { value: 'fa', label: 'Persa' },
+  { value: 'th', label: 'Tailandï¿½s' }, { value: 'id', label: 'Indonï¿½sio'},{ value: 'vi', label: 'Vietnamita' },
+  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tï¿½mil' },   { value: 'fa', label: 'Persa' },
 ]
 
 const REGIONS = [
@@ -176,13 +176,13 @@ const REGIONS = [
   { value: 'GB', label: 'Reino Unido (GB)' },
   { value: 'PT', label: 'Portugal (PT)' },
   { value: 'ES', label: 'Espanha (ES)' },
-  { value: 'FR', label: 'Fran�a (FR)' },
+  { value: 'FR', label: 'Franï¿½a (FR)' },
   { value: 'DE', label: 'Alemanha (DE)' },
-  { value: 'IT', label: 'It�lia (IT)' },
-  { value: 'JP', label: 'Jap�o (JP)' },
+  { value: 'IT', label: 'Itï¿½lia (IT)' },
+  { value: 'JP', label: 'Japï¿½o (JP)' },
   { value: 'KR', label: 'Coreia do Sul (KR)' },
   { value: 'AR', label: 'Argentina (AR)' },
-  { value: 'MX', label: 'M�xico (MX)' },
+  { value: 'MX', label: 'Mï¿½xico (MX)' },
 ]
 
 const SORT_OPTIONS = [
@@ -192,12 +192,12 @@ const SORT_OPTIONS = [
   { value: 'vote_average.asc',          label: 'Nota (?)' },
   { value: 'vote_count.desc',           label: 'Votos (?)' },
   { value: 'vote_count.asc',            label: 'Votos (?)' },
-  { value: 'primary_release_date.desc', label: 'Lan�amento (recente)' },
-  { value: 'primary_release_date.asc',  label: 'Lan�amento (antigo)' },
+  { value: 'primary_release_date.desc', label: 'Lanï¿½amento (recente)' },
+  { value: 'primary_release_date.asc',  label: 'Lanï¿½amento (antigo)' },
   { value: 'revenue.desc',              label: 'Bilheteria (?)' },
   { value: 'revenue.asc',               label: 'Bilheteria (?)' },
-  { value: 'original_title.asc',        label: 'T�tulo A?Z' },
-  { value: 'original_title.desc',       label: 'T�tulo Z?A' },
+  { value: 'original_title.asc',        label: 'Tï¿½tulo A?Z' },
+  { value: 'original_title.desc',       label: 'Tï¿½tulo Z?A' },
 ]
 
 export default function Swipe() {
@@ -214,7 +214,7 @@ export default function Swipe() {
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
 
-  // sess�o/usu�rio
+  // sessï¿½o/usuï¿½rio
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [displayName] = useState('Guest')
@@ -226,7 +226,7 @@ export default function Swipe() {
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
 
-  // hist�rico p/ UNDO (guarda movie.id real)
+  // histï¿½rico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
 
   // banner UNDO
@@ -235,10 +235,10 @@ export default function Swipe() {
   // modal de match
   const [matchModal, setMatchModal] = useState<{ title: string; poster_url: string | null; year?: number | null } | null>(null)
 
-  // guard para clicks r�pidos
+  // guard para clicks rï¿½pidos
   const clickGuardRef = useRef(false)
 
-  // presen�a
+  // presenï¿½a
   const [online, setOnline] = useState<OnlineUser[]>([])
 
   // ?? filtros
@@ -263,11 +263,11 @@ export default function Swipe() {
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
 
-  // verifica��o de idade
+  // verificaï¿½ï¿½o de idade
   const [isAdult, setIsAdult] = useState(false)
   const [showAgeGate, setShowAgeGate] = useState(false)
 
-  // �novo match� (badge na estrela)
+  // ï¿½novo matchï¿½ (badge na estrela)
   const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
   const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
   const lastSeenMatchAt = useMemo(() => (LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0), [LS_KEY])
@@ -345,7 +345,7 @@ export default function Swipe() {
 
         await supabase.from('users').upsert({ id: uid, display_name: displayName })
 
-        // ler se j� � adulto
+        // ler se jï¿½ ï¿½ adulto
         const { data: prof } = await supabase
           .from('users')
           .select('is_adult')
@@ -394,7 +394,7 @@ export default function Swipe() {
         await resetAndLoad(true, effectiveFilters, sess.id)
       } catch (e: any) {
         console.error(e)
-        toast.error(`Erro ao preparar a sess�o: ${e.message ?? e}`)
+        toast.error(`Erro ao preparar a sessï¿½o: ${e.message ?? e}`)
         setLoading(false)
       }
     })()
@@ -422,7 +422,7 @@ export default function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.tmdb_id])
 
-  // PREFETCH dos PR�XIMOS
+  // PREFETCH dos PRï¿½XIMOS
   useEffect(() => {
     if (!movies.length) return
     const toPrefetch = [i + 1, i + 2]
@@ -510,7 +510,7 @@ export default function Swipe() {
     })()
   }, [sessionId])
 
-  // presen�a
+  // presenï¿½a
   useEffect(() => {
     if (!sessionId || !userId) return
     const ch = supabase.channel(`presence-${sessionId}`, { config: { presence: { key: userId } } })
@@ -539,10 +539,10 @@ export default function Swipe() {
     return () => clearTimeout(t)
   }, [matchModal])
 
-  // ===== anima��o imperativa p/ bot�es/teclas =====
+  // ===== animaï¿½ï¿½o imperativa p/ botï¿½es/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
 
-  // ============== FUN��ES EST�VEIS ==============
+  // ============== FUNï¿½ï¿½ES ESTï¿½VEIS ==============
   const goNext = useCallback(async () => {
     const nextIndex = i + 1
     if (nextIndex < movies.length) {
@@ -569,7 +569,7 @@ export default function Swipe() {
     if (clickGuardRef.current || busy) return
 
     if (!options?.skipAnimation) {
-      // anima o card saindo devagar (mesma anima��o do drag)
+      // anima o card saindo devagar (mesma animaï¿½ï¿½o do drag)
       cardRef.current?.swipe(value)
     }
 
@@ -607,9 +607,9 @@ export default function Swipe() {
       historyRef.current.push(movieId)
     } catch (e: any) {
       console.error('reactions upsert error:', e)
-      toast.error(`Erro ao salvar rea��o: ${e.message ?? e}`)
+      toast.error(`Erro ao salvar reaï¿½ï¿½o: ${e.message ?? e}`)
     } finally {
-      // deixa 1 frame pra anima��o de exit engatar
+      // deixa 1 frame pra animaï¿½ï¿½o de exit engatar
       await new Promise(res => setTimeout(res, 16))
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
@@ -630,11 +630,11 @@ export default function Swipe() {
         .eq('user_id', userId)
         .eq('movie_id', last)
       if (error) throw error
-      setUndoMsg('�ltimo swipe desfeito')
+      setUndoMsg('ï¿½ltimo swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
     } catch (e: any) {
       console.error(e)
-      toast.error(`N�o foi poss�vel desfazer: ${e.message ?? e}`)
+      toast.error(`Nï¿½o foi possï¿½vel desfazer: ${e.message ?? e}`)
     } finally { setBusy(false) }
   }, [sessionId, userId, busy, filters])
 
@@ -661,12 +661,12 @@ export default function Swipe() {
     catch { toast('Copie o link:', { description: invite }) }
   }
 
-  // aceita birthdate opcional � se vier, valida 18+
+  // aceita birthdate opcional ï¿½ se vier, valida 18+
   const confirmAdult = async (birthdateISO?: string) => {
     if (birthdateISO) {
       const age = calcAge(birthdateISO)
       if (age < 18) {
-        toast.error('Voc� precisa ter 18+ para ver esse conte�do.')
+        toast.error('Vocï¿½ precisa ter 18+ para ver esse conteï¿½do.')
         setShowAgeGate(false)
         setFilters(f => ({ ...f, includeAdult: false }))
         return
@@ -684,7 +684,7 @@ export default function Swipe() {
       setIsAdult(true)
       setFilters(f => ({ ...f, includeAdult: true }))
       setShowAgeGate(false)
-      toast.success('Verifica��o conclu�da. Conte�do adulto ativado.')
+      toast.success('Verificaï¿½ï¿½o concluï¿½da. Conteï¿½do adulto ativado.')
     } catch (e: any) {
       toast.error(`Falha ao confirmar maioridade: ${e?.message ?? e}`)
     }
@@ -698,7 +698,7 @@ export default function Swipe() {
   if (loading) {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-        <p className="text-white/90">Carregando sess�o�</p>
+        <p className="text-white/90">Carregando sessï¿½oï¿½</p>
         <Toaster richColors position="bottom-center" />
       </main>
     )
@@ -706,8 +706,26 @@ export default function Swipe() {
 
   const det = current ? detailsCache[current.tmdb_id] : undefined
   const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
-  const clampYear = (v: number) => Math.max(1900, Math.min(currentYear, v))
+  const runtimeMinLocal = filters.runtimeMin ?? 60
+  const runtimeMaxLocal = filters.runtimeMax ?? 220
+  const voteCountMinLocal = filters.voteCountMin ?? 0
+  const ratingMinLocal = filters.ratingMin ?? 0
 
+  const yearPresets = useMemo(() => [
+    { label: 'Clássicos', range: [1950, 1979] },
+    { label: 'Anos 90', range: [1990, 1999] },
+    { label: '2000+', range: [2000, currentYear] },
+    { label: 'Últimos 5 anos', range: [Math.max(1900, currentYear - 5), currentYear] },
+  ], [currentYear])
+
+  const runtimePresets = useMemo(() => [
+    { label: '≤ 100 min', range: [40, 100] },
+    { label: '100-140 min', range: [100, 140] },
+    { label: '≥ 140 min', range: [140, 300] },
+  ], [])
+
+  const voteCountPresets = useMemo(() => [0, 50, 100, 250, 500, 1000], [])
+  const ratingPresets = useMemo(() => [0, 6, 7, 8], [])
   return (
     <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
       {/* Top bar (compacta) */}
@@ -715,7 +733,7 @@ export default function Swipe() {
         <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
           <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
             <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
-              Sess�o <span className="font-semibold">{code}</span>
+              Sessï¿½o <span className="font-semibold">{code}</span>
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -770,9 +788,9 @@ export default function Swipe() {
                         <>
                           <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
                           {discoverHint === 'relax_providers' ? (
-                            <p className="text-white/60 mt-1">Dica: remova ou reduza os cat�logos de streaming selecionados.</p>
+                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catï¿½logos de streaming selecionados.</p>
                           ) : (
-                            <p className="text-white/60 mt-1">Tente relaxar alguns crit�rios ou limpar tudo.</p>
+                            <p className="text-white/60 mt-1">Tente relaxar alguns critï¿½rios ou limpar tudo.</p>
                           )}
                           <div className="mt-3 flex items-center justify-center gap-2">
                             <button
@@ -808,7 +826,7 @@ export default function Swipe() {
                       ) : (
                         <>
                           <p>Acabaram os filmes deste lote ??</p>
-                          {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes�</p> : null}
+                          {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmesï¿½</p> : null}
                         </>
                       )}
                     </div>
@@ -820,7 +838,7 @@ export default function Swipe() {
         </div>
       </div>
 
-      {/* A��es */}
+      {/* Aï¿½ï¿½es */}
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
         <div className="flex items-center justify-center gap-4 sm:gap-5">
           <motion.button
@@ -890,7 +908,7 @@ export default function Swipe() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-xl font-semibold">Filtros</h3>
-                  <p className="text-white/70 text-sm">Refine as recomenda��es com mais controle.</p>
+                  <p className="text-white/70 text-sm">Refine as recomendaï¿½ï¿½es com mais controle.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -909,11 +927,11 @@ export default function Swipe() {
                 </div>
               </div>
 
-              {/* Grid de se��es */}
+              {/* Grid de seï¿½ï¿½es */}
               <div className="space-y-4">
-                {/* G�neros incluir/excluir */}
+                {/* Gï¿½neros incluir/excluir */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">G�neros</h4>
+                  <h4 className="font-medium">Gï¿½neros</h4>
                   <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Incluir */}
                     <div>
@@ -968,9 +986,9 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* ======= Cat�logos de streaming ======= */}
+                {/* ======= Catï¿½logos de streaming ======= */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Cat�logos de streaming</h4>
+                  <h4 className="font-medium">Catï¿½logos de streaming</h4>
 
                   {/* Provedores */}
                   <div className="mt-3">
@@ -999,18 +1017,18 @@ export default function Swipe() {
                       })}
                     </div>
                     <div className="text-xs text-white/60 mt-1">
-                      Dica: sele��o � combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
+                      Dica: seleï¿½ï¿½o ï¿½ combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
                     </div>
                   </div>
 
-                  {/* Monetiza��o */}
+                  {/* Monetizaï¿½ï¿½o */}
                   <div className="mt-4">
                     <div className="text-xs text-white/70 mb-1">Tipo de oferta</div>
                     <div className="flex flex-wrap gap-2 text-sm">
                       {[
                         { k: 'flatrate', label: 'Assinatura' },
                         { k: 'free',     label: 'Gratuito' },
-                        { k: 'ads',      label: 'Com an�ncios' },
+                        { k: 'ads',      label: 'Com anï¿½ncios' },
                         { k: 'rent',     label: 'Aluguel' },
                         { k: 'buy',      label: 'Compra' },
                       ].map(({ k, label }) => {
@@ -1038,21 +1056,21 @@ export default function Swipe() {
                     </div>
                   </div>
 
-                  {/* Regi�o */}
+                  {/* Regiï¿½o */}
                   <div className="mt-4">
-                    <label className="block text-sm mb-1">Regi�o do cat�logo</label>
+                    <label className="block text-sm mb-1">Regiï¿½o do catï¿½logo</label>
                     <Select
                       value={filters.watchRegion ?? 'BR'}
                       onChange={(v: string) => setFilters(f => ({ ...f, watchRegion: v }))}
                       options={REGIONS}
                     />
-                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por pa�s (ex.: BR para Brasil).</div>
+                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por paï¿½s (ex.: BR para Brasil).</div>
                   </div>
                 </section>
 
-                {/* Ano + Dura��o + Popularidade + Adulto */}
+                {/* Ano + Duraï¿½ï¿½o + Popularidade + Adulto */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Per�odo, dura��o e relev�ncia</h4>
+                  <h4 className="font-medium">Perï¿½odo, duraï¿½ï¿½o e relevï¿½ncia</h4>
 
                   {/* Ano */}
                   <div className="mt-3">
@@ -1081,7 +1099,7 @@ export default function Swipe() {
                         onChange={(value) => setFilters(f => ({ ...f, yearMin: Math.min(value, f.yearMax ?? currentYear) }))}
                       />
                       <NumberField
-                        label="At�"
+                        label="Atï¿½"
                         value={yearMaxLocal}
                         min={yearMinLocal}
                         max={currentYear}
@@ -1090,10 +1108,10 @@ export default function Swipe() {
                       />
                     </div>
                   </div>
-                  {/* Dura��o */}
+                  {/* Duraï¿½ï¿½o */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Dura��o (min�max, min)</span>
+                      <span className="text-sm">Duraï¿½ï¿½o (minï¿½max, min)</span>
                       <span className="text-xs text-white/70">
                         {runtimeMinLocal} - {runtimeMaxLocal} min
                       </span>
@@ -1111,7 +1129,7 @@ export default function Swipe() {
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <NumberField
-                        label="M�nimo"
+                        label="Mï¿½nimo"
                         value={runtimeMinLocal}
                         min={40}
                         max={runtimeMaxLocal}
@@ -1120,7 +1138,7 @@ export default function Swipe() {
                         onChange={(value) => setFilters(f => ({ ...f, runtimeMin: Math.min(value, f.runtimeMax ?? 300) }))}
                       />
                       <NumberField
-                        label="M�ximo"
+                        label="Mï¿½ximo"
                         value={runtimeMaxLocal}
                         min={runtimeMinLocal}
                         max={300}
@@ -1133,7 +1151,7 @@ export default function Swipe() {
                   {/* Popularidade + Adulto */}
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm mb-1">Popularidade (m�n. votos)</label>
+                      <label className="block text-sm mb-1">Popularidade (mï¿½n. votos)</label>
                       <div className="flex flex-wrap gap-2">
                         {voteCountPresets.map((value) => (
                           <FilterChip
@@ -1141,7 +1159,7 @@ export default function Swipe() {
                             active={voteCountMinLocal === value}
                             onClick={() => setFilters(f => ({ ...f, voteCountMin: value }))}
                           >
-                            {value === 0 ? 'Sem m�nimo' : value + '+'}
+                            {value === 0 ? 'Sem mï¿½nimo' : value + '+'}
                           </FilterChip>
                         ))}
                       </div>
@@ -1171,7 +1189,7 @@ export default function Swipe() {
                           }
                         }}
                       />
-                      Permitir conte�do adulto
+                      Permitir conteï¿½do adulto
                     </label>
                   </div>
                 </section>
@@ -1181,7 +1199,7 @@ export default function Swipe() {
                   <h4 className="font-medium">Qualidade e idioma</h4>
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm mb-1">Nota m�nima</label>
+                      <label className="block text-sm mb-1">Nota mï¿½nima</label>
                       <div className="flex flex-wrap gap-2">
                         {ratingPresets.map((value) => (
                           <FilterChip
@@ -1189,7 +1207,7 @@ export default function Swipe() {
                             active={Math.abs(ratingMinLocal - value) < 0.01}
                             onClick={() => setFilters(f => ({ ...f, ratingMin: value }))}
                           >
-                            {value === 0 ? 'Sem m�nimo' : value.toString().replace('.', ',') + '+')}
+                            {value === 0 ? 'Sem mï¿½nimo' : value.toString().replace('.', ',') + '+'}
                           </FilterChip>
                         ))}
                       </div>
@@ -1204,8 +1222,7 @@ export default function Swipe() {
                           onChange={(value) => setFilters(f => ({ ...f, ratingMin: value }))}
                         />
                       </div>
-                    </div>                    </div>
-
+                    </div>
                     <div>
                       <label className="block text-sm mb-1">Idioma original</label>
                       <Select
@@ -1317,7 +1334,7 @@ export default function Swipe() {
         )}
       </AnimatePresence>
 
-      {/* �NICA inst�ncia do AgeGateModal */}
+      {/* ï¿½NICA instï¿½ncia do AgeGateModal */}
       <AgeGateModal
         open={showAgeGate}
         onConfirm={confirmAdult}
@@ -1338,7 +1355,7 @@ function calcAge(birthdateISO: string): number {
   return age
 }
 
-/* ========= Persist�ncia de progresso ========= */
+/* ========= Persistï¿½ncia de progresso ========= */
 function filtersSig(f: DiscoverFilters) {
   return [(f.genres ?? []).join(','), f.yearMin ?? '', f.yearMax ?? '', f.ratingMin ?? '', f.language ?? '', f.sortBy ?? ''].join('|')
 }
@@ -1359,7 +1376,7 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
   try { const k = progressKey(sessionId, f); if (k) localStorage.removeItem(k) } catch {}
 }
 
-/** Card com motionValue pr�prio */
+/** Card com motionValue prï¿½prio */
 const SwipeCard = forwardRef<SwipeCardHandle, {
   movie: Movie
   details?: MovieDetails
@@ -1370,7 +1387,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   ref
 ) {
   const x = useMotionValue(0)
-  // rota��o sutil s� durante o arrasto
+  // rotaï¿½ï¿½o sutil sï¿½ durante o arrasto
   const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
   const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
@@ -1397,7 +1414,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      // sem �balan�o�: s� um fade curtinho ao montar
+      // sem ï¿½balanï¿½oï¿½: sï¿½ um fade curtinho ao montar
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.12 }}
@@ -1448,9 +1465,9 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
         </motion.div>
       </div>
 
-      {/* Conte�do: p�ster ocupa 1fr; meta abaixo (auto) */}
+      {/* Conteï¿½do: pï¿½ster ocupa 1fr; meta abaixo (auto) */}
       <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        {/* P�ster / Carousel */}
+        {/* Pï¿½ster / Carousel */}
         <div className="relative min-h-0 h-full">
           <MovieCarousel
             title={movie.title}
@@ -1463,18 +1480,18 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
 
         {/* Meta abaixo */}
         <div className="text-white shrink-0 select-text" data-interactive="true">
-          {/* linha 1: t�tulo + nota */}
+          {/* linha 1: tï¿½tulo + nota */}
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
               {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
             </h3>
             <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '�'}</span>
+              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : 'ï¿½'}</span>
             </div>
           </div>
 
-          {/* linha 2: g�neros */}
+          {/* linha 2: gï¿½neros */}
           {details?.genres?.length ? (
             <div className="mt-1 flex flex-wrap gap-1">
               {details.genres.slice(0, 3).map(g => (
@@ -1483,11 +1500,11 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
             </div>
           ) : null}
 
-          {/* linha 3: classifica��o indicativa */}
+          {/* linha 3: classificaï¿½ï¿½o indicativa */}
           <div className="mt-1">
-            <span className="text-[11px] text-white/70 mr-1.5">Classifica��o:</span>
+            <span className="text-[11px] text-white/70 mr-1.5">Classificaï¿½ï¿½o:</span>
             <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-              {details?.age_rating?.trim() || '�'}
+              {details?.age_rating?.trim() || 'ï¿½'}
             </span>
           </div>
         </div>
@@ -1495,6 +1512,15 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
     </motion.div>
   )
 })
+
+
+
+
+
+
+
+
+
 
 
 
