@@ -39,7 +39,7 @@ const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
 // mais tempo pro ï¿½exitï¿½ terminar antes de liberar clique
-const EXIT_DURATION_MS = 400
+const EXIT_DURATION_MS = 399
 
 // animaï¿½ï¿½o do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
