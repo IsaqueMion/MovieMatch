@@ -1,4 +1,4 @@
-// src/pages/Swipe.tsx
+﻿// src/pages/Swipe.tsx
 import type React from 'react'
 import {
   useEffect,
@@ -194,7 +194,6 @@ export default function Swipe() {
   const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
   const lastSeenMatchAt = useMemo(() => (LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0), [LS_KEY])
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
-
   const current = movies[i]
 
   const filtersCount =
@@ -652,6 +651,7 @@ export default function Swipe() {
             <Link
               to={`/s/${code}/matches`}
               onClick={() => { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) }}
+              data-new-match={hasNewMatch ? '1' : undefined}
               title="Ver matches"
               className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
             >
