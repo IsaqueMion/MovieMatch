@@ -492,12 +492,14 @@ export default function Swipe() {
     } finally { setLoadingMore(false) }
   }, [i, movies.length, sessionId, filters, loadingMore, loadPage, page])
 
-  const react = useCallback(async (value: 1 | -1) => {
+  const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
     if (!sessionId || !userId || !current) return
     if (clickGuardRef.current || busy) return
 
-    // anima o card saindo devagar (mesma animação do drag)
-    cardRef.current?.swipe(value)
+    if (!options?.skipAnimation) {
+      // anima o card saindo devagar (mesma animação do drag)
+      cardRef.current?.swipe(value)
+    }
 
     clickGuardRef.current = true
     setBusy(true)
@@ -686,7 +688,7 @@ export default function Swipe() {
                     movie={current}
                     details={det}
                     onDragState={setDragging}
-                    onDecision={(v) => react(v)}
+                    onDecision={(v) => react(v, { skipAnimation: true })}
                   />
                 ) : (
                   <motion.div key="empty" className="h-full grid place-items-center text-white/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
