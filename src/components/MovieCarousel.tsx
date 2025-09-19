@@ -215,6 +215,7 @@ function PosterResponsive({
           fetchPriority="high"
           decoding="async"
           draggable={false}
+          style={{ pointerEvents: 'none' }}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
         />

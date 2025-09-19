@@ -1442,6 +1442,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   // controla quando o drag pode iniciar
   const dragControls = useDragControls()
   function handlePointerDown(e: React.PointerEvent) {
+    e.preventDefault()
     const target = e.target as HTMLElement
     if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
     dragControls.start(e)
