@@ -761,21 +761,21 @@ function Swipe() {
   const voteCountMinLocal = filters.voteCountMin ?? 0
   const ratingMinLocal = filters.ratingMin ?? 0
 
-  const yearPresets = useMemo(() => [
+  const yearPresets = [
     { label: 'Clássicos', range: [1950, 1979] },
     { label: 'Anos 90', range: [1990, 1999] },
     { label: '2000+', range: [2000, currentYear] },
     { label: 'Últimos 5 anos', range: [Math.max(1900, currentYear - 5), currentYear] },
-  ], [currentYear])
+  ]
 
-  const runtimePresets = useMemo(() => [
+  const runtimePresets = [
     { label: '≤ 100 min', range: [40, 100] },
     { label: '100–140 min', range: [100, 140] },
     { label: '≥ 140 min', range: [140, 300] },
-  ], [])
+  ]
 
-  const voteCountPresets = useMemo(() => [0, 50, 100, 250, 500, 1000], [])
-  const ratingPresets = useMemo(() => [0, 6, 7, 8], [])
+  const voteCountPresets = [0, 50, 100, 250, 500, 1000]
+  const ratingPresets = [0, 6, 7, 8]
 
   return (
     <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
