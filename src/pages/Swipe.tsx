@@ -1244,7 +1244,7 @@ const confirmAdult = async (birthdateISO?: string) => {
                           const wantAdult = e.target.checked
                           if (wantAdult) {
                             if (!isAdult) {
-                              // garante que NÃO fica ativo antes de verificar
+                              // NÃO deixa ativar antes de validar
                               setFilters(f => ({ ...f, includeAdult: false }))
                               setShowAgeGate(true)
                               return
