@@ -692,32 +692,48 @@ function Swipe() {
     catch { toast('Copie o link:', { description: invite }) }
   }
 
-  // aceita birthdate opcional — se vier, valida 18+
-  const confirmAdult = async (birthdateISO?: string) => {
-    if (birthdateISO) {
-      const age = calcAge(birthdateISO)
-      if (age < 18) {
-        toast.error('Você precisa ter 18+ para ver esse conteúdo.')
-        setShowAgeGate(false)
-        setFilters(f => ({ ...f, includeAdult: false }))
-        return
-      }
-    }
-    if (!userId) {
-      setIsAdult(true)
-      setFilters(f => ({ ...f, includeAdult: true }))
-      setShowAgeGate(false)
+  // aceita birthdate obrigatório — sem data não libera adulto
+const confirmAdult = async (birthdateISO?: string) => {
+    // 1) Sem data -> não permite ativar
+    if (!birthdateISO) {
+      toast.error('Informe sua data de nascimento para ativar conteúdo adulto.')
+      setIsAdult(false)
+      setFilters(f => ({ ...f, includeAdult: false }))
+      setShowAgeGate(true) // mantém o modal aberto
       return
     }
+
+    // 2) Valida idade
+    const age = calcAge(birthdateISO)
+    if (age < 18) {
+      toast.error('Você precisa ter 18+ para ver esse conteúdo.')
+      setIsAdult(false)
+      setFilters(f => ({ ...f, includeAdult: false }))
+      setShowAgeGate(false) // fecha o modal
+      return
+    }
+
+    // 3) Marca como adulto (com data)
     try {
-      await supabase.from('users').update({ is_adult: true, ...(birthdateISO ? { birthdate: birthdateISO } : {}) }).eq('id', userId)
-      try { localStorage.setItem('mm:isAdult', '1') } catch {}
+      if (userId) {
+        await supabase
+          .from('users')
+          .update({ is_adult: true, birthdate: birthdateISO })
+          .eq('id', userId)
+      } else {
+        // fallback local se ainda não houver userId (ainda assim exige a data)
+        try { localStorage.setItem('mm:isAdult', '1') } catch {}
+      }
+
       setIsAdult(true)
       setFilters(f => ({ ...f, includeAdult: true }))
       setShowAgeGate(false)
       toast.success('Verificação concluída. Conteúdo adulto ativado.')
     } catch (e: any) {
       toast.error(`Falha ao confirmar maioridade: ${e?.message ?? e}`)
+      setIsAdult(false)
+      setFilters(f => ({ ...f, includeAdult: false }))
+      setShowAgeGate(true)
     }
   }
 
@@ -1227,7 +1243,12 @@ function Swipe() {
                         onChange={(e) => {
                           const wantAdult = e.target.checked
                           if (wantAdult) {
-                            if (!isAdult) { setShowAgeGate(true); return }
+                            if (!isAdult) {
+                              // garante que NÃO fica ativo antes de verificar
+                              setFilters(f => ({ ...f, includeAdult: false }))
+                              setShowAgeGate(true)
+                              return
+                            }
                             setFilters(f => ({ ...f, includeAdult: true }))
                           } else {
                             setFilters(f => ({ ...f, includeAdult: false }))
