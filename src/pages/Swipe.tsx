@@ -1,5 +1,5 @@
 ﻿// src/pages/Swipe.tsx
-import type React from 'react'
+import React, { type ReactNode } from 'react'
 import {
   useEffect,
   useRef,
@@ -1567,13 +1567,17 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   )
 })
 // === ErrorBoundary local p/ esta página ===
-class PageErrorBoundary extends (React as any).Component<{ children: React.ReactNode }, { error?: any }> {
-  constructor(props: any) {
+class PageErrorBoundary extends React.Component<{ children: ReactNode }, { error?: any }> {
+  constructor(props: { children: ReactNode }) {
     super(props)
     this.state = { error: undefined }
   }
-  static getDerivedStateFromError(error: any) { return { error } }
-  componentDidCatch(error: any, info: any) { console.error('Render error (Swipe):', error, info) }
+  static getDerivedStateFromError(error: any) {
+    return { error }
+  }
+  componentDidCatch(error: any, info: any) {
+    console.error('Render error (Swipe):', error, info)
+  }
   render() {
     if (this.state.error) {
       return (
@@ -1588,7 +1592,7 @@ class PageErrorBoundary extends (React as any).Component<{ children: React.React
         </main>
       )
     }
-    return this.props.children as any
+    return this.props.children
   }
 }
 
