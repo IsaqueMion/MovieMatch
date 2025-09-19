@@ -358,7 +358,7 @@ function Swipe() {
     setMovies([]); setI(0); setPage(1)
     seenRef.current.clear()
     try {
-      const target = resume ? loadProgress(sid, effective) : 0
+      const target = resume ? loadProgress(sid, userIdRef.current, effective) : 0
       let acc = 0
       let pageToLoad = 1
       let anyAdded = false
@@ -655,7 +655,7 @@ function Swipe() {
           }
 
           setFilters(f)
-          clearProgress(sessionId, f)
+          clearProgress(sessionId, userIdRef.current, f)
           resetAndLoad(false, f, sessionId)
         } catch (e) {
           console.error('erro ao aplicar filtros via broadcast:', e)
@@ -690,7 +690,7 @@ function Swipe() {
     const nextIndex = i + 1
     if (nextIndex < movies.length) {
       setI(nextIndex)
-      saveProgress(sessionId, filters, nextIndex)
+      saveProgress(sessionId, userIdRef.current, filters, nextIndex)
       return
     }
     if (loadingMore) return
@@ -702,7 +702,7 @@ function Swipe() {
       if (added > 0) {
         const newIndex = movies.length
         setI(newIndex)
-        saveProgress(sessionId, filters, newIndex)
+        saveProgress(sessionId, userIdRef.current, filters, newIndex)
       }
     } finally { setLoadingMore(false) }
   }, [i, movies.length, sessionId, filters, loadingMore, loadPage, page])
@@ -767,7 +767,7 @@ function Swipe() {
     if (!last) return
     setBusy(true)
     try {
-      setI(idx => { const v = Math.max(0, idx - 1); saveProgress(sessionId, filters, v); return v })
+      setI(idx => { const v = Math.max(0, idx - 1); saveProgress(sessionId, userIdRef.current, filters, v); return v })
       const { error } = await supabase
         .from('reactions')
         .delete()
@@ -1478,7 +1478,7 @@ const confirmAdult = async (birthdateISO?: string) => {
                           }
                         } catch {}
                       }
-                      clearProgress(sessionId, fSnap)
+                      clearProgress(sessionId, userIdRef.current, fSnap)
                       await resetAndLoad(false, fSnap, sessionId)
                     }}
                   >
@@ -1558,21 +1558,21 @@ function calcAge(birthdateISO: string): number {
 function filtersSig(f: DiscoverFilters) {
   return [(f.genres ?? []).join(','), f.yearMin ?? '', f.yearMax ?? '', f.ratingMin ?? '', f.language ?? '', f.sortBy ?? ''].join('|')
 }
-function progressKey(sessionId: string | null, f: DiscoverFilters) {
-  return sessionId ? `mm_prog:v1:${sessionId}:${filtersSig(f)}` : ''
+function progressKey(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
+  return sessionId && userId ? `mm_prog:v2:${sessionId}:${userId}:${filtersSig(f)}` : ''
 }
-function saveProgress(sessionId: string | null, f: DiscoverFilters, idx: number) {
-  try { const k = progressKey(sessionId, f); if (!k) return; localStorage.setItem(k, JSON.stringify({ i: idx })) } catch {}
+function saveProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters, idx: number) {
+  try { const k = progressKey(sessionId, userId, f); if (!k) return; localStorage.setItem(k, JSON.stringify({ i: idx })) } catch {}
 }
-function loadProgress(sessionId: string | null, f: DiscoverFilters): number {
+function loadProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters): number {
   try {
-    const k = progressKey(sessionId, f); if (!k) return 0
+    const k = progressKey(sessionId, userId, f); if (!k) return 0
     const raw = localStorage.getItem(k); if (!raw) return 0
     const obj = JSON.parse(raw); return Number.isFinite(obj?.i) ? obj.i : 0
   } catch { return 0 }
 }
-function clearProgress(sessionId: string | null, f: DiscoverFilters) {
-  try { const k = progressKey(sessionId, f); if (k) localStorage.removeItem(k) } catch {}
+function clearProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
+  try { const k = progressKey(sessionId, userId, f); if (k) localStorage.removeItem(k) } catch {}
 }
 
 /** Card com motionValue próprio */
