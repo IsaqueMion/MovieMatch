@@ -13,7 +13,7 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
   const [touched, setTouched] = useState(false)
 
   const age = birthdate ? calcAge(birthdate) : null
-  const valid = !!birthdate && age !== null && age >= 18
+  const valid = !!birthdate && age !== null && age >= 18 && age <= 120
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -32,6 +32,7 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
             onChange={(e) => setBirthdate(e.target.value)}
             onBlur={() => setTouched(true)}
             className="mt-1 w-full rounded-md bg-white/10 px-2 py-1 text-white outline-none focus:ring-2 focus:ring-emerald-500"
+            min="1900-01-01"
             max={todayISO()}
           />
         </label>
@@ -71,7 +72,9 @@ function calcAge(birthISO: string): number {
 
 function todayISO(): string {
   const d = new Date()
+  d.setFullYear(d.getFullYear() - 18) // máximo permitido = hoje - 18 anos
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${d.getFullYear()}-${mm}-${dd}`
 }
+
