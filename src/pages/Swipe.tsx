@@ -1580,13 +1580,19 @@ class PageErrorBoundary extends React.Component<{ children: ReactNode }, { error
   componentDidCatch(error: any, info: any) {
     console.error('Render error (Swipe):', error, info)
   }
+    private toMessage(e: unknown): string {
+    if (typeof e === 'object' && e && 'message' in (e as any)) return String((e as any).message)
+    try { return JSON.stringify(e) } catch { /* noop */ }
+    return String(e)
+  }
+
   render() {
     if (this.state.error) {
       return (
         <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
           <div className="max-w-md text-center">
             <h2 className="text-lg font-semibold mb-2">Ops! Algo quebrou.</h2>
-            <p className="text-white/80 mb-4">{String(this.state.error?.message ?? this.state.error)}</p>
+            <p className="text-white/80 mb-4">{this.toMessage(this.state.error)}</p>
             <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => location.reload()}>
               Recarregar
             </button>
