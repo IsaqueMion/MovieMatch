@@ -294,7 +294,10 @@ function Swipe() {
       const data = await discoverMovies({ page: pageToLoad, filters: f })
       if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
 
-      const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id) && !reactedTmdbRef.current.has(m.tmdb_id))
+      const unique = (data?.results ?? []).filter((m: Movie) => {
+        const tmdb = Number(m.tmdb_id)
+        return !seenRef.current.has(m.movie_id) && !reactedTmdbRef.current.has(tmdb)
+      })
       unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
       if (unique.length > 0) {
         setMovies(prev => [...prev, ...unique])
@@ -585,48 +588,43 @@ function Swipe() {
     return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
   }, [sessionId, userId, displayName])
 
-  // realtime de filtros — replica pra todos
+  // broadcast de filtros — replica para todos, mesmo sem realtime na tabela
   useEffect(() => {
     if (!sessionId) return
     const ch = supabase
-      .channel(`filters-${sessionId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'session_filters', filter: `session_id=eq.${sessionId}` },
-        (payload) => {
-          try {
-            const row = (payload.new || payload.old) as any
-            if (!row) return
+      .channel(`filtersbus-${sessionId}`)
+      .on('broadcast', { event: 'filters_update' }, (payload: any) => {
+        try {
+          const row = payload?.payload || {}
+          // se fui eu quem enviou, ignora para evitar loop
+          if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
 
-            // se quem atualizou fui eu, ignora (evita loop local)
-            if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
-
-            const f: DiscoverFilters = {
-              genres: row.genres ?? [],
-              excludeGenres: row.exclude_genres ?? [],
-              yearMin: row.year_min ?? 1990,
-              yearMax: row.year_max ?? new Date().getFullYear(),
-              ratingMin: typeof row.rating_min === 'number' ? Number(row.rating_min) : 0,
-              voteCountMin: typeof row.vote_count_min === 'number' ? Number(row.vote_count_min) : 0,
-              runtimeMin: typeof row.runtime_min === 'number' ? Number(row.runtime_min) : 60,
-              runtimeMax: typeof row.runtime_max === 'number' ? Number(row.runtime_max) : 220,
-              language: row.language ?? '',
-              sortBy: row.sort_by ?? 'popularity.desc',
-              includeAdult: !!row.include_adult,
-              providers: Array.isArray(row.providers) ? row.providers : [],
-              watchRegion: row.watch_region ?? 'BR',
-              monetization: Array.isArray(row.monetization) ? row.monetization : ['flatrate'],
-            }
-
-            setFilters(f)
-            clearProgress(sessionId, f)
-            resetAndLoad(false, f, sessionId)
-          } catch (e) {
-            console.error('erro ao aplicar filtros realtime:', e)
+          const f: DiscoverFilters = {
+            genres: row.genres ?? [],
+            excludeGenres: row.exclude_genres ?? [],
+            yearMin: row.yearMin ?? row.year_min ?? 1990,
+            yearMax: row.yearMax ?? row.year_max ?? new Date().getFullYear(),
+            ratingMin: typeof row.ratingMin === 'number' ? row.ratingMin : (typeof row.rating_min === 'number' ? row.rating_min : 0),
+            voteCountMin: typeof row.voteCountMin === 'number' ? row.voteCountMin : (typeof row.vote_count_min === 'number' ? row.vote_count_min : 0),
+            runtimeMin: typeof row.runtimeMin === 'number' ? row.runtimeMin : (typeof row.runtime_min === 'number' ? row.runtime_min : 60),
+            runtimeMax: typeof row.runtimeMax === 'number' ? row.runtimeMax : (typeof row.runtime_max === 'number' ? row.runtime_max : 220),
+            language: row.language ?? '',
+            sortBy: row.sortBy ?? row.sort_by ?? 'popularity.desc',
+            includeAdult: !!row.includeAdult ?? !!row.include_adult,
+            providers: Array.isArray(row.providers) ? row.providers : [],
+            watchRegion: row.watchRegion ?? row.watch_region ?? 'BR',
+            monetization: Array.isArray(row.monetization) ? row.monetization : ['flatrate'],
           }
+
+          setFilters(f)
+          clearProgress(sessionId, f)
+          resetAndLoad(false, f, sessionId)
+        } catch (e) {
+          console.error('erro ao aplicar filtros via broadcast:', e)
         }
-      )
+      })
       .subscribe()
+
     return () => { try { supabase.removeChannel(ch) } catch {} }
   }, [sessionId, userId, resetAndLoad])
 
@@ -704,7 +702,7 @@ function Swipe() {
       if (rxErr) throw rxErr
 
       historyRef.current.push(movieId)
-      reactedTmdbRef.current.add(current.tmdb_id)
+      reactedTmdbRef.current.add(Number(current.tmdb_id))
 
     } catch (e: any) {
       console.error('reactions upsert error:', e)
@@ -737,7 +735,7 @@ function Swipe() {
           .select('tmdb_id')
           .eq('id', last)
           .maybeSingle()
-        if (mv?.tmdb_id) reactedTmdbRef.current.delete(Number(mv.tmdb_id))
+        if (mv?.tmdb_id != null) reactedTmdbRef.current.delete(Number(mv.tmdb_id))
       } catch {}
       setUndoMsg('Último swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
@@ -1422,6 +1420,16 @@ const confirmAdult = async (birthdateISO?: string) => {
                             ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
                             ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
                           }, { onConflict: 'session_id' })
+                          // broadcast p/ todos os membros da sessão
+                          try {
+                            const bus = supabase.channel(`filtersbus-${sessionId}`)
+                            await bus.send({
+                              type: 'broadcast',
+                              event: 'filters_update',
+                              payload: { ...fSnap, updated_by: userId },
+                            })
+                            supabase.removeChannel(bus)
+                          } catch (e) { console.warn('broadcast filtros falhou', e) }
                         } catch {}
                       }
                       clearProgress(sessionId, fSnap)
