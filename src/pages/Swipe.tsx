@@ -38,17 +38,17 @@ const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
-// mais tempo pro ï¿½exitï¿½ terminar antes de liberar clique
+// mais tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 399
 
-// animaï¿½ï¿½o do swipe: tween (sem molinha), lenta e suave
+// animação do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
   type: 'tween' as const,
   duration: 0.45,
   ease: 'easeOut' as const,
 }
 
-// animaï¿½ï¿½o de ï¿½voltar ao centroï¿½ quando nï¿½o passa do limiar
+// animação de voltar ao centro quando não passa do limiar
 const TWEEN_SNAP = {
   type: 'tween' as const,
   duration: 0.38,
@@ -57,13 +57,13 @@ const TWEEN_SNAP = {
 
 type OnlineUser = { id: string; name: string }
 
-// handle exposto pelo card para swipe imperativo (botï¿½es/teclas)
+// handle exposto pelo card para swipe imperativo (botões/teclas)
 export type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
 
 function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
-  const base = 'rounded-full px-3 py-1 text-xs font-medium transition';
-  const selected = 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25';
-  const idle = 'bg-white/10 text-white/80 hover:bg-white/15';
+  const base = 'rounded-full px-3 py-1 text-xs font-medium transition'
+  const selected = 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+  const idle = 'bg-white/10 text-white/80 hover:bg-white/15'
   return (
     <button type="button" onClick={onClick} className={`${base} ${active ? selected : idle}`}>
       {children}
@@ -132,15 +132,25 @@ function NumberField({ label, value, min, max, step = 1, suffix, onChange }: Num
   )
 }
 
-
-
 const GENRES = [
-  { id: 28, name: 'Aï¿½ï¿½o' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animaï¿½ï¿½o' },
-  { id: 35, name: 'Comï¿½dia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentï¿½rio' },
-  { id: 18, name: 'Drama' }, { id: 10751, name: 'Famï¿½lia' }, { id: 14, name: 'Fantasia' },
-  { id: 36, name: 'Histï¿½ria' }, { id: 27, name: 'Terror' }, { id: 10402, name: 'Mï¿½sica' },
-  { id: 9648, name: 'Mistï¿½rio' }, { id: 10749, name: 'Romance' }, { id: 878, name: 'Ficï¿½ï¿½o cientï¿½fica' },
-  { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
+  { id: 28, name: 'Ação' },
+  { id: 12, name: 'Aventura' },
+  { id: 16, name: 'Animação' },
+  { id: 35, name: 'Comédia' },
+  { id: 80, name: 'Crime' },
+  { id: 99, name: 'Documentário' },
+  { id: 18, name: 'Drama' },
+  { id: 10751, name: 'Família' },
+  { id: 14, name: 'Fantasia' },
+  { id: 36, name: 'História' },
+  { id: 27, name: 'Terror' },
+  { id: 10402, name: 'Música' },
+  { id: 9648, name: 'Mistério' },
+  { id: 10749, name: 'Romance' },
+  { id: 878, name: 'Ficção científica' },
+  { id: 10770, name: 'TV Movie' },
+  { id: 53, name: 'Thriller' },
+  { id: 10752, name: 'Guerra' },
   { id: 37, name: 'Faroeste' },
 ]
 
@@ -158,16 +168,36 @@ const PROVIDERS_BR = [
 
 const LANGUAGES = [
   { value: '',  label: 'Qualquer' },
-  { value: 'pt', label: 'Portuguï¿½s' }, { value: 'en', label: 'Inglï¿½s' }, { value: 'es', label: 'Espanhol' },
-  { value: 'fr', label: 'Francï¿½s' },   { value: 'de', label: 'Alemï¿½o' },  { value: 'it', label: 'Italiano' },
-  { value: 'ja', label: 'Japonï¿½s' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chinï¿½s' },
-  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: 'ï¿½rabe' },
-  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holandï¿½s' },{ value: 'sv', label: 'Sueco' },
-  { value: 'no', label: 'Norueguï¿½s' }, { value: 'fi', label: 'Finlandï¿½s'},{ value: 'da', label: 'Dinamarquï¿½s' },
-  { value: 'pl', label: 'Polonï¿½s' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
-  { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
-  { value: 'th', label: 'Tailandï¿½s' }, { value: 'id', label: 'Indonï¿½sio'},{ value: 'vi', label: 'Vietnamita' },
-  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tï¿½mil' },   { value: 'fa', label: 'Persa' },
+  { value: 'pt', label: 'Português' },
+  { value: 'en', label: 'Inglês' },
+  { value: 'es', label: 'Espanhol' },
+  { value: 'fr', label: 'Francês' },
+  { value: 'de', label: 'Alemão' },
+  { value: 'it', label: 'Italiano' },
+  { value: 'ja', label: 'Japonês' },
+  { value: 'ko', label: 'Coreano' },
+  { value: 'zh', label: 'Chinês' },
+  { value: 'ru', label: 'Russo' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'ar', label: 'Árabe' },
+  { value: 'tr', label: 'Turco' },
+  { value: 'nl', label: 'Holandês' },
+  { value: 'sv', label: 'Sueco' },
+  { value: 'no', label: 'Norueguês' },
+  { value: 'fi', label: 'Finlandês' },
+  { value: 'da', label: 'Dinamarquês' },
+  { value: 'pl', label: 'Polonês' },
+  { value: 'cs', label: 'Tcheco' },
+  { value: 'uk', label: 'Ucraniano' },
+  { value: 'ro', label: 'Romeno' },
+  { value: 'el', label: 'Grego' },
+  { value: 'he', label: 'Hebraico' },
+  { value: 'th', label: 'Tailandês' },
+  { value: 'id', label: 'Indonésio' },
+  { value: 'vi', label: 'Vietnamita' },
+  { value: 'ms', label: 'Malaio' },
+  { value: 'ta', label: 'Tâmil' },
+  { value: 'fa', label: 'Persa' },
 ]
 
 const REGIONS = [
@@ -176,28 +206,28 @@ const REGIONS = [
   { value: 'GB', label: 'Reino Unido (GB)' },
   { value: 'PT', label: 'Portugal (PT)' },
   { value: 'ES', label: 'Espanha (ES)' },
-  { value: 'FR', label: 'Franï¿½a (FR)' },
+  { value: 'FR', label: 'França (FR)' },
   { value: 'DE', label: 'Alemanha (DE)' },
-  { value: 'IT', label: 'Itï¿½lia (IT)' },
-  { value: 'JP', label: 'Japï¿½o (JP)' },
+  { value: 'IT', label: 'Itália (IT)' },
+  { value: 'JP', label: 'Japão (JP)' },
   { value: 'KR', label: 'Coreia do Sul (KR)' },
   { value: 'AR', label: 'Argentina (AR)' },
-  { value: 'MX', label: 'Mï¿½xico (MX)' },
+  { value: 'MX', label: 'México (MX)' },
 ]
 
 const SORT_OPTIONS = [
-  { value: 'popularity.desc',           label: 'Popularidade (?)' },
-  { value: 'popularity.asc',            label: 'Popularidade (?)' },
-  { value: 'vote_average.desc',         label: 'Nota (?)' },
-  { value: 'vote_average.asc',          label: 'Nota (?)' },
-  { value: 'vote_count.desc',           label: 'Votos (?)' },
-  { value: 'vote_count.asc',            label: 'Votos (?)' },
-  { value: 'primary_release_date.desc', label: 'Lanï¿½amento (recente)' },
-  { value: 'primary_release_date.asc',  label: 'Lanï¿½amento (antigo)' },
-  { value: 'revenue.desc',              label: 'Bilheteria (?)' },
-  { value: 'revenue.asc',               label: 'Bilheteria (?)' },
-  { value: 'original_title.asc',        label: 'Tï¿½tulo A?Z' },
-  { value: 'original_title.desc',       label: 'Tï¿½tulo Z?A' },
+  { value: 'popularity.desc',           label: 'Popularidade (↓)' },
+  { value: 'popularity.asc',            label: 'Popularidade (↑)' },
+  { value: 'vote_average.desc',         label: 'Nota (↓)' },
+  { value: 'vote_average.asc',          label: 'Nota (↑)' },
+  { value: 'vote_count.desc',           label: 'Votos (↓)' },
+  { value: 'vote_count.asc',            label: 'Votos (↑)' },
+  { value: 'primary_release_date.desc', label: 'Lançamento (recente)' },
+  { value: 'primary_release_date.asc',  label: 'Lançamento (antigo)' },
+  { value: 'revenue.desc',              label: 'Bilheteria (↓)' },
+  { value: 'revenue.asc',               label: 'Bilheteria (↑)' },
+  { value: 'original_title.asc',        label: 'Título A→Z' },
+  { value: 'original_title.desc',       label: 'Título Z→A' },
 ]
 
 export default function Swipe() {
@@ -213,8 +243,9 @@ export default function Swipe() {
   const [discoverHint, setDiscoverHint] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [fatalError, setFatalError] = useState<string | null>(null)
 
-  // sessï¿½o/usuï¿½rio
+  // sessão/usuário
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [displayName] = useState('Guest')
@@ -226,7 +257,7 @@ export default function Swipe() {
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
 
-  // histï¿½rico p/ UNDO (guarda movie.id real)
+  // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
 
   // banner UNDO
@@ -235,13 +266,13 @@ export default function Swipe() {
   // modal de match
   const [matchModal, setMatchModal] = useState<{ title: string; poster_url: string | null; year?: number | null } | null>(null)
 
-  // guard para clicks rï¿½pidos
+  // guard para clicks rápidos
   const clickGuardRef = useRef(false)
 
-  // presenï¿½a
+  // presença
   const [online, setOnline] = useState<OnlineUser[]>([])
 
-  // ?? filtros
+  // filtros
   const currentYear = new Date().getFullYear()
   const DEFAULT_FILTERS: DiscoverFilters = {
     genres: [],
@@ -263,15 +294,16 @@ export default function Swipe() {
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
   const [openFilters, setOpenFilters] = useState(false)
 
-  // verificaï¿½ï¿½o de idade
+  // verificação de idade
   const [isAdult, setIsAdult] = useState(false)
   const [showAgeGate, setShowAgeGate] = useState(false)
 
-  // ï¿½novo matchï¿½ (badge na estrela)
+  // “novo match” (badge na estrela)
   const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
   const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
   const lastSeenMatchAt = useMemo(() => (LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0), [LS_KEY])
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
+
   const current = movies[i]
 
   const filtersCount =
@@ -333,7 +365,11 @@ export default function Swipe() {
   useEffect(() => {
     (async () => {
       try {
-        if (!code) return
+        if (!code) {
+          setFatalError('Código da sessão ausente ou inválido.')
+          setLoading(false)
+          return
+        }
         let { data: userData } = await supabase.auth.getUser()
         if (!userData?.user) {
           const { data: auth, error: authErr } = await supabase.auth.signInAnonymously()
@@ -345,7 +381,7 @@ export default function Swipe() {
 
         await supabase.from('users').upsert({ id: uid, display_name: displayName })
 
-        // ler se jï¿½ ï¿½ adulto
+        // ler se já é adulto
         const { data: prof } = await supabase
           .from('users')
           .select('is_adult')
@@ -354,8 +390,10 @@ export default function Swipe() {
         setIsAdult(!!prof?.is_adult)
 
         const { data: sess, error: sessErr } = await supabase
-          .from('sessions').select('id, code').eq('code', code!.toUpperCase()).single()
+          .from('sessions').select('id, code').eq('code', code.toUpperCase()).single()
         if (sessErr) throw sessErr
+        if (!sess?.id) throw new Error('Sessão não encontrada.')
+
         setSessionId(sess.id)
 
         await supabase.from('session_members').upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
@@ -394,7 +432,9 @@ export default function Swipe() {
         await resetAndLoad(true, effectiveFilters, sess.id)
       } catch (e: any) {
         console.error(e)
-        toast.error(`Erro ao preparar a sessï¿½o: ${e.message ?? e}`)
+        const msg = e?.message ?? 'Erro desconhecido ao iniciar a sessão.'
+        setFatalError(msg)
+        toast.error(`Erro ao preparar a sessão: ${msg}`)
         setLoading(false)
       }
     })()
@@ -422,7 +462,7 @@ export default function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.tmdb_id])
 
-  // PREFETCH dos PRï¿½XIMOS
+  // PREFETCH dos PRÓXIMOS
   useEffect(() => {
     if (!movies.length) return
     const toPrefetch = [i + 1, i + 2]
@@ -483,34 +523,7 @@ export default function Swipe() {
     return () => { supabase.removeChannel(channel) }
   }, [sessionId])
 
-  // inicializa badge "novo match"
-  useEffect(() => {
-    if (!sessionId) return
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('reactions')
-        .select('movie_id, user_id, created_at')
-        .eq('session_id', sessionId)
-        .eq('value', 1)
-      if (error) return
-
-      const byMovie = new Map<number, { users: Set<string>, latest: number }>()
-      for (const r of (data ?? [])) {
-        const m = byMovie.get(r.movie_id) ?? { users: new Set<string>(), latest: 0 }
-        if (r.user_id) m.users.add(String(r.user_id))
-        const ts = r.created_at ? new Date(r.created_at as unknown as string).getTime() : 0
-        if (ts > m.latest) m.latest = ts
-        byMovie.set(r.movie_id, m)
-      }
-      let newest = 0
-      for (const m of byMovie.values()) {
-        if (m.users.size >= 2 && m.latest > newest) newest = m.latest
-      }
-      if (newest) setLatestMatchAt(newest)
-    })()
-  }, [sessionId])
-
-  // presenï¿½a
+  // presença
   useEffect(() => {
     if (!sessionId || !userId) return
     const ch = supabase.channel(`presence-${sessionId}`, { config: { presence: { key: userId } } })
@@ -539,10 +552,10 @@ export default function Swipe() {
     return () => clearTimeout(t)
   }, [matchModal])
 
-  // ===== animaï¿½ï¿½o imperativa p/ botï¿½es/teclas =====
+  // ===== animação imperativa p/ botões/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
 
-  // ============== FUNï¿½ï¿½ES ESTï¿½VEIS ==============
+  // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
     const nextIndex = i + 1
     if (nextIndex < movies.length) {
@@ -569,7 +582,7 @@ export default function Swipe() {
     if (clickGuardRef.current || busy) return
 
     if (!options?.skipAnimation) {
-      // anima o card saindo devagar (mesma animaï¿½ï¿½o do drag)
+      // anima o card saindo devagar (mesma animação do drag)
       cardRef.current?.swipe(value)
     }
 
@@ -607,9 +620,9 @@ export default function Swipe() {
       historyRef.current.push(movieId)
     } catch (e: any) {
       console.error('reactions upsert error:', e)
-      toast.error(`Erro ao salvar reaï¿½ï¿½o: ${e.message ?? e}`)
+      toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
     } finally {
-      // deixa 1 frame pra animaï¿½ï¿½o de exit engatar
+      // deixa 1 frame pra animação de exit engatar
       await new Promise(res => setTimeout(res, 16))
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
@@ -630,11 +643,11 @@ export default function Swipe() {
         .eq('user_id', userId)
         .eq('movie_id', last)
       if (error) throw error
-      setUndoMsg('ï¿½ltimo swipe desfeito')
+      setUndoMsg('Último swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
     } catch (e: any) {
       console.error(e)
-      toast.error(`Nï¿½o foi possï¿½vel desfazer: ${e.message ?? e}`)
+      toast.error(`Não foi possível desfazer: ${e.message ?? e}`)
     } finally { setBusy(false) }
   }, [sessionId, userId, busy, filters])
 
@@ -661,12 +674,12 @@ export default function Swipe() {
     catch { toast('Copie o link:', { description: invite }) }
   }
 
-  // aceita birthdate opcional ï¿½ se vier, valida 18+
+  // aceita birthdate opcional — se vier, valida 18+
   const confirmAdult = async (birthdateISO?: string) => {
     if (birthdateISO) {
       const age = calcAge(birthdateISO)
       if (age < 18) {
-        toast.error('Vocï¿½ precisa ter 18+ para ver esse conteï¿½do.')
+        toast.error('Você precisa ter 18+ para ver esse conteúdo.')
         setShowAgeGate(false)
         setFilters(f => ({ ...f, includeAdult: false }))
         return
@@ -684,7 +697,7 @@ export default function Swipe() {
       setIsAdult(true)
       setFilters(f => ({ ...f, includeAdult: true }))
       setShowAgeGate(false)
-      toast.success('Verificaï¿½ï¿½o concluï¿½da. Conteï¿½do adulto ativado.')
+      toast.success('Verificação concluída. Conteúdo adulto ativado.')
     } catch (e: any) {
       toast.error(`Falha ao confirmar maioridade: ${e?.message ?? e}`)
     }
@@ -695,10 +708,29 @@ export default function Swipe() {
     setFilters(f => ({ ...f, includeAdult: false }))
   }
 
+  // —— estados de carregamento / erro ——
   if (loading) {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-        <p className="text-white/90">Carregando sessï¿½oï¿½</p>
+        <p className="text-white/90">Carregando sessão…</p>
+        <Toaster richColors position="bottom-center" />
+      </main>
+    )
+  }
+
+  if (fatalError) {
+    return (
+      <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
+        <div className="max-w-md text-center">
+          <h2 className="text-lg font-semibold mb-2">Não foi possível iniciar a sessão</h2>
+          <p className="text-white/80 mb-4">{fatalError}</p>
+          <button
+            className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
+            onClick={() => window.location.reload()}
+          >
+            Tentar novamente
+          </button>
+        </div>
         <Toaster richColors position="bottom-center" />
       </main>
     )
@@ -720,12 +752,13 @@ export default function Swipe() {
 
   const runtimePresets = useMemo(() => [
     { label: '≤ 100 min', range: [40, 100] },
-    { label: '100-140 min', range: [100, 140] },
+    { label: '100–140 min', range: [100, 140] },
     { label: '≥ 140 min', range: [140, 300] },
   ], [])
 
   const voteCountPresets = useMemo(() => [0, 50, 100, 250, 500, 1000], [])
   const ratingPresets = useMemo(() => [0, 6, 7, 8], [])
+
   return (
     <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
       {/* Top bar (compacta) */}
@@ -733,7 +766,7 @@ export default function Swipe() {
         <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
           <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
             <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
-              Sessï¿½o <span className="font-semibold">{code}</span>
+              Sessão <span className="font-semibold">{code}</span>
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -788,9 +821,9 @@ export default function Swipe() {
                         <>
                           <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
                           {discoverHint === 'relax_providers' ? (
-                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catï¿½logos de streaming selecionados.</p>
+                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catálogos de streaming selecionados.</p>
                           ) : (
-                            <p className="text-white/60 mt-1">Tente relaxar alguns critï¿½rios ou limpar tudo.</p>
+                            <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
                           )}
                           <div className="mt-3 flex items-center justify-center gap-2">
                             <button
@@ -825,8 +858,8 @@ export default function Swipe() {
                         </>
                       ) : (
                         <>
-                          <p>Acabaram os filmes deste lote ??</p>
-                          {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmesï¿½</p> : null}
+                          <p>Acabaram os filmes deste lote 😉</p>
+                          {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
                         </>
                       )}
                     </div>
@@ -838,7 +871,7 @@ export default function Swipe() {
         </div>
       </div>
 
-      {/* Aï¿½ï¿½es */}
+      {/* Ações */}
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
         <div className="flex items-center justify-center gap-4 sm:gap-5">
           <motion.button
@@ -861,7 +894,7 @@ export default function Swipe() {
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             title="Desfazer (Backspace)"
           >
-            <Undo2 className="w-5 h-5 sm:w-6 h-6" />
+            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6" />
           </motion.button>
 
           <motion.button
@@ -908,7 +941,7 @@ export default function Swipe() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-xl font-semibold">Filtros</h3>
-                  <p className="text-white/70 text-sm">Refine as recomendaï¿½ï¿½es com mais controle.</p>
+                  <p className="text-white/70 text-sm">Refine as recomendações com mais controle.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -927,11 +960,11 @@ export default function Swipe() {
                 </div>
               </div>
 
-              {/* Grid de seï¿½ï¿½es */}
+              {/* Grid de seções */}
               <div className="space-y-4">
-                {/* Gï¿½neros incluir/excluir */}
+                {/* Gêneros incluir/excluir */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Gï¿½neros</h4>
+                  <h4 className="font-medium">Gêneros</h4>
                   <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Incluir */}
                     <div>
@@ -986,9 +1019,9 @@ export default function Swipe() {
                   </div>
                 </section>
 
-                {/* ======= Catï¿½logos de streaming ======= */}
+                {/* Catálogos de streaming */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Catï¿½logos de streaming</h4>
+                  <h4 className="font-medium">Catálogos de streaming</h4>
 
                   {/* Provedores */}
                   <div className="mt-3">
@@ -1017,18 +1050,18 @@ export default function Swipe() {
                       })}
                     </div>
                     <div className="text-xs text-white/60 mt-1">
-                      Dica: seleï¿½ï¿½o ï¿½ combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
+                      Dica: seleção é combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
                     </div>
                   </div>
 
-                  {/* Monetizaï¿½ï¿½o */}
+                  {/* Monetização */}
                   <div className="mt-4">
                     <div className="text-xs text-white/70 mb-1">Tipo de oferta</div>
                     <div className="flex flex-wrap gap-2 text-sm">
                       {[
                         { k: 'flatrate', label: 'Assinatura' },
                         { k: 'free',     label: 'Gratuito' },
-                        { k: 'ads',      label: 'Com anï¿½ncios' },
+                        { k: 'ads',      label: 'Com anúncios' },
                         { k: 'rent',     label: 'Aluguel' },
                         { k: 'buy',      label: 'Compra' },
                       ].map(({ k, label }) => {
@@ -1056,21 +1089,21 @@ export default function Swipe() {
                     </div>
                   </div>
 
-                  {/* Regiï¿½o */}
+                  {/* Região */}
                   <div className="mt-4">
-                    <label className="block text-sm mb-1">Regiï¿½o do catï¿½logo</label>
+                    <label className="block text-sm mb-1">Região do catálogo</label>
                     <Select
                       value={filters.watchRegion ?? 'BR'}
                       onChange={(v: string) => setFilters(f => ({ ...f, watchRegion: v }))}
                       options={REGIONS}
                     />
-                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por paï¿½s (ex.: BR para Brasil).</div>
+                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por país (ex.: BR para Brasil).</div>
                   </div>
                 </section>
 
-                {/* Ano + Duraï¿½ï¿½o + Popularidade + Adulto */}
+                {/* Ano + Duração + Popularidade + Adulto */}
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Perï¿½odo, duraï¿½ï¿½o e relevï¿½ncia</h4>
+                  <h4 className="font-medium">Período, duração e relevância</h4>
 
                   {/* Ano */}
                   <div className="mt-3">
@@ -1099,7 +1132,7 @@ export default function Swipe() {
                         onChange={(value) => setFilters(f => ({ ...f, yearMin: Math.min(value, f.yearMax ?? currentYear) }))}
                       />
                       <NumberField
-                        label="Atï¿½"
+                        label="Até"
                         value={yearMaxLocal}
                         min={yearMinLocal}
                         max={currentYear}
@@ -1108,10 +1141,11 @@ export default function Swipe() {
                       />
                     </div>
                   </div>
-                  {/* Duraï¿½ï¿½o */}
+
+                  {/* Duração */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Duraï¿½ï¿½o (minï¿½max, min)</span>
+                      <span className="text-sm">Duração (mín–máx, em min)</span>
                       <span className="text-xs text-white/70">
                         {runtimeMinLocal} - {runtimeMaxLocal} min
                       </span>
@@ -1129,7 +1163,7 @@ export default function Swipe() {
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <NumberField
-                        label="Mï¿½nimo"
+                        label="Mínimo"
                         value={runtimeMinLocal}
                         min={40}
                         max={runtimeMaxLocal}
@@ -1138,7 +1172,7 @@ export default function Swipe() {
                         onChange={(value) => setFilters(f => ({ ...f, runtimeMin: Math.min(value, f.runtimeMax ?? 300) }))}
                       />
                       <NumberField
-                        label="Mï¿½ximo"
+                        label="Máximo"
                         value={runtimeMaxLocal}
                         min={runtimeMinLocal}
                         max={300}
@@ -1148,10 +1182,11 @@ export default function Swipe() {
                       />
                     </div>
                   </div>
+
                   {/* Popularidade + Adulto */}
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm mb-1">Popularidade (mï¿½n. votos)</label>
+                      <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
                       <div className="flex flex-wrap gap-2">
                         {voteCountPresets.map((value) => (
                           <FilterChip
@@ -1159,7 +1194,7 @@ export default function Swipe() {
                             active={voteCountMinLocal === value}
                             onClick={() => setFilters(f => ({ ...f, voteCountMin: value }))}
                           >
-                            {value === 0 ? 'Sem mï¿½nimo' : value + '+'}
+                            {value === 0 ? 'Sem mínimo' : value + '+'}
                           </FilterChip>
                         ))}
                       </div>
@@ -1189,7 +1224,7 @@ export default function Swipe() {
                           }
                         }}
                       />
-                      Permitir conteï¿½do adulto
+                      Permitir conteúdo adulto
                     </label>
                   </div>
                 </section>
@@ -1199,7 +1234,7 @@ export default function Swipe() {
                   <h4 className="font-medium">Qualidade e idioma</h4>
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm mb-1">Nota mï¿½nima</label>
+                      <label className="block text-sm mb-1">Nota mínima</label>
                       <div className="flex flex-wrap gap-2">
                         {ratingPresets.map((value) => (
                           <FilterChip
@@ -1207,7 +1242,7 @@ export default function Swipe() {
                             active={Math.abs(ratingMinLocal - value) < 0.01}
                             onClick={() => setFilters(f => ({ ...f, ratingMin: value }))}
                           >
-                            {value === 0 ? 'Sem mï¿½nimo' : value.toString().replace('.', ',') + '+'}
+                            {value === 0 ? 'Sem mínimo' : value.toString().replace('.', ',') + '+'}
                           </FilterChip>
                         ))}
                       </div>
@@ -1334,7 +1369,7 @@ export default function Swipe() {
         )}
       </AnimatePresence>
 
-      {/* ï¿½NICA instï¿½ncia do AgeGateModal */}
+      {/* ÚNICA instância do AgeGateModal */}
       <AgeGateModal
         open={showAgeGate}
         onConfirm={confirmAdult}
@@ -1355,7 +1390,7 @@ function calcAge(birthdateISO: string): number {
   return age
 }
 
-/* ========= Persistï¿½ncia de progresso ========= */
+/* ========= Persistência de progresso ========= */
 function filtersSig(f: DiscoverFilters) {
   return [(f.genres ?? []).join(','), f.yearMin ?? '', f.yearMax ?? '', f.ratingMin ?? '', f.language ?? '', f.sortBy ?? ''].join('|')
 }
@@ -1376,7 +1411,7 @@ function clearProgress(sessionId: string | null, f: DiscoverFilters) {
   try { const k = progressKey(sessionId, f); if (k) localStorage.removeItem(k) } catch {}
 }
 
-/** Card com motionValue prï¿½prio */
+/** Card com motionValue próprio */
 const SwipeCard = forwardRef<SwipeCardHandle, {
   movie: Movie
   details?: MovieDetails
@@ -1387,7 +1422,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   ref
 ) {
   const x = useMotionValue(0)
-  // rotaï¿½ï¿½o sutil sï¿½ durante o arrasto
+  // rotação sutil só durante o arrasto
   const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
   const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
   const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
@@ -1401,6 +1436,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
     dragControls.start(e)
   }
 
+  // permite “swipe” imperativo (botões/teclas)
   useImperativeHandle(ref, () => ({
     swipe: (value: 1 | -1) => {
       const dir = value === 1 ? 1 : -1
@@ -1414,7 +1450,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   return (
     <motion.div
       className="h-full will-change-transform relative"
-      // sem ï¿½balanï¿½oï¿½: sï¿½ um fade curtinho ao montar
+      // sem balanço: só um fade curtinho ao montar
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.12 }}
@@ -1465,9 +1501,9 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
         </motion.div>
       </div>
 
-      {/* Conteï¿½do: pï¿½ster ocupa 1fr; meta abaixo (auto) */}
+      {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
       <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        {/* Pï¿½ster / Carousel */}
+        {/* Pôster / Carousel */}
         <div className="relative min-h-0 h-full">
           <MovieCarousel
             title={movie.title}
@@ -1480,18 +1516,18 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
 
         {/* Meta abaixo */}
         <div className="text-white shrink-0 select-text" data-interactive="true">
-          {/* linha 1: tï¿½tulo + nota */}
+          {/* linha 1: título + nota */}
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
               {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
             </h3>
             <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : 'ï¿½'}</span>
+              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
             </div>
           </div>
 
-          {/* linha 2: gï¿½neros */}
+          {/* linha 2: gêneros */}
           {details?.genres?.length ? (
             <div className="mt-1 flex flex-wrap gap-1">
               {details.genres.slice(0, 3).map(g => (
@@ -1500,11 +1536,11 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
             </div>
           ) : null}
 
-          {/* linha 3: classificaï¿½ï¿½o indicativa */}
+          {/* linha 3: classificação indicativa */}
           <div className="mt-1">
-            <span className="text-[11px] text-white/70 mr-1.5">Classificaï¿½ï¿½o:</span>
+            <span className="text-[11px] text-white/70 mr-1.5">Classificação:</span>
             <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-              {details?.age_rating?.trim() || 'ï¿½'}
+              {details?.age_rating?.trim() || '—'}
             </span>
           </div>
         </div>
@@ -1512,20 +1548,3 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
     </motion.div>
   )
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
