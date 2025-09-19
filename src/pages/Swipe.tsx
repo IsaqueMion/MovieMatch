@@ -225,6 +225,8 @@ function Swipe() {
   // aux
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
+  const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
+
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
@@ -292,7 +294,7 @@ function Swipe() {
       const data = await discoverMovies({ page: pageToLoad, filters: f })
       if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
 
-      const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
+      const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id) && !reactedTmdbRef.current.has(m.tmdb_id))
       unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
       if (unique.length > 0) {
         setMovies(prev => [...prev, ...unique])
@@ -411,6 +413,27 @@ function Swipe() {
         await supabase
           .from('session_members')
           .upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
+          // carrega filmes já swipados pelo usuário nesta sessão (para não reaparecerem)
+          try {
+            const { data: rxRows } = await supabase
+              .from('reactions')
+              .select('movie_id')
+              .eq('session_id', sess.id)
+              .eq('user_id', uid)
+
+            const ids = (rxRows ?? []).map(r => r.movie_id)
+            if (ids.length) {
+              const { data: mvRows } = await supabase
+                .from('movies')
+                .select('id, tmdb_id')
+                .in('id', ids)
+
+              reactedTmdbRef.current = new Set((mvRows ?? []).map(m => Number(m.tmdb_id)))
+            }
+          } catch (e) {
+            console.warn('falha ao carregar reações antigas:', e)
+          }
+
 
         // filtros salvos
         let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
@@ -562,6 +585,51 @@ function Swipe() {
     return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
   }, [sessionId, userId, displayName])
 
+  // realtime de filtros — replica pra todos
+  useEffect(() => {
+    if (!sessionId) return
+    const ch = supabase
+      .channel(`filters-${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'session_filters', filter: `session_id=eq.${sessionId}` },
+        (payload) => {
+          try {
+            const row = (payload.new || payload.old) as any
+            if (!row) return
+
+            // se quem atualizou fui eu, ignora (evita loop local)
+            if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
+
+            const f: DiscoverFilters = {
+              genres: row.genres ?? [],
+              excludeGenres: row.exclude_genres ?? [],
+              yearMin: row.year_min ?? 1990,
+              yearMax: row.year_max ?? new Date().getFullYear(),
+              ratingMin: typeof row.rating_min === 'number' ? Number(row.rating_min) : 0,
+              voteCountMin: typeof row.vote_count_min === 'number' ? Number(row.vote_count_min) : 0,
+              runtimeMin: typeof row.runtime_min === 'number' ? Number(row.runtime_min) : 60,
+              runtimeMax: typeof row.runtime_max === 'number' ? Number(row.runtime_max) : 220,
+              language: row.language ?? '',
+              sortBy: row.sort_by ?? 'popularity.desc',
+              includeAdult: !!row.include_adult,
+              providers: Array.isArray(row.providers) ? row.providers : [],
+              watchRegion: row.watch_region ?? 'BR',
+              monetization: Array.isArray(row.monetization) ? row.monetization : ['flatrate'],
+            }
+
+            setFilters(f)
+            clearProgress(sessionId, f)
+            resetAndLoad(false, f, sessionId)
+          } catch (e) {
+            console.error('erro ao aplicar filtros realtime:', e)
+          }
+        }
+      )
+      .subscribe()
+    return () => { try { supabase.removeChannel(ch) } catch {} }
+  }, [sessionId, userId, resetAndLoad])
+
   useEffect(() => {
     if (!matchModal) return
     const t = setTimeout(() => {
@@ -636,6 +704,8 @@ function Swipe() {
       if (rxErr) throw rxErr
 
       historyRef.current.push(movieId)
+      reactedTmdbRef.current.add(current.tmdb_id)
+
     } catch (e: any) {
       console.error('reactions upsert error:', e)
       toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
@@ -661,6 +731,14 @@ function Swipe() {
         .eq('user_id', userId)
         .eq('movie_id', last)
       if (error) throw error
+      try {
+        const { data: mv } = await supabase
+          .from('movies')
+          .select('tmdb_id')
+          .eq('id', last)
+          .maybeSingle()
+        if (mv?.tmdb_id) reactedTmdbRef.current.delete(Number(mv.tmdb_id))
+      } catch {}
       setUndoMsg('Último swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
     } catch (e: any) {
