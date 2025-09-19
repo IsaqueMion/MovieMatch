@@ -39,7 +39,7 @@ const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
 // tempo pro exit terminar antes de liberar clique
-const EXIT_DURATION_MS = 399
+const EXIT_DURATION_MS = 1250
 
 // animação do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
@@ -200,6 +200,7 @@ const SORT_OPTIONS = [
 
 export default function Swipe() {
   const { code } = useParams()
+  const bootVersionRef = useRef(0)
 
   // estado
   const [movies, setMovies] = useState<Movie[]>([])
@@ -308,6 +309,7 @@ export default function Swipe() {
   const resetAndLoad = useCallback(async (resume = false, f?: DiscoverFilters, sessionRef?: string | null) => {
     const effective = f ?? filters
     const sid = sessionRef ?? sessionId
+    const myVersion = bootVersionRef.current
     setLoading(true)
     setNoResults(false)
     setDiscoverHint(null)
@@ -320,7 +322,9 @@ export default function Swipe() {
       let anyAdded = false
 
       while (acc <= target) {
+        if (bootVersionRef.current !== myVersion) return
         const added = await loadPage(pageToLoad, effective)
+        if (bootVersionRef.current !== myVersion) return
         if (added > 0) {
           anyAdded = true
           acc += added
@@ -345,12 +349,15 @@ export default function Swipe() {
       console.error(e)
       toast.error(`Erro ao carregar filmes: ${e.message ?? e}`)
     } finally {
-      setLoading(false)
+      if (bootVersionRef.current === myVersion) setLoading(false)
     }
   }, [filters, sessionId, loadPage])
 
   useEffect(() => {
-    (async () => {
+    let cancelled = false
+    const myVersion = ++bootVersionRef.current
+
+    ;(async () => {
       try {
         // ⚠️ sanitiza o código da URL
         const CODE = String(code ?? '').trim().toUpperCase()
@@ -369,6 +376,7 @@ export default function Swipe() {
           userData = { user: auth.user! }
         }
         const uid = userData.user!.id
+        if (bootVersionRef.current !== myVersion || cancelled) return
         setUserId(uid)
 
         await supabase.from('users').upsert({ id: uid, display_name: displayName })
@@ -379,14 +387,16 @@ export default function Swipe() {
           .select('is_adult')
           .eq('id', uid)
           .maybeSingle()
+        if (bootVersionRef.current !== myVersion || cancelled) return
         setIsAdult(!!prof?.is_adult)
 
-        // ⚠️ busca da sessão com maybeSingle + tratamento explícito
+        // ⚠️ busca da sessão com single + limit(1)
         const { data: sess, error: sessErr } = await supabase
           .from('sessions')
           .select('id, code')
           .eq('code', CODE)
-          .maybeSingle()
+          .limit(1)
+          .single()
 
         if (sessErr) throw sessErr
         if (!sess?.id) {
@@ -395,6 +405,7 @@ export default function Swipe() {
           return
         }
 
+        if (bootVersionRef.current !== myVersion || cancelled) return
         setSessionId(sess.id)
 
         await supabase
@@ -429,6 +440,7 @@ export default function Swipe() {
           }
         } catch {}
 
+        if (bootVersionRef.current !== myVersion || cancelled) return
         setFilters(effectiveFilters)
 
         // retomar progresso de forma segura
@@ -441,8 +453,11 @@ export default function Swipe() {
         setLoading(false)
       }
     })()
+
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, displayName])
+
 
   // carrega detalhes do atual
   useEffect(() => {
