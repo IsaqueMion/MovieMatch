@@ -38,6 +38,23 @@ const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
+// embaralhamento leve por usuário (determinístico)
+const JITTER_STRENGTH = 0.35 // 0 = nenhuma diferença; 0.35 = leve, mantém boa sobreposição
+
+function hash32(str: string): number {
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+function jitterFor(seed: string): number {
+  // retorna um número em [-JITTER_STRENGTH, +JITTER_STRENGTH]
+  const u = (hash32(seed) % 100000) / 100000 // 0..1
+  return (u - 0.5) * 2 * JITTER_STRENGTH
+}
+
 // tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
 
@@ -295,10 +312,18 @@ function Swipe() {
       const data = await discoverMovies({ page: pageToLoad, filters: f })
       if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
 
-      const unique = (data?.results ?? []).filter((m: Movie) => {
-        const tmdb = Number(m.tmdb_id)
-        return !seenRef.current.has(m.movie_id) && !reactedTmdbRef.current.has(tmdb)
-      })
+      const baseSeed = `${sessionId ?? 'nosess'}:${userId ?? 'nouser'}`
+      const pageBase = pageToLoad * 100000
+
+      const unique = (data?.results ?? [])
+        .filter((m: Movie) => !seenRef.current.has(m.movie_id))
+        // ordena a página atual com leve ruído determinístico por usuário
+        .map((m: Movie, idx: number) => {
+          const j = jitterFor(`${baseSeed}:${m.tmdb_id}`)
+          return { m, k: pageBase + idx + j }
+        })
+        .sort((a, b) => a.k - b.k)
+        .map(({ m }) => m)
       unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
       if (unique.length > 0) {
         setMovies(prev => [...prev, ...unique])
