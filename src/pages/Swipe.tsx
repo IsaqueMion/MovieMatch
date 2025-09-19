@@ -38,7 +38,7 @@ const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
-// mais tempo pro exit terminar antes de liberar clique
+// tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 399
 
 // animação do swipe: tween (sem molinha), lenta e suave
@@ -48,7 +48,7 @@ const TWEEN_SWIPE = {
   ease: 'easeOut' as const,
 }
 
-// animação de voltar ao centro quando não passa do limiar
+// voltar ao centro quando não passa do limiar
 const TWEEN_SNAP = {
   type: 'tween' as const,
   duration: 0.38,
@@ -133,24 +133,12 @@ function NumberField({ label, value, min, max, step = 1, suffix, onChange }: Num
 }
 
 const GENRES = [
-  { id: 28, name: 'Ação' },
-  { id: 12, name: 'Aventura' },
-  { id: 16, name: 'Animação' },
-  { id: 35, name: 'Comédia' },
-  { id: 80, name: 'Crime' },
-  { id: 99, name: 'Documentário' },
-  { id: 18, name: 'Drama' },
-  { id: 10751, name: 'Família' },
-  { id: 14, name: 'Fantasia' },
-  { id: 36, name: 'História' },
-  { id: 27, name: 'Terror' },
-  { id: 10402, name: 'Música' },
-  { id: 9648, name: 'Mistério' },
-  { id: 10749, name: 'Romance' },
-  { id: 878, name: 'Ficção científica' },
-  { id: 10770, name: 'TV Movie' },
-  { id: 53, name: 'Thriller' },
-  { id: 10752, name: 'Guerra' },
+  { id: 28, name: 'Ação' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animação' },
+  { id: 35, name: 'Comédia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentário' },
+  { id: 18, name: 'Drama' }, { id: 10751, name: 'Família' }, { id: 14, name: 'Fantasia' },
+  { id: 36, name: 'História' }, { id: 27, name: 'Terror' }, { id: 10402, name: 'Música' },
+  { id: 9648, name: 'Mistério' }, { id: 10749, name: 'Romance' }, { id: 878, name: 'Ficção científica' },
+  { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
   { id: 37, name: 'Faroeste' },
 ]
 
@@ -168,36 +156,16 @@ const PROVIDERS_BR = [
 
 const LANGUAGES = [
   { value: '',  label: 'Qualquer' },
-  { value: 'pt', label: 'Português' },
-  { value: 'en', label: 'Inglês' },
-  { value: 'es', label: 'Espanhol' },
-  { value: 'fr', label: 'Francês' },
-  { value: 'de', label: 'Alemão' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'ja', label: 'Japonês' },
-  { value: 'ko', label: 'Coreano' },
-  { value: 'zh', label: 'Chinês' },
-  { value: 'ru', label: 'Russo' },
-  { value: 'hi', label: 'Hindi' },
-  { value: 'ar', label: 'Árabe' },
-  { value: 'tr', label: 'Turco' },
-  { value: 'nl', label: 'Holandês' },
-  { value: 'sv', label: 'Sueco' },
-  { value: 'no', label: 'Norueguês' },
-  { value: 'fi', label: 'Finlandês' },
-  { value: 'da', label: 'Dinamarquês' },
-  { value: 'pl', label: 'Polonês' },
-  { value: 'cs', label: 'Tcheco' },
-  { value: 'uk', label: 'Ucraniano' },
-  { value: 'ro', label: 'Romeno' },
-  { value: 'el', label: 'Grego' },
-  { value: 'he', label: 'Hebraico' },
-  { value: 'th', label: 'Tailandês' },
-  { value: 'id', label: 'Indonésio' },
-  { value: 'vi', label: 'Vietnamita' },
-  { value: 'ms', label: 'Malaio' },
-  { value: 'ta', label: 'Tâmil' },
-  { value: 'fa', label: 'Persa' },
+  { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' },
+  { value: 'fr', label: 'Francês' },   { value: 'de', label: 'Alemão' },  { value: 'it', label: 'Italiano' },
+  { value: 'ja', label: 'Japonês' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chinês' },
+  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: 'Árabe' },
+  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holandês' },{ value: 'sv', label: 'Sueco' },
+  { value: 'no', label: 'Norueguês' }, { value: 'fi', label: 'Finlandês'},{ value: 'da', label: 'Dinamarquês' },
+  { value: 'pl', label: 'Polonês' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
+  { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
+  { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio' },{ value: 'vi', label: 'Vietnamita' },
+  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
 ]
 
 const REGIONS = [
@@ -319,16 +287,22 @@ export default function Swipe() {
     ((filters.monetization?.length ?? 0) > 0 ? 1 : 0)
 
   const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
-    const data = await discoverMovies({ page: pageToLoad, filters: f })
-    if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
+    try {
+      const data = await discoverMovies({ page: pageToLoad, filters: f })
+      if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
 
-    const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
-    unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
-    if (unique.length > 0) {
-      setMovies(prev => [...prev, ...unique])
-      setPage(pageToLoad)
+      const unique = data.results.filter((m: Movie) => !seenRef.current.has(m.movie_id))
+      unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
+      if (unique.length > 0) {
+        setMovies(prev => [...prev, ...unique])
+        setPage(pageToLoad)
+      }
+      return unique.length
+    } catch (err: any) {
+      console.error('discoverMovies error:', err)
+      toast.error(`Falha ao buscar filmes: ${err?.message ?? err}`)
+      return 0
     }
-    return unique.length
   }, [filters])
 
   const resetAndLoad = useCallback(async (resume = false, f?: DiscoverFilters, sessionRef?: string | null) => {
@@ -344,16 +318,29 @@ export default function Swipe() {
       let acc = 0
       let pageToLoad = 1
       let anyAdded = false
+
       while (acc <= target) {
         const added = await loadPage(pageToLoad, effective)
-        if (added > 0) anyAdded = true
-        if (added === 0) break
-        acc += added
-        pageToLoad++
+        if (added > 0) {
+          anyAdded = true
+          acc += added
+          pageToLoad++
+        } else {
+          // se a página não trouxe nadinha, para o loop
+          break
+        }
         if (pageToLoad > 30) break
       }
-      if (!anyAdded) setNoResults(true)
-      setI(resume ? target : 0)
+
+      if (!anyAdded) {
+        setNoResults(true)
+        setI(0)
+      } else {
+        // índice seguro: se não alcançou o target, fica no último disponível
+        const safeMax = Math.max(0, acc - 1)
+        const resolved = resume ? Math.min(target, safeMax) : 0
+        setI(resolved)
+      }
     } catch (e: any) {
       console.error(e)
       toast.error(`Erro ao carregar filmes: ${e.message ?? e}`)
@@ -365,13 +352,18 @@ export default function Swipe() {
   useEffect(() => {
     (async () => {
       try {
-        if (!code) {
+        // ⚠️ sanitiza o código da URL
+        const CODE = String(code ?? '').trim().toUpperCase()
+        if (!CODE) {
           setFatalError('Código da sessão ausente ou inválido.')
           setLoading(false)
           return
         }
+
+        // auth
         let { data: userData } = await supabase.auth.getUser()
         if (!userData?.user) {
+          // se seu projeto não habilitou "Anonymous Sign-in", isso falha
           const { data: auth, error: authErr } = await supabase.auth.signInAnonymously()
           if (authErr) throw authErr
           userData = { user: auth.user! }
@@ -389,14 +381,25 @@ export default function Swipe() {
           .maybeSingle()
         setIsAdult(!!prof?.is_adult)
 
+        // ⚠️ busca da sessão com maybeSingle + tratamento explícito
         const { data: sess, error: sessErr } = await supabase
-          .from('sessions').select('id, code').eq('code', code.toUpperCase()).single()
+          .from('sessions')
+          .select('id, code')
+          .eq('code', CODE)
+          .maybeSingle()
+
         if (sessErr) throw sessErr
-        if (!sess?.id) throw new Error('Sessão não encontrada.')
+        if (!sess?.id) {
+          setFatalError('Sessão não encontrada. Verifique o código.')
+          setLoading(false)
+          return
+        }
 
         setSessionId(sess.id)
 
-        await supabase.from('session_members').upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
+        await supabase
+          .from('session_members')
+          .upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
 
         // filtros salvos
         let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
@@ -419,16 +422,16 @@ export default function Swipe() {
               language: sf.language ?? '',
               sortBy: sf.sort_by ?? 'popularity.desc',
               includeAdult: !!sf.include_adult,
-
               providers: Array.isArray(sf.providers) ? sf.providers : [],
               watchRegion: sf.watch_region ?? 'BR',
               monetization: Array.isArray(sf.monetization) ? sf.monetization : ['flatrate'],
             }
           }
         } catch {}
+
         setFilters(effectiveFilters)
 
-        // retomar progresso
+        // retomar progresso de forma segura
         await resetAndLoad(true, effectiveFilters, sess.id)
       } catch (e: any) {
         console.error(e)
@@ -708,7 +711,7 @@ export default function Swipe() {
     setFilters(f => ({ ...f, includeAdult: false }))
   }
 
-  // —— estados de carregamento / erro ——
+  // —— estados de carregamento / erro —— 
   if (loading) {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
@@ -1111,6 +1114,7 @@ export default function Swipe() {
                       <span className="text-sm">Ano (intervalo)</span>
                       <span className="text-xs text-white/70">{yearMinLocal} - {yearMaxLocal}</span>
                     </div>
+                    {/* chips de atalho */}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {yearPresets.map(({ label, range }) => (
                         <FilterChip
@@ -1309,7 +1313,6 @@ export default function Swipe() {
                             sort_by: fSnap.sortBy ?? 'popularity.desc',
                             include_adult: !!fSnap.includeAdult,
                             updated_by: userId,
-
                             ...(fSnap.providers ? { providers: fSnap.providers } : {}),
                             ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
                             ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
