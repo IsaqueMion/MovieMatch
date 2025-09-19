@@ -1579,16 +1579,17 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   )
 })
 // === ErrorBoundary local p/ esta página ===
-class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unknown | undefined }> {
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unknown | undefined; stack?: string }> {
   constructor(props: { children: ReactNode }) {
-    super(props)
-    this.state = { error: undefined }
-  }
+  super(props)
+  this.state = { error: undefined, stack: undefined }
+}
   static getDerivedStateFromError(error: any) {
     return { error }
   }
-  componentDidCatch(error: any, info: any) {
-    console.error('Render error (Swipe):', error, info)
+  componentDidCatch(error: any, info: { componentStack?: string }) {
+  console.error('Render error (Swipe):', error, info)
+  this.setState({ stack: info?.componentStack })
   }
     private toMessage(e: unknown): string {
     if (typeof e === 'object' && e && 'message' in (e as any)) return String((e as any).message)
@@ -1603,6 +1604,11 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unkn
           <div className="max-w-md text-center">
             <h2 className="text-lg font-semibold mb-2">Ops! Algo quebrou.</h2>
             <p className="text-white/80 mb-4">{this.toMessage(this.state.error)}</p>
+            {this.state.stack ? (
+            <pre className="text-xs text-white/70 bg-white/5 rounded-md p-2 overflow-auto max-h-60">
+              {this.state.stack}
+            </pre>
+          ) : null}
             <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => location.reload()}>
               Recarregar
             </button>
