@@ -23,6 +23,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls,
 import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
 import AgeGateModal from '../components/AgeGateModal'
+import AdSlot from '../components/AdSlot'
 import confetti from 'canvas-confetti'
 
 type Movie = {
@@ -248,6 +249,7 @@ function Swipe() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [displayName] = useState('Guest')
+  const [isPremium, setIsPremium] = useState(false)
 
   // cache TMDB
   const [detailsCache, setDetailsCache] = useState<Record<number, MovieDetails>>({})
@@ -256,6 +258,7 @@ function Swipe() {
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
   const userIdRef = useRef<string | null>(null)
+  const adsShown = useRef(0)
   const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
 
@@ -308,6 +311,9 @@ function Swipe() {
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
 
   const current = movies[i]
+  const adSeed = `${sessionId ?? 's'}:${userIdRef.current ?? 'u'}:${filtersSig(filters)}`
+  const adInterval = 10 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
+  const adOffset = hash32(adSeed + ':o') % adInterval
 
   const filtersCount =
     (filters.genres?.length ?? 0) +
@@ -353,6 +359,7 @@ function Swipe() {
     const sid = sessionRef ?? sessionId
     const myVersion = bootVersionRef.current
     setLoading(true)
+    adsShown.current = 0
     setNoResults(false)
     setDiscoverHint(null)
     setMovies([]); setI(0); setPage(1)
@@ -427,11 +434,11 @@ function Swipe() {
         // ler se já é adulto
         const { data: prof } = await supabase
           .from('users')
-          .select('is_adult')
+          .select('is_adult, is_premium')
           .eq('id', uid)
           .maybeSingle()
-        if (bootVersionRef.current !== myVersion || cancelled) return
         setIsAdult(!!prof?.is_adult)
+        setIsPremium(!!prof?.is_premium)
 
         // ⚠️ busca da sessão com single + limit(1)
         const { data: sess, error: sessErr } = await supabase
@@ -709,6 +716,24 @@ function Swipe() {
 
   const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
     if (!sessionId || !userId || !current) return
+    // ——— AD STEP: se for hora do anúncio, só consome o ad e NÃO grava reação —
+    const totalSteps = i + adsShown.current
+    const isAdStep = !isPremium && totalSteps > 0 && ((totalSteps - adOffset) % adInterval === 0)
+    if (isAdStep) {
+      if (!options?.skipAnimation) { cardRef.current?.swipe(value) }
+      clickGuardRef.current = true
+      setBusy(true)
+      const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
+      try {
+        // nada de DB aqui — anúncio não vira reação
+      } finally {
+        await new Promise(res => setTimeout(res, 16))
+        // marca o anúncio como “consumido” e mantém o índice do filme
+        adsShown.current += 1
+        setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
+      }
+      return
+    }
     if (clickGuardRef.current || busy) return
 
     if (!options?.skipAnimation) {
@@ -759,7 +784,7 @@ function Swipe() {
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
     }
-  }, [sessionId, userId, current, busy, goNext])
+  }, [sessionId, userId, current, busy, goNext, i, isPremium, adOffset, adInterval])
 
   const undo = useCallback(async () => {
     if (!sessionId || !userId || busy) return
@@ -962,6 +987,15 @@ const confirmAdult = async (birthdateISO?: string) => {
             <div className="flex-1 min-h-0">
               <AnimatePresence mode="wait" initial={false}>
                 {current ? (
+                  // se for hora do anúncio, mostra AdSwipeCard; senão, o SwipeCard normal
+                  (!isPremium && (i + adsShown.current) > 0 && (((i + adsShown.current) - adOffset) % adInterval === 0)) ? (
+                    <AdSwipeCard
+                      ref={cardRef}
+                      key={`ad-${i}-${adsShown.current}`}
+                      onDragState={setDragging}
+                      onDecision={(v) => react(v, { skipAnimation: true })}
+                    />
+                  ) :
                   <SwipeCard
                     ref={cardRef}
                     key={current.movie_id}
@@ -1017,6 +1051,18 @@ const confirmAdult = async (birthdateISO?: string) => {
           </div>
         </div>
       </div>
+
+      {/* Banners sutis (só para não-premium) */}
+      {!isPremium ? (
+        <>
+          <div className="hidden sm:block fixed top-3 left-3 z-40">
+            <AdSlot id={`ad-tl-${sessionId ?? 's'}`} />
+          </div>
+          <div className="hidden sm:block fixed bottom-3 right-3 z-40">
+            <AdSlot id={`ad-br-${sessionId ?? 's'}`} />
+          </div>
+        </>
+      ) : null}
 
       {/* Ações */}
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
@@ -1732,6 +1778,92 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
     </motion.div>
   )
 })
+
+/** Card de anúncio intercalado (swipe para pular; não grava reação) */
+const AdSwipeCard = forwardRef<SwipeCardHandle, {
+  onDragState: (dragging: boolean) => void
+  onDecision: (value: 1 | -1) => void
+}>(function AdSwipeCard(
+  { onDragState, onDecision },
+  ref
+) {
+  const x = useMotionValue(0)
+  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-4, 0, 4])
+  useEffect(() => { x.set(0) }, [x])
+
+  const dragControls = useDragControls()
+  function handlePointerDown(e: React.PointerEvent) {
+    e.preventDefault()
+    const target = e.target as HTMLElement
+    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
+    dragControls.start(e)
+  }
+
+  useImperativeHandle(ref, () => ({
+    swipe: (value: 1 | -1) => {
+      const dir = value === 1 ? 1 : -1
+      const endX = dir * (window.innerWidth + 180)
+      try { navigator.vibrate?.(6) } catch {}
+      const controls = animate(x, endX, TWEEN_SWIPE)
+      controls.then(() => onDecision(value))
+    },
+  }), [onDecision, x])
+
+  return (
+    <motion.div
+      className="h-full will-change-transform relative"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12 }}
+      style={{ x, rotate, touchAction: 'pan-y' }}
+      drag="x"
+      dragControls={dragControls}
+      dragListener={false}
+      dragElastic={0.18}
+      dragMomentum={false}
+      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
+      onPointerDownCapture={handlePointerDown}
+      onTouchStartCapture={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
+      onDragStart={() => onDragState(true)}
+      onDragEnd={(_, info) => {
+        onDragState(false)
+        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
+        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
+        const shouldSwipe = passDistance || passVelocity
+        if (shouldSwipe) {
+          try { navigator.vibrate?.(6) } catch {}
+          const dir = info.offset.x > 0 ? 1 : -1
+          const endX = dir * (window.innerWidth + 180)
+          const controls = animate(x, endX, TWEEN_SWIPE)
+          controls.then(() => onDecision(dir === 1 ? 1 : -1))
+        } else {
+          animate(x, 0, TWEEN_SNAP)
+        }
+      }}
+    >
+      {/* Conteúdo visual do ad */}
+      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
+        <div className="relative min-h-0 h-full">
+          <div className="w-full h-full grid place-items-center">
+            {/* placeholder/house ad — depois pode integrar provedor */}
+            <div className="rounded-2xl bg-gradient-to-br from-emerald-700/20 to-cyan-600/20 ring-1 ring-white/10 p-5 text-white w-[min(92vw,22rem)]">
+              <div className="text-[11px] uppercase tracking-wide text-white/70 mb-1">Publicidade</div>
+              <div className="text-lg font-semibold">Dica de hoje 🍿</div>
+              <p className="text-sm text-white/80 mt-1">
+                Aproveite filmes sem anúncios futuramente com o plano simbólico.
+              </p>
+              <div className="mt-3 text-xs text-white/60">Deslize para continuar</div>
+            </div>
+          </div>
+        </div>
+        <div className="text-white shrink-0 text-center text-xs opacity-70" data-interactive="true">
+          Este card não conta como like/dislike
+        </div>
+      </div>
+    </motion.div>
+  )
+})
+
 // === ErrorBoundary local p/ esta página ===
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unknown | undefined; stack?: string }> {
   constructor(props: { children: ReactNode }) {
