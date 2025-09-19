@@ -610,7 +610,7 @@ function Swipe() {
             runtimeMax: typeof row.runtimeMax === 'number' ? row.runtimeMax : (typeof row.runtime_max === 'number' ? row.runtime_max : 220),
             language: row.language ?? '',
             sortBy: row.sortBy ?? row.sort_by ?? 'popularity.desc',
-            includeAdult: !!row.includeAdult ?? !!row.include_adult,
+            includeAdult: Boolean(row.includeAdult ?? row.include_adult),
             providers: Array.isArray(row.providers) ? row.providers : [],
             watchRegion: row.watchRegion ?? row.watch_region ?? 'BR',
             monetization: Array.isArray(row.monetization) ? row.monetization : ['flatrate'],
