@@ -39,7 +39,7 @@ const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
 // tempo pro exit terminar antes de liberar clique
-const EXIT_DURATION_MS = 1250
+const EXIT_DURATION_MS = 400
 
 // animação do swipe: tween (sem molinha), lenta e suave
 const TWEEN_SWIPE = {
@@ -823,7 +823,7 @@ function Swipe() {
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
               <AnimatePresence mode="wait" initial={false}>
-                {current && det ? (
+                {current ? (
                   <SwipeCard
                     ref={cardRef}
                     key={current.movie_id}
@@ -1472,8 +1472,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
       dragElastic={0.18}
       dragMomentum={false}
       dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onPointerDown={handlePointerDown}
-      onTouchStart={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
+      onPointerDownCapture={handlePointerDown}
+      onTouchStartCapture={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
       onDragStart={() => onDragState(true)}
       onDragEnd={(_, info) => {
         onDragState(false)
