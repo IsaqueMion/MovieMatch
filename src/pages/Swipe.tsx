@@ -1388,11 +1388,13 @@ function Swipe() {
       </AnimatePresence>
 
       {/* ÚNICA instância do AgeGateModal */}
-      <AgeGateModal
-        open={showAgeGate}
-        onConfirm={confirmAdult}
-        onCancel={cancelAdult}
-      />
+      {showAgeGate ? (
+        <AgeGateModal
+          open
+          onConfirm={confirmAdult}
+          onCancel={cancelAdult}
+        />
+      ) : null}
 
       <Toaster richColors position="bottom-center" />
     </main>
@@ -1567,7 +1569,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
   )
 })
 // === ErrorBoundary local p/ esta página ===
-class PageErrorBoundary extends React.Component<{ children: ReactNode }, { error?: any }> {
+class PageErrorBoundary extends React.Component<{ children: ReactNode }, { error: unknown | undefined }> {
   constructor(props: { children: ReactNode }) {
     super(props)
     this.state = { error: undefined }
