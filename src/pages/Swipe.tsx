@@ -198,7 +198,7 @@ const SORT_OPTIONS = [
   { value: 'original_title.desc',       label: 'Título Z→A' },
 ]
 
-export default function Swipe() {
+function Swipe() {
   const { code } = useParams()
   const bootVersionRef = useRef(0)
 
@@ -396,7 +396,7 @@ export default function Swipe() {
           .select('id, code')
           .eq('code', CODE)
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (sessErr) throw sessErr
         if (!sess?.id) {
@@ -1566,3 +1566,38 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
     </motion.div>
   )
 })
+// === ErrorBoundary local p/ esta página ===
+class PageErrorBoundary extends (React as any).Component<{ children: React.ReactNode }, { error?: any }> {
+  constructor(props: any) {
+    super(props)
+    this.state = { error: undefined }
+  }
+  static getDerivedStateFromError(error: any) { return { error } }
+  componentDidCatch(error: any, info: any) { console.error('Render error (Swipe):', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
+          <div className="max-w-md text-center">
+            <h2 className="text-lg font-semibold mb-2">Ops! Algo quebrou.</h2>
+            <p className="text-white/80 mb-4">{String(this.state.error?.message ?? this.state.error)}</p>
+            <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => location.reload()}>
+              Recarregar
+            </button>
+          </div>
+        </main>
+      )
+    }
+    return this.props.children as any
+  }
+}
+
+// Wrapper que exportamos como default
+export default function SwipePageWrapper() {
+  return (
+    <PageErrorBoundary>
+      <Swipe />
+    </PageErrorBoundary>
+  )
+}
+
