@@ -242,6 +242,7 @@ function Swipe() {
   // aux
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
+  const userIdRef = useRef<string | null>(null)
   const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
 
@@ -312,7 +313,7 @@ function Swipe() {
       const data = await discoverMovies({ page: pageToLoad, filters: f })
       if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
 
-      const baseSeed = `${sessionId ?? 'nosess'}:${userId ?? 'nouser'}`
+      const baseSeed = `${sessionId ?? 'nosess'}:${userIdRef.current ?? 'nouser'}`
       const pageBase = pageToLoad * 100000
 
       const unique = (data?.results ?? [])
@@ -407,6 +408,7 @@ function Swipe() {
           userData = { user: auth.user! }
         }
         const uid = userData.user!.id
+        userIdRef.current = uid
         if (bootVersionRef.current !== myVersion || cancelled) return
         setUserId(uid)
 
