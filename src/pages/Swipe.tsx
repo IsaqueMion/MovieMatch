@@ -48,18 +48,25 @@ function hash32(str: string): number {
 }
 
 // embaralha de forma determinística por usuário **dentro** de janelas pequenas
-const SHUFFLE_WINDOW = 6
+const SHUFFLE_WINDOW = 10
+const SHUFFLE_WEIGHT = 0.85 // 0..1 (quanto maior, mais “anda” dentro da janela)
 function shuffleWithinWindows<T extends { tmdb_id: number }>(items: T[], baseSeed: string, win = SHUFFLE_WINDOW): T[] {
   const out: T[] = []
   for (let i = 0; i < items.length; i += win) {
+    const start = i
     const slice = items.slice(i, i + win)
-      .map((m) => ({ m, k: hash32(`${baseSeed}:${m.tmdb_id}`) >>> 0 }))
-      .sort((a, b) => a.k - b.k)
+      .map((m, j) => {
+        const noise = (hash32(`${baseSeed}:${m.tmdb_id}`) >>> 0) / 0xFFFFFFFF // 0..1
+        const score = start + j + (noise - 0.5) * (win - 1) * SHUFFLE_WEIGHT
+        return { m, score }
+      })
+      .sort((a, b) => a.score - b.score)
       .map(x => x.m)
     out.push(...slice)
   }
   return out
 }
+
 
 // tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
