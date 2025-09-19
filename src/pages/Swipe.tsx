@@ -38,9 +38,6 @@ const DRAG_LIMIT = 160
 const SWIPE_DISTANCE = 120
 const SWIPE_VELOCITY = 800
 
-// embaralhamento leve por usuário (determinístico)
-const JITTER_STRENGTH = 0.35 // 0 = nenhuma diferença; 0.35 = leve, mantém boa sobreposição
-
 function hash32(str: string): number {
   let h = 2166136261 >>> 0
   for (let i = 0; i < str.length; i++) {
@@ -49,11 +46,7 @@ function hash32(str: string): number {
   }
   return h >>> 0
 }
-function jitterFor(seed: string): number {
-  // retorna um número em [-JITTER_STRENGTH, +JITTER_STRENGTH]
-  const u = (hash32(seed) % 100000) / 100000 // 0..1
-  return (u - 0.5) * 2 * JITTER_STRENGTH
-}
+
 // embaralha de forma determinística por usuário **dentro** de janelas pequenas
 const SHUFFLE_WINDOW = 6
 function shuffleWithinWindows<T extends { tmdb_id: number }>(items: T[], baseSeed: string, win = SHUFFLE_WINDOW): T[] {
