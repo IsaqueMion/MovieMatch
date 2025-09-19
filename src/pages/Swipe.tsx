@@ -225,6 +225,7 @@ function Swipe() {
   // aux
   const matchedRef = useRef(new Set<number>())
   const seenRef = useRef(new Set<number>())
+  const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
 
 
@@ -596,7 +597,7 @@ function Swipe() {
       .on('broadcast', { event: 'filters_update' }, (payload: any) => {
         try {
           const row = payload?.payload || {}
-          // se fui eu quem enviou, ignora para evitar loop
+          // se fui eu quem enviou, ignora (evita loop)
           if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
 
           const f: DiscoverFilters = {
@@ -623,9 +624,17 @@ function Swipe() {
           console.error('erro ao aplicar filtros via broadcast:', e)
         }
       })
-      .subscribe()
 
-    return () => { try { supabase.removeChannel(ch) } catch {} }
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        filtersBusRef.current = ch
+      }
+    })
+
+    return () => {
+      try { filtersBusRef.current = null } catch {}
+      try { supabase.removeChannel(ch) } catch {}
+    }
   }, [sessionId, userId, resetAndLoad])
 
   useEffect(() => {
@@ -1422,14 +1431,14 @@ const confirmAdult = async (birthdateISO?: string) => {
                           }, { onConflict: 'session_id' })
                           // broadcast p/ todos os membros da sessão
                           try {
-                            const bus = supabase.channel(`filtersbus-${sessionId}`)
-                            await bus.send({
+                            await filtersBusRef.current?.send({
                               type: 'broadcast',
                               event: 'filters_update',
                               payload: { ...fSnap, updated_by: userId },
                             })
-                            supabase.removeChannel(bus)
-                          } catch (e) { console.warn('broadcast filtros falhou', e) }
+                          } catch (e) {
+                            console.warn('broadcast filtros falhou', e)
+                          }
                         } catch {}
                       }
                       clearProgress(sessionId, fSnap)
