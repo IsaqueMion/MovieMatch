@@ -1525,13 +1525,30 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
       <div className="h-full grid grid-rows-[1fr_auto] gap-2">
         {/* Pôster / Carousel */}
         <div className="relative min-h-0 h-full">
-          <MovieCarousel
-            title={movie.title}
-            year={movie.year}
-            poster_url={movie.poster_url || ''}
-            details={details}
-            fullHeight
-          />
+          {details ? (
+  <MovieCarousel
+    key={movie.tmdb_id}
+    title={movie.title}
+    year={movie.year}
+    poster_url={movie.poster_url || ''}
+    details={details}
+    fullHeight
+  />
+) : (
+  <div className="w-full h-full grid place-items-center">
+    {movie.poster_url ? (
+      <img
+        src={movie.poster_url}
+        alt={movie.title}
+        className="max-h-full w-auto object-contain rounded-lg ring-1 ring-white/10"
+        loading="eager"
+        decoding="async"
+      />
+    ) : (
+      <div className="text-white/70 text-sm">Carregando…</div>
+    )}
+  </div>
+)}
         </div>
 
         {/* Meta abaixo */}
