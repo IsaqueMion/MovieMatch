@@ -1,6 +1,12 @@
 // src/components/AdSlot.tsx
 import { useEffect, useRef, useState } from 'react'
 
+declare global {
+  interface Window {
+    adsbygoogle?: any[];
+  }
+}
+
 type AdSlotProps = {
   id: string
   className?: string
@@ -27,8 +33,6 @@ export default function AdSlot({
   const [visible, setVisible] = useState(false)
   const insRef = useRef<HTMLDivElement | null>(null)
   const pushedRef = useRef(false) // evita push duplicado
-  declare global { interface Window { adsbygoogle?: any[] } }
-
 
   // Lazy render quando entrar na viewport
   useEffect(() => {
