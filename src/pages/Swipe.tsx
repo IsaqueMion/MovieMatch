@@ -312,7 +312,7 @@ function Swipe() {
 
   const current = movies[i]
   const adSeed = `${sessionId ?? 's'}:${userIdRef.current ?? 'u'}:${filtersSig(filters)}`
-  const adInterval = 10 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
+  const adInterval = 8 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
   const adOffset = hash32(adSeed + ':o') % adInterval
 
   const filtersCount =
@@ -1056,10 +1056,22 @@ const confirmAdult = async (birthdateISO?: string) => {
       {!isPremium ? (
         <>
           <div className="hidden sm:block fixed top-3 left-3 z-40">
-            <AdSlot id={`ad-tl-${sessionId ?? 's'}`} />
+            <AdSlot
+              id={`ad-tl-${sessionId ?? 's'}`}
+              adClient="ca-pub-8257200313072326"
+              adSlot="8357155401"
+              width={180}
+              height={180}
+            />
           </div>
           <div className="hidden sm:block fixed bottom-3 right-3 z-40">
-            <AdSlot id={`ad-br-${sessionId ?? 's'}`} />
+            <AdSlot
+              id={`ad-br-${sessionId ?? 's'}`}
+              adClient="ca-pub-8257200313072326"
+              adSlot="4497801440"
+              width={180}
+              height={180}
+            />
           </div>
         </>
       ) : null}

@@ -3,24 +3,32 @@ import { useEffect, useRef, useState } from 'react'
 
 type AdSlotProps = {
   id: string
-  href?: string
-  imgSrc?: string
   className?: string
-  // dica de tamanho; você pode ajustar por CSS fora também
   width?: number
   height?: number
+  // AdSense
+  adClient: string          // ex.: 'ca-pub-123...'
+  adSlot: string            // ex.: '1234567890'
+  adFormat?: 'auto' | 'rectangle' | 'vertical' | 'horizontal'
+  fullWidthResponsive?: boolean
 }
 
 export default function AdSlot({
   id,
-  href,
-  imgSrc,
   className = '',
   width = 160,
   height = 160,
+  adClient,
+  adSlot,
+  adFormat = 'auto',
+  fullWidthResponsive = true,
 }: AdSlotProps) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [visible, setVisible] = useState(false)
+  const insRef = useRef<HTMLDivElement | null>(null)
+  const pushedRef = useRef(false) // evita push duplicado
+  declare global { interface Window { adsbygoogle?: any[] } }
+
 
   // Lazy render quando entrar na viewport
   useEffect(() => {
@@ -35,28 +43,34 @@ export default function AdSlot({
     return () => io.disconnect()
   }, [])
 
+  useEffect(() => {
+  if (!visible || pushedRef.current) return
+  const w = window as any
+  try {
+    (w.adsbygoogle = w.adsbygoogle || []).push({})
+    pushedRef.current = true
+  } catch (e) {
+    // falha silenciosa (ex.: adblock)
+  }
+}, [visible])
+
+
   // Placeholder simpático (house-ad). Depois você pode trocar pelo script do provedor aqui.
   const Inner = (
-    <div
-      className="rounded-xl ring-1 ring-white/15 bg-gradient-to-br from-neutral-800 to-neutral-700 overflow-hidden shadow"
+    <ins
+      className="adsbygoogle block overflow-hidden rounded-xl ring-1 ring-white/15 bg-neutral-800/40"
       style={{ width, height }}
-    >
-      {imgSrc ? (
-        <img src={imgSrc} alt="Ad" className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full grid place-items-center">
-          <div className="text-center">
-            <div className="text-[10px] uppercase tracking-wide text-white/50">Anúncio</div>
-            <div className="mt-1 text-white/80 text-sm">Seu banner aqui</div>
-          </div>
-        </div>
-      )}
-    </div>
+      data-ad-client={adClient}
+      data-ad-slot={adSlot}
+      data-ad-format={adFormat}
+      data-full-width-responsive={fullWidthResponsive ? 'true' : 'false'}
+      ref={insRef as any}
+    />
   )
-
   return (
-    <div ref={ref} id={id} className={className} style={{ width, height }}>
-      {visible ? (href ? <a href={href} target="_blank" rel="noreferrer noopener">{Inner}</a> : Inner) : null}
-    </div>
-  )
+  <div ref={ref} id={id} className={className} style={{ width, height }}>
+    {visible ? Inner : null}
+  </div>
+)
+
 }
