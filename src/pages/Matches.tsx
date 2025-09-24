@@ -396,54 +396,39 @@ export default function Matches() {
 
                     {/* Provedores de streaming */}
                     {(() => {
-                      const { providers, fallbackUrl } = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
-                      if (providers && providers.length > 0) {
-                        return (
-                          <div className="mt-4">
-                            <div className="mb-2 text-sm text-white/70">Disponível em</div>
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {providers.map((p) => (
-                                <a
-                                  key={p.id}
-                                  href={p.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  title={p.name}
-                                  className="group inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5 hover:ring-white/25"
-                                >
-                                  {p.logoUrl ? (
-                                    <img
-                                      src={p.logoUrl}
-                                      alt={p.name}
-                                      className="h-6 w-6 object-contain opacity-90 group-hover:opacity-100 transition"
-                                      loading="lazy"
-                                      decoding="async"
-                                      referrerPolicy="no-referrer"
-                                    />
-                                  ) : (
-                                    <span className="text-[11px] px-1 text-white/80">{p.name.slice(0, 3).toUpperCase()}</span>
-                                  )}
-                                </a>
-                              ))}
-                            </div>
+                      const { providers } = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
+                      if (!providers.length) return null
+
+                      return (
+                        <div className="mt-4">
+                          <div className="mb-2 text-sm text-white/70">Disponível em</div>
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            {providers.map((p) => (
+                              <a
+                                key={p.id}
+                                href={p.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={p.name}
+                                className="group inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5 hover:ring-white/25"
+                              >
+                                {p.logoUrl ? (
+                                  <img
+                                    src={p.logoUrl}
+                                    alt={p.name}
+                                    className="h-6 w-6 object-contain opacity-90 group-hover:opacity-100 transition"
+                                    loading="lazy"
+                                    decoding="async"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <span className="text-[11px] px-1 text-white/80">{p.name.slice(0, 3).toUpperCase()}</span>
+                                )}
+                              </a>
+                            ))}
                           </div>
-                        )
-                      }
-                      if (fallbackUrl) {
-                        return (
-                          <div className="mt-4">
-                            <a
-                              href={fallbackUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/10 hover:bg-white/15"
-                            >
-                              Ver onde assistir ↗
-                            </a>
-                          </div>
-                        )
-                      }
-                      return null
+                        </div>
+                      )
                     })()}
                   </div>
 
@@ -465,25 +450,23 @@ export default function Matches() {
 }
 // Extrai provedores (ícones + links) em vários formatos possíveis do TMDB/Edge.
 // Se não houver lista, retorna só um fallbackUrl (página "Assistir" do TMDB).
+// Ícones + deep links de provedores (sem fallback de botão).
+// Cobertura de formatos: watch_providers.results[REG], watchProviders(.results[REG]),
+// watchProvidersV2(.results[REG]) e providers[REG] (edge custom).
 function extractProviders(
   details: any,
   region: string,
   tmdbId?: number | null
 ): {
-  providers: Array<{ id: number; name: string; logoUrl: string | null; url: string }>,
-  fallbackUrl: string | null
+  providers: Array<{ id: number; name: string; logoUrl: string | null; url: string }>
 } {
-  if (!details) return { providers: [], fallbackUrl: null }
+  const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null; url: string }> }
+  if (!details) return out
 
   const baseImg = 'https://image.tmdb.org/t/p/w45'
   const R = String(region || 'BR').toUpperCase()
   const rLow = R.toLowerCase()
 
-  // Possíveis formatos:
-  // - details.watch_providers.results[REG]
-  // - details.watchProviders.results[REG]
-  // - details.providers[REG] (edge custom)
-  // - (alguns edges) details.watchProvidersV2.results[REG]
   const wp =
     (details as any)?.watch_providers ??
     (details as any)?.watchProviders ??
@@ -499,15 +482,9 @@ function extractProviders(
       area = wp[R] ?? wp[rLow] ?? wp['US'] ?? wp['us'] ?? null
     }
   }
+  if (!area) return out
 
-  // Fallback para a página "Assistir" do TMDB
-  const tmdbWatchLink =
-    (area && typeof area.link === 'string' && area.link) ||
-    (typeof tmdbId === 'number' ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${R}` : null)
-
-  // Normaliza ofertas:
-  // TMDB padrão usa buckets: flatrate/ads/free/rent/buy (arrays)
-  // Alguns formatos trazem um ARRAY único de ofertas (com monetization_type / deep_link)
+  // Normaliza ofertas (arrays TMDB padrão) ou arrays simples (edge)
   let offers: any[] = []
   if (Array.isArray(area)) {
     offers = area
@@ -521,7 +498,7 @@ function extractProviders(
     ]
   }
 
-  // Monta providers deduplicados por id
+  // Constrói a lista deduplicada priorizando deep link do provedor
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string }>()
   for (const o of offers) {
     const id = Number(o?.provider_id ?? o?.id)
@@ -534,18 +511,18 @@ function extractProviders(
       String(rawLogo).startsWith('http') ? String(rawLogo) :
       `${baseImg}${rawLogo}`
 
+    // deep link do provedor (o que queremos). Se não vier, ignoramos (não queremos botão/aggregator).
     const deep = o?.deep_link ?? o?.deepLink ?? o?.url
-    const url = (typeof deep === 'string' && deep) ? deep : (tmdbWatchLink || '#')
+    if (typeof deep !== 'string' || !deep) continue
 
-    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
+    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url: deep })
   }
 
   const providers = Array.from(byId.values())
-
-  // Ordem previsível (A→Z). Se quiser priorizar assinatura/grátis, dá pra alterar aqui.
   providers.sort((a, b) => a.name.localeCompare(b.name))
-
-  return { providers, fallbackUrl: tmdbWatchLink }
+  out.providers = providers
+  return out
 }
+
 
 
