@@ -1003,7 +1003,7 @@ const confirmAdult = async (birthdateISO?: string) => {
 
       {/* centro */}
       <div className="flex-1 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+168px)] sm:pb-28 overflow-hidden">
-        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px-140px)] sm:h-[calc(100dvh-112px)]">
+        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
               <AnimatePresence mode="wait" initial={false}>
@@ -1096,15 +1096,6 @@ const confirmAdult = async (birthdateISO?: string) => {
           </div>
         </>
       ) : null}
-
-      {/* Links utilitários (ajudam aprovação do AdSense) */}
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+12px)] left-3 z-30 text-[11px] text-white/60 space-x-3">
-        <a href="/privacy.html" target="_blank" rel="noreferrer" className="hover:underline">Privacidade</a>
-        <span>•</span>
-        <a href="/terms.html" target="_blank" rel="noreferrer" className="hover:underline">Termos</a>
-        <span>•</span>
-        <span>Publicidade</span>
-      </div>
 
       {/* Ações */}
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
@@ -1629,9 +1620,6 @@ const confirmAdult = async (birthdateISO?: string) => {
       ) : null}
 
       <AdblockWall enabled={!isPremium} />
-
-      {/* Espaço para os botões flutuantes no mobile */}
-      <div aria-hidden className="h-[calc(env(safe-area-inset-bottom,0px)+152px)] sm:hidden" />
 
       <Toaster richColors position="bottom-center" />
     </main>
