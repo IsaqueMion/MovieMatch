@@ -1076,6 +1076,15 @@ const confirmAdult = async (birthdateISO?: string) => {
         </>
       ) : null}
 
+      {/* Links utilitários (ajudam aprovação do AdSense) */}
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+12px)] left-3 z-30 text-[11px] text-white/60 space-x-3">
+        <a href="/privacy.html" target="_blank" rel="noreferrer" className="hover:underline">Privacidade</a>
+        <span>•</span>
+        <a href="/terms.html" target="_blank" rel="noreferrer" className="hover:underline">Termos</a>
+        <span>•</span>
+        <span>Publicidade</span>
+      </div>
+
       {/* Ações */}
       <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
         <div className="flex items-center justify-center gap-4 sm:gap-5">

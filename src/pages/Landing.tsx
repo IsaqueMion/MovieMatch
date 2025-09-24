@@ -405,6 +405,8 @@ export default function Landing() {
               <a href="#recursos" className="hover:text-white">Recursos</a>
               <button onClick={handleCreate} className="hover:text-white underline underline-offset-4">Criar sessão</button>
               <button onClick={() => inputRef.current?.focus()} className="hover:text-white underline underline-offset-4">Entrar</button>
+              <a href="/privacy.html" target="_blank" rel="noreferrer" className="hover:text-white underline underline-offset-4">Privacidade</a>
+              <a href="/terms.html" target="_blank" rel="noreferrer" className="hover:text-white underline underline-offset-4">Termos</a>
             </div>
           </div>
         </div>
