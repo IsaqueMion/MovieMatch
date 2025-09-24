@@ -518,12 +518,7 @@ function extractProviders(details: any, region: string, tmdbId?: number | null):
 
   const providers = Array.from(byId.values())
 
-  // Ordena para priorizar assinatura/grátis (se disponíveis nos buckets), depois aluguel/compra
-  const score = (prov: any) => {
-    // sem meta de tipo aqui; mantém como chegou
-    return 0
-  }
-  providers.sort((a, b) => score(a) - score(b))
+  providers.sort((a, b) => a.name.localeCompare(b.name))
 
   return { providers, fallbackUrl: tmdbWatchLink }
 }
