@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -10,6 +10,7 @@ type MatchItem = {
   likes: number
   latestAt: number
 }
+type SortKey = 'recent' | 'likes' | 'title'
 
 export default function Matches() {
   const { code = '' } = useParams()
@@ -17,6 +18,12 @@ export default function Matches() {
   const [items, setItems] = useState<MatchItem[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Controles da UI
+  const [q, setQ] = useState('')                    // busca por título
+  const [sort, setSort] = useState<SortKey>('recent') // ordenação
+  const [minLikes, setMinLikes] = useState(2)       // mínimo de likes para aparecer
+
+  // Carregar sessão + primeira lista
   useEffect(() => {
     (async () => {
       setLoading(true)
@@ -55,55 +62,55 @@ export default function Matches() {
   }, [sessionId])
 
   async function loadMatches(sid: string) {
-  const { data, error } = await supabase
-    .from('reactions')
-    .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url)')
-    .eq('session_id', sid)
-    .eq('value', 1)
+    const { data, error } = await supabase
+      .from('reactions')
+      .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url)')
+      .eq('session_id', sid)
+      .eq('value', 1)
 
-  if (error) {
-    console.error(error)
-    setItems([])
-    return
-  }
-
-  type MovieJoin = { title: string | null; year: number | null; poster_url: string | null }
-  type Row = {
-    movie_id: number
-    value: 1 | -1
-    user_id: string | null
-    created_at: string | null
-    movies: MovieJoin | MovieJoin[] | null
-  }
-
-  const rows = (data ?? []) as Row[]
-
-  const map = new Map<number, {
-    title: string; year: number | null; poster_url: string | null;
-    users: Set<string>; latestAt: number
-  }>()
-
-  for (const r of rows) {
-    const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
-    const curr = map.get(r.movie_id) ?? {
-      title: mInfo?.title ?? '—',
-      year: mInfo?.year ?? null,
-      poster_url: mInfo?.poster_url ?? null,
-      users: new Set<string>(),
-      latestAt: 0,
+    if (error) {
+      console.error(error)
+      setItems([])
+      return
     }
 
-    if (r.user_id) curr.users.add(String(r.user_id))
-    const ts = r.created_at ? new Date(r.created_at).getTime() : 0
-    if (ts > curr.latestAt) curr.latestAt = ts
+    type MovieJoin = { title: string | null; year: number | null; poster_url: string | null }
+    type Row = {
+      movie_id: number
+      value: 1 | -1
+      user_id: string | null
+      created_at: string | null
+      movies: MovieJoin | MovieJoin[] | null
+    }
 
-    map.set(r.movie_id, curr)
-  }
+    const rows = (data ?? []) as Row[]
 
-  const list: MatchItem[] = []
-  for (const [movie_id, m] of map.entries()) {
-    const likes = m.users.size
-    if (likes >= 2) {
+    const map = new Map<number, {
+      title: string; year: number | null; poster_url: string | null;
+      users: Set<string>; latestAt: number
+    }>()
+
+    for (const r of rows) {
+      const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
+      const curr = map.get(r.movie_id) ?? {
+        title: mInfo?.title ?? '—',
+        year: mInfo?.year ?? null,
+        poster_url: mInfo?.poster_url ?? null,
+        users: new Set<string>(),
+        latestAt: 0,
+      }
+
+      if (r.user_id) curr.users.add(String(r.user_id))
+      const ts = r.created_at ? new Date(r.created_at).getTime() : 0
+      if (ts > curr.latestAt) curr.latestAt = ts
+
+      map.set(r.movie_id, curr)
+    }
+
+    const list: MatchItem[] = []
+    for (const [movie_id, m] of map.entries()) {
+      const likes = m.users.size
+      // Empilhamos todos; filtro por mínimo acontece na view
       list.push({
         movie_id,
         title: m.title,
@@ -113,12 +120,35 @@ export default function Matches() {
         latestAt: m.latestAt,
       })
     }
+
+    // Ordenação padrão (pode ser alterada na UI)
+    list.sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
+    setItems(list)
   }
 
-  // 1º: mais recente, 2º: mais likes, 3º: título
-  list.sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
-  setItems(list)
-}
+  // View filtrada/ordenada
+  const visible = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    let arr = items.filter(i => i.likes >= minLikes && (term === '' || i.title.toLowerCase().includes(term)))
+    if (sort === 'recent') {
+      arr = arr.slice().sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
+    } else if (sort === 'likes') {
+      arr = arr.slice().sort((a, b) => (b.likes - a.likes) || (b.latestAt - a.latestAt) || a.title.localeCompare(b.title))
+    } else {
+      arr = arr.slice().sort((a, b) => a.title.localeCompare(b.title))
+    }
+    return arr
+  }, [items, q, sort, minLikes])
+
+  function copyList() {
+    const lines = visible.map(m => `${m.title}${m.year ? ` (${m.year})` : ''} — ${m.likes} likes`)
+    try {
+      navigator.clipboard.writeText(lines.join('\n'))
+      alert('Lista copiada!')
+    } catch {
+      alert(lines.join('\n'))
+    }
+  }
 
   if (loading) {
     return (
@@ -142,31 +172,70 @@ export default function Matches() {
   return (
     <main className="min-h-dvh bg-neutral-900 text-white">
       <div className="mx-auto max-w-5xl px-4 py-4">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-xl font-semibold">Matches — {code.toUpperCase()}</h1>
-          <Link to={`/s/${code}`} className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/15">
-            Voltar ao swipe
-          </Link>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar título..."
+                className="h-9 w-56 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm outline-none placeholder:text-white/40"
+              />
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                className="h-9 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
+                title="Ordenar por"
+              >
+                <option value="recent">Mais recentes</option>
+                <option value="likes">Mais likes</option>
+                <option value="title">Título (A→Z)</option>
+              </select>
+              <select
+                value={String(minLikes)}
+                onChange={(e) => setMinLikes(Number(e.target.value) || 0)}
+                className="h-9 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
+                title="Mínimo de likes"
+              >
+                <option value="2">2+ likes</option>
+                <option value="3">3+ likes</option>
+                <option value="4">4+ likes</option>
+                <option value="1">1+ like</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={copyList} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
+                Copiar lista
+              </button>
+              <Link to={`/s/${code}`} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
+                Voltar ao swipe
+              </Link>
+            </div>
+          </div>
         </div>
 
-        {items.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-white/80">Ainda não há filmes com 2 likes ou mais nesta sessão.</p>
+            <p className="text-white/80">Nenhum resultado com os filtros atuais.</p>
           </div>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {items.map(m => (
+            {visible.map(m => (
               <li key={m.movie_id} className="rounded-xl overflow-hidden bg-white/5 ring-1 ring-white/10">
-                <div className="aspect-[2/3] bg-black grid place-items-center">
+                <div className="relative aspect-[2/3] bg-black">
                   {m.poster_url
                     ? <img src={m.poster_url} alt={m.title} className="h-full w-full object-contain" />
-                    : <div className="text-white/50">Sem pôster</div>}
+                    : <div className="absolute inset-0 grid place-items-center text-white/50">Sem pôster</div>}
+                  <div className="absolute left-2 top-2 rounded-md bg-white/10 px-2 py-0.5 text-xs ring-1 ring-white/20">
+                    {m.likes} like{m.likes === 1 ? '' : 's'}
+                  </div>
                 </div>
                 <div className="p-3">
                   <h3 className="font-semibold leading-tight">
                     {m.title} {m.year ? <span className="text-white/60">({m.year})</span> : null}
                   </h3>
-                  <p className="mt-1 text-sm text-white/70">Likes: {m.likes}</p>
+                  <p className="mt-1 text-sm text-white/70">Mais recente: {m.latestAt ? new Date(m.latestAt).toLocaleDateString('pt-BR') : '—'}</p>
                 </div>
               </li>
             ))}

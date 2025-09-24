@@ -853,10 +853,22 @@ function Swipe() {
   // ===============================================
 
   async function shareInvite() {
-    const invite = `${window.location.origin}/join?code=${(code ?? '').toUpperCase()}`
-    try { await navigator.clipboard.writeText(invite); toast('Link copiado!', { description: invite }) }
-    catch { toast('Copie o link:', { description: invite }) }
+  const invite = `${window.location.origin}/join?code=${(code ?? '').toUpperCase()}`
+  const title = 'MovieMatch — junte-se à minha sessão'
+  const text = `Entre com o código ${String(code ?? '').toUpperCase()} no MovieMatch`
+
+  try {
+    if (navigator.share) {
+      await navigator.share({ title, text, url: invite })
+      return
+    }
+    await navigator.clipboard.writeText(invite)
+    toast('Link copiado!', { description: invite })
+  } catch {
+    try { await navigator.clipboard.writeText(invite) } catch {}
+    toast('Link copiado!', { description: invite })
   }
+}
 
   // aceita birthdate obrigatório — sem data não libera adulto
 const confirmAdult = async (birthdateISO?: string) => {

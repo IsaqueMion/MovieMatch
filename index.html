@@ -22,6 +22,17 @@
     <meta name="twitter:description" content="Deslize, dê like e encontre o filme que todo mundo topa assistir.">
     <meta name="twitter:image" content="/og-image-v2.png">
 
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "MovieMatch",
+        "url": "https://moviematch-three.vercel.app/",
+        "logo": "https://moviematch-three.vercel.app/favicon.png",
+        "sameAs": []
+      }
+    </script>
+
     <!-- Tema do navegador -->
     <meta name="theme-color" content="#0b0f10" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
@@ -30,8 +41,11 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" href="/favicon.png">
 
-    <link rel="preconnect" href="https://image.tmdb.org">
-    <link rel="dns-prefetch" href="https://image.tmdb.org">
+    <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+    <link rel="dns-prefetch" href="//image.tmdb.org">
+    <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
+    <link rel="preconnect" href="https://www.youtube.com" crossorigin>
+
     <link rel="manifest" href="/manifest.webmanifest">
 
     <meta name="google-adsense-account" content="ca-pub-8257200313072326" />
