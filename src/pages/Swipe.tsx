@@ -24,6 +24,7 @@ import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
 import AgeGateModal from '../components/AgeGateModal'
 import AdSlot from '../components/AdSlot'
+import AdblockWall from '../components/AdblockWall'
 import confetti from 'canvas-confetti'
 
 type Movie = {
@@ -33,6 +34,11 @@ type Movie = {
   year: number | null
   poster_url: string | null
   genres: number[]
+}
+
+function isAdItem(m: any): boolean {
+  // cobre formatos comuns de sentinela de ad-card
+  return !!(m && (m.__ad === true || m.kind === 'ad' || m.type === 'ad'));
 }
 
 const DRAG_LIMIT = 160
@@ -304,6 +310,8 @@ function Swipe() {
   const [isAdult, setIsAdult] = useState(false)
   const [showAgeGate, setShowAgeGate] = useState(false)
 
+  const [isPremium, setIsPremium] = useState(false)
+
   // “novo match” (badge na estrela)
   const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
   const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
@@ -311,6 +319,16 @@ function Swipe() {
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
 
   const current = movies[i]
+
+  useEffect(() => {
+  if (!isPremium) return;
+  const m = movies[i];
+  if (isAdItem(m)) {
+    // pula o ad-card de forma transparente para premium
+        goNextRef.current();
+  }
+}, [isPremium, i, movies]);
+
   const adSeed = `${sessionId ?? 's'}:${userIdRef.current ?? 'u'}:${filtersSig(filters)}`
   const adInterval = 8 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
   const adOffset = hash32(adSeed + ':o') % adInterval
@@ -691,6 +709,7 @@ function Swipe() {
 
   // ===== animação imperativa p/ botões/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
+  const goNextRef = useRef<() => Promise<void>>(async () => {})
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
@@ -713,6 +732,7 @@ function Swipe() {
       }
     } finally { setLoadingMore(false) }
   }, [i, movies.length, sessionId, filters, loadingMore, loadPage, page])
+  useEffect(() => { goNextRef.current = goNext }, [goNext])
 
   const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
     if (!sessionId || !userId || !current) return
@@ -894,6 +914,8 @@ const confirmAdult = async (birthdateISO?: string) => {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
         <p className="text-white/90">Carregando sessão…</p>
+        {/* Anti-adblock — só mostra para não-premium */}
+        {!isPremium ? <AdblockWall enabled /> : null}
         <Toaster richColors position="bottom-center" />
       </main>
     )
