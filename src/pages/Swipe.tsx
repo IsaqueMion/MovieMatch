@@ -255,7 +255,6 @@ function Swipe() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [displayName] = useState('Guest')
-  const [isPremium, setIsPremium] = useState(false)
 
   // cache TMDB
   const [detailsCache, setDetailsCache] = useState<Record<number, MovieDetails>>({})
