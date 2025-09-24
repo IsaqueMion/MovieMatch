@@ -306,7 +306,6 @@ export default function Matches() {
                     {/* chips (desktop) */}
                     <div className="mt-1 hidden md:flex flex-wrap items-center gap-2 text-sm text-white/70">
                       <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">Região: {watchRegion}</span>
                       {modal.item.tmdb_id != null && (
                         <a
                           href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
@@ -339,7 +338,7 @@ export default function Matches() {
                   </div>
                 </div>
 
-                {/* Mídia (trailer/poster) — ocupa topo no mobile */}
+                {/* Mídia (trailer/poster) — topo no mobile */}
                 <div className="w-full bg-black">
                   {loadingDetails ? (
                     <div className="w-full aspect-video grid place-items-center text-white/60">Carregando…</div>
@@ -365,14 +364,14 @@ export default function Matches() {
                   })()}
                 </div>
 
-                {/* Chips (mobile) abaixo da mídia */}
+                {/* Chips (mobile) */}
                 <div className="px-3 pt-3 md:hidden flex items-center gap-2 text-sm">
                   <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
                 </div>
 
-                {/* Conteúdo: grid no desktop, coluna simples no mobile */}
+                {/* Conteúdo */}
                 <div className="grid gap-4 p-3 md:p-4 md:grid-cols-[1.1fr_1fr]">
-                  {/* Detalhes / Sinopse (fica primeiro no mobile para leitura rápida) */}
+                  {/* Detalhes / Sinopse */}
                   <div className="rounded-xl ring-1 ring-white/10 bg-white/5 p-4 order-2 md:order-1">
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
                       <dt className="text-white/60">Duração</dt>
@@ -394,10 +393,10 @@ export default function Matches() {
                         ? (modal.details as any).overview
                         : <span className="text-white/60">Sem sinopse disponível.</span>}
                     </div>
+
                     {/* Provedores de streaming */}
                     {(() => {
                       const { providers, fallbackUrl } = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
-
                       if (providers && providers.length > 0) {
                         return (
                           <div className="mt-4">
@@ -430,8 +429,6 @@ export default function Matches() {
                           </div>
                         )
                       }
-
-                      // Sem lista de provedores — mostra um botão de fallback para a página "Assistir" do TMDB
                       if (fallbackUrl) {
                         return (
                           <div className="mt-4">
@@ -446,11 +443,11 @@ export default function Matches() {
                           </div>
                         )
                       }
-
                       return null
                     })()}
+                  </div>
 
-                  {/* Poster “cartão” (apenas desktop) */}
+                  {/* Poster “cartão” (desktop) */}
                   <div className="hidden md:block rounded-xl overflow-hidden ring-1 ring-white/10 bg-black min-h-[280px] order-1 md:order-2">
                     {modal.item.poster_url
                       ? <img src={modal.item.poster_url} alt={modal.item.title} className="w-full h-full object-contain bg-black" />
