@@ -396,7 +396,7 @@ export default function Matches() {
 
                     {/* Provedores de streaming */}
                     {(() => {
-                      const { providers } = extractProviders(modal.details, watchRegion)
+                      const { providers } = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
                       if (!providers.length) return null
 
                       return (
@@ -448,14 +448,11 @@ export default function Matches() {
     </main>
   )
 }
-// Extrai provedores (ícones + links) em vários formatos possíveis do TMDB/Edge.
-// Se não houver lista, retorna só um fallbackUrl (página "Assistir" do TMDB).
-// Ícones + deep links de provedores (sem fallback de botão).
-// Cobertura de formatos: watch_providers.results[REG], watchProviders(.results[REG]),
-// watchProvidersV2(.results[REG]) e providers[REG] (edge custom).
+// Ícones + link: usa deep_link do provedor quando existir; senão cai na página "Assistir" do TMDB (por região).
 function extractProviders(
   details: any,
   region: string,
+  tmdbId?: number | null
 ): {
   providers: Array<{ id: number; name: string; logoUrl: string | null; url: string }>
 } {
@@ -483,7 +480,14 @@ function extractProviders(
   }
   if (!area) return out
 
-  // Normaliza ofertas (arrays TMDB padrão) ou arrays simples (edge)
+  // link agregador do TMDB (fallback se não houver deep link por provedor)
+  const tmdbWatchLink =
+    (typeof area.link === 'string' && area.link) ||
+    (typeof tmdbId === 'number'
+      ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${R}`
+      : null)
+
+  // normaliza ofertas
   let offers: any[] = []
   if (Array.isArray(area)) {
     offers = area
@@ -497,7 +501,6 @@ function extractProviders(
     ]
   }
 
-  // Constrói a lista deduplicada priorizando deep link do provedor
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string }>()
   for (const o of offers) {
     const id = Number(o?.provider_id ?? o?.id)
@@ -510,11 +513,12 @@ function extractProviders(
       String(rawLogo).startsWith('http') ? String(rawLogo) :
       `${baseImg}${rawLogo}`
 
-    // deep link do provedor (o que queremos). Se não vier, ignoramos (não queremos botão/aggregator).
     const deep = o?.deep_link ?? o?.deepLink ?? o?.url
-    if (typeof deep !== 'string' || !deep) continue
+    const url = (typeof deep === 'string' && deep && deep.length > 0)
+      ? deep
+      : (tmdbWatchLink || '#')
 
-    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url: deep })
+    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
   }
 
   const providers = Array.from(byId.values())
@@ -522,6 +526,3 @@ function extractProviders(
   out.providers = providers
   return out
 }
-
-
-
