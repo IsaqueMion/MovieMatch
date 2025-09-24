@@ -1002,7 +1002,7 @@ const confirmAdult = async (birthdateISO?: string) => {
       </div>
 
       {/* centro */}
-      <div className="flex-1 px-4 pb-28 overflow-hidden">
+      <div className="flex-1 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+168px)] sm:pb-28 overflow-hidden">
         <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
