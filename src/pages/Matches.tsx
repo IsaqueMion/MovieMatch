@@ -4,12 +4,14 @@ import { supabase } from '../lib/supabase'
 
 type MatchItem = {
   movie_id: number
+  tmdb_id: number | null
   title: string
   year: number | null
   poster_url: string | null
   likes: number
   latestAt: number
 }
+
 type SortKey = 'recent' | 'likes' | 'title'
 
 export default function Matches() {
@@ -64,7 +66,7 @@ export default function Matches() {
   async function loadMatches(sid: string) {
     const { data, error } = await supabase
       .from('reactions')
-      .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url)')
+      .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url,tmdb_id)')
       .eq('session_id', sid)
       .eq('value', 1)
 
@@ -74,7 +76,7 @@ export default function Matches() {
       return
     }
 
-    type MovieJoin = { title: string | null; year: number | null; poster_url: string | null }
+    type MovieJoin = { title: string | null; year: number | null; poster_url: string | null; tmdb_id: number | null }
     type Row = {
       movie_id: number
       value: 1 | -1
@@ -96,6 +98,7 @@ export default function Matches() {
         title: mInfo?.title ?? '—',
         year: mInfo?.year ?? null,
         poster_url: mInfo?.poster_url ?? null,
+        tmdb_id: (typeof (mInfo as any)?.tmdb_id === 'number' ? (mInfo as any).tmdb_id : null) as number | null,
         users: new Set<string>(),
         latestAt: 0,
       }
@@ -113,6 +116,7 @@ export default function Matches() {
       // Empilhamos todos; filtro por mínimo acontece na view
       list.push({
         movie_id,
+        tmdb_id: m.tmdb_id ?? null,
         title: m.title,
         year: m.year,
         poster_url: m.poster_url,
