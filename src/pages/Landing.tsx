@@ -403,15 +403,17 @@ export default function Landing() {
             </div>
             <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end">
               <a href="#recursos" className="hover:text-white">Recursos</a>
+              <span className="text-white/40">•</span>
               <button onClick={handleCreate} className="hover:text-white underline underline-offset-4">Criar sessão</button>
+              <span className="text-white/40">•</span>
               <button onClick={() => inputRef.current?.focus()} className="hover:text-white underline underline-offset-4">Entrar</button>
 
               <span className="hidden sm:inline text-white/30 mx-1">•</span>
 
               <a href="/privacy.html" className="hover:text-white">Privacidade</a>
-              <span className="text-white/40">·</span>
+              <span className="text-white/40">•</span>
               <a href="/terms.html" className="hover:text-white">Termos</a>
-              <span className="text-white/40">·</span>
+              <span className="text-white/40">•</span>
               <a href="/ads.html" className="hover:text-white">Publicidade</a>
             </div>
           </div>
