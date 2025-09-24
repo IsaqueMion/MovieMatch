@@ -463,63 +463,89 @@ export default function Matches() {
     </main>
   )
 }
-// Extrai provedores do objeto de detalhes em diferentes formatos.
-// Retorna { providers, fallbackUrl } — se não houver providers, usamos fallbackUrl (página "Assistir" do TMDB).
-function extractProviders(details: any, region: string, tmdbId?: number | null): {
+// Extrai provedores (ícones + links) em vários formatos possíveis do TMDB/Edge.
+// Se não houver lista, retorna só um fallbackUrl (página "Assistir" do TMDB).
+function extractProviders(
+  details: any,
+  region: string,
+  tmdbId?: number | null
+): {
   providers: Array<{ id: number; name: string; logoUrl: string | null; url: string }>,
   fallbackUrl: string | null
 } {
   if (!details) return { providers: [], fallbackUrl: null }
 
   const baseImg = 'https://image.tmdb.org/t/p/w45'
-  const R = (region || 'BR').toUpperCase()
+  const R = String(region || 'BR').toUpperCase()
+  const rLow = R.toLowerCase()
 
-  // Possíveis formas vindas do TMDB/Edge:
+  // Possíveis formatos:
   // - details.watch_providers.results[REG]
   // - details.watchProviders.results[REG]
   // - details.providers[REG] (edge custom)
+  // - (alguns edges) details.watchProvidersV2.results[REG]
   const wp =
     (details as any)?.watch_providers ??
     (details as any)?.watchProviders ??
+    (details as any)?.watchProvidersV2 ??
     (details as any)?.providers ??
     null
 
-  const area =
-    (wp && (wp.results?.[R] ?? wp[R])) ||
-    null
+  let area: any = null
+  if (wp) {
+    if (wp.results) {
+      area = wp.results[R] ?? wp.results[rLow] ?? wp.results['US'] ?? wp.results['us'] ?? null
+    } else {
+      area = wp[R] ?? wp[rLow] ?? wp['US'] ?? wp['us'] ?? null
+    }
+  }
 
-  // Fallback para a página de "Assistir" no TMDB
+  // Fallback para a página "Assistir" do TMDB
   const tmdbWatchLink =
     (area && typeof area.link === 'string' && area.link) ||
     (typeof tmdbId === 'number' ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${R}` : null)
 
-  if (!area) return { providers: [], fallbackUrl: tmdbWatchLink }
+  // Normaliza ofertas:
+  // TMDB padrão usa buckets: flatrate/ads/free/rent/buy (arrays)
+  // Alguns formatos trazem um ARRAY único de ofertas (com monetization_type / deep_link)
+  let offers: any[] = []
+  if (Array.isArray(area)) {
+    offers = area
+  } else if (area && typeof area === 'object') {
+    offers = [
+      ...(Array.isArray(area.flatrate) ? area.flatrate : []),
+      ...(Array.isArray(area.ads) ? area.ads : []),
+      ...(Array.isArray(area.free) ? area.free : []),
+      ...(Array.isArray(area.rent) ? area.rent : []),
+      ...(Array.isArray(area.buy) ? area.buy : []),
+    ]
+  }
 
-  // Junta todos os buckets conhecidos
-  const buckets = [
-    ...(Array.isArray(area.flatrate) ? area.flatrate : []),
-    ...(Array.isArray(area.ads) ? area.ads : []),
-    ...(Array.isArray(area.free) ? area.free : []),
-    ...(Array.isArray(area.rent) ? area.rent : []),
-    ...(Array.isArray(area.buy) ? area.buy : []),
-  ]
-
-  // De-dup por id; se não houver url específica do provedor, cai no link do TMDB
+  // Monta providers deduplicados por id
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string }>()
-  for (const p of buckets) {
-    const id = Number(p?.provider_id ?? p?.id)
+  for (const o of offers) {
+    const id = Number(o?.provider_id ?? o?.id)
     if (!Number.isFinite(id)) continue
-    const name = String(p?.provider_name ?? p?.name ?? 'Provider')
-    const logoPath = p?.logo_path ?? p?.logo ?? null
-    const logoUrl = logoPath ? `${baseImg}${logoPath}` : null
-    const url = (typeof p?.url === 'string' && p.url) ? p.url : (tmdbWatchLink || '#')
+
+    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
+    const rawLogo = o?.logo_path ?? o?.logo ?? null
+    const logoUrl =
+      !rawLogo ? null :
+      String(rawLogo).startsWith('http') ? String(rawLogo) :
+      `${baseImg}${rawLogo}`
+
+    const deep = o?.deep_link ?? o?.deepLink ?? o?.url
+    const url = (typeof deep === 'string' && deep) ? deep : (tmdbWatchLink || '#')
+
     if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
   }
 
   const providers = Array.from(byId.values())
 
+  // Ordem previsível (A→Z). Se quiser priorizar assinatura/grátis, dá pra alterar aqui.
   providers.sort((a, b) => a.name.localeCompare(b.name))
 
   return { providers, fallbackUrl: tmdbWatchLink }
 }
+
 
