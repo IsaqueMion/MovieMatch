@@ -76,9 +76,8 @@ export default function AdblockWall({ enabled = true }: Props) {
           <div className="min-w-0">
             <h3 className="text-xl font-semibold">Ajude a manter o MovieMatch gratuito</h3>
             <p className="mt-1 text-sm text-white/80">
-              Detectamos um bloqueador de anúncios. Nossos anúncios são discretos e
-              ajudam a pagar os servidores. Desative o adblock para este site e clique
-              em <strong>“Já desativei”</strong>.
+              🛑 Detectamos um bloqueador de anúncios. Ao liberar anúncios, você ajuda a manter o MovieMatch no ar 🚀. É rápido e indolor 😉. A gente promete: nada de pop-up chato. Só anúncios sutis para pagar a pipoca do servidor 🍿. Desative o adblock para este site e clique
+              em <strong>“Já desativei”</strong>✅.
             </p>
           </div>
         </div>
