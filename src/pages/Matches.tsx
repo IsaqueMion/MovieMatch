@@ -26,6 +26,9 @@ export default function Matches() {
   const [sort, setSort] = useState<SortKey>('recent') // ordenação
   const [minLikes, setMinLikes] = useState(2)       // mínimo de likes para aparecer
 
+  // Região para provedores (cai no BR por padrão)
+  const [watchRegion, setWatchRegion] = useState<string>('BR')
+
   // Modal de detalhes
   const [modal, setModal] = useState<{ item: MatchItem; details: MovieDetails | null } | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
@@ -66,6 +69,15 @@ export default function Matches() {
       }
 
       setSessionId(sess.id)
+      // tenta descobrir a região da sessão (se foi salva nos filtros)
+      try {
+        const { data: sf } = await supabase
+          .from('session_filters')
+          .select('watch_region')
+          .eq('session_id', sess.id)
+          .maybeSingle()
+        if (sf?.watch_region) setWatchRegion(sf.watch_region as string)
+      } catch {}
       await loadMatches(sess.id)
       setLoading(false)
     })()
@@ -294,6 +306,7 @@ export default function Matches() {
                     {/* chips (desktop) */}
                     <div className="mt-1 hidden md:flex flex-wrap items-center gap-2 text-sm text-white/70">
                       <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
+                      <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">Região: {watchRegion}</span>
                       {modal.item.tmdb_id != null && (
                         <a
                           href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
@@ -381,6 +394,41 @@ export default function Matches() {
                         ? (modal.details as any).overview
                         : <span className="text-white/60">Sem sinopse disponível.</span>}
                     </div>
+                    {/* Provedores de streaming */}
+                    {(() => {
+                      const providers = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
+                      if (!providers || providers.length === 0) return null
+                      return (
+                        <div className="mt-4">
+                          <div className="mb-2 text-sm text-white/70">Disponível em</div>
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            {providers.map((p) => (
+                              <a
+                                key={p.id}
+                                href={p.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={p.name}
+                                className="group inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5 hover:ring-white/25"
+                              >
+                                {p.logoUrl ? (
+                                  <img
+                                    src={p.logoUrl}
+                                    alt={p.name}
+                                    className="h-6 w-6 object-contain opacity-90 group-hover:opacity-100 transition"
+                                    loading="lazy"
+                                    decoding="async"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <span className="text-[11px] px-1 text-white/80">{p.name.slice(0, 3).toUpperCase()}</span>
+                                )}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Poster “cartão” (apenas desktop) */}
@@ -398,4 +446,47 @@ export default function Matches() {
       </div>
     </main>
   )
+}
+// Extrai provedores (flatrate/ads/free/rent/buy) do objeto de detalhes do TMDB/Edge
+function extractProviders(details: any, region: string, tmdbId?: number | null) {
+  if (!details) return [] as Array<{ id: number; name: string; logoUrl: string | null; url: string }>
+  const baseImg = 'https://image.tmdb.org/t/p/w45'
+
+  // Suportes de forma: details.watch_providers.results[region] (TMDB) OU details.providers[region] (edge custom)
+  const wp = (details as any)?.watch_providers ?? (details as any)?.providers ?? null
+  const area =
+    (wp && (wp.results?.[region] ?? wp[region])) ||
+    (wp && (wp.results?.['US'] ?? wp['US'])) || // fallback pros EUA se BR não existir
+    null
+
+  if (!area) return []
+
+  // TMDB costuma ter .link para a página "Assistir" do TMDB
+  const tmdbWatchLink =
+    typeof area.link === 'string' && area.link
+      ? area.link
+      : (typeof tmdbId === 'number' ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${region}` : '')
+
+  const buckets = [
+    ...(Array.isArray(area.flatrate) ? area.flatrate : []),
+    ...(Array.isArray(area.ads) ? area.ads : []),
+    ...(Array.isArray(area.free) ? area.free : []),
+    ...(Array.isArray(area.rent) ? area.rent : []),
+    ...(Array.isArray(area.buy) ? area.buy : []),
+  ]
+
+  const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string }>()
+  for (const p of buckets) {
+    const id = Number(p.provider_id ?? p.id)
+    if (!Number.isFinite(id)) continue
+    const name = String(p.provider_name ?? p.name ?? 'Provider')
+    const logoPath = p.logo_path ?? p.logo ?? null
+    const logoUrl = logoPath ? `${baseImg}${logoPath}` : null
+
+    // Se vier URL específica do provedor (edge), usa; senão cai pro link do TMDB
+    const url = typeof p.url === 'string' && p.url ? p.url : tmdbWatchLink
+
+    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
+  }
+  return Array.from(byId.values())
 }
