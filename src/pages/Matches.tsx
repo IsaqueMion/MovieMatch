@@ -396,7 +396,7 @@ export default function Matches() {
 
                     {/* Provedores de streaming */}
                     {(() => {
-                      const { providers } = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
+                      const { providers } = extractProviders(modal.details, watchRegion)
                       if (!providers.length) return null
 
                       return (
@@ -456,7 +456,6 @@ export default function Matches() {
 function extractProviders(
   details: any,
   region: string,
-  tmdbId?: number | null
 ): {
   providers: Array<{ id: number; name: string; logoUrl: string | null; url: string }>
 } {
