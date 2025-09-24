@@ -914,7 +914,7 @@ const confirmAdult = async (birthdateISO?: string) => {
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
         <p className="text-white/90">Carregando sessão…</p>
         {/* Anti-adblock — só mostra para não-premium */}
-        {!isPremium ? <AdblockWall enabled /> : null}
+        <AdblockWall enabled={!isPremium} />
         <Toaster richColors position="bottom-center" />
       </main>
     )
@@ -1628,6 +1628,7 @@ const confirmAdult = async (birthdateISO?: string) => {
         />
       ) : null}
 
+      <AdblockWall enabled={!isPremium} />
       <Toaster richColors position="bottom-center" />
     </main>
   )
