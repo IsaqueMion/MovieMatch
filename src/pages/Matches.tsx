@@ -465,6 +465,11 @@ export default function Matches() {
   )
 }
 // Ícones + link: usa deep_link do provedor quando existir; senão cai na página "Assistir" do TMDB (por região).
+// Ícones + link por provedor.
+// - Usa deep_link (ou url) do provedor quando existir;
+// - Se não houver, usa fallback para a página "Assistir" do TMDB na região.
+// Cobre formatos: watch_providers.results[REG], watchProviders(.results[REG]),
+// providers[REG], arrays diretas (providers/offers/justwatch.offers), etc.
 function extractProviders(
   details: any,
   region: string,
@@ -478,7 +483,10 @@ function extractProviders(
   const baseImg = 'https://image.tmdb.org/t/p/w45'
   const R = String(region || 'BR').toUpperCase()
   const rLow = R.toLowerCase()
+  const rAlt = R.replace('-', '_')
+  const rAltLow = rAlt.toLowerCase()
 
+  // tenta extrair um "area" por região dentro de vários contêineres
   const wp =
     (details as any)?.watch_providers ??
     (details as any)?.watchProviders ??
@@ -486,51 +494,71 @@ function extractProviders(
     (details as any)?.providers ??
     null
 
-  let area: any = null
-  if (wp) {
-    if (wp.results) {
-      area = wp.results[R] ?? wp.results[rLow] ?? wp.results['US'] ?? wp.results['us'] ?? null
-    } else {
-      area = wp[R] ?? wp[rLow] ?? wp['US'] ?? wp['us'] ?? null
+  const pickArea = (obj: any): any => {
+    if (!obj) return null
+    const tryKeys = [R, rLow, rAlt, rAltLow, 'BR', 'br', 'US', 'us']
+    if (Array.isArray(obj)) return obj
+    if (obj.results) {
+      for (const k of tryKeys) if (obj.results[k]) return obj.results[k]
     }
+    for (const k of tryKeys) if (obj[k]) return obj[k]
+    return null
   }
-  if (!area) return out
 
-  // link agregador do TMDB (fallback se não houver deep link por provedor)
+  let area: any = pickArea(wp)
+
+  // fallback: alguns formatos vêm em outros campos
+  if (!area) {
+    area = pickArea((details as any)?.providersByRegion)
+      ?? pickArea((details as any)?.watchProvidersByRegion)
+      ?? null
+  }
+
+  // link agregador do TMDB (fallback por região)
   const tmdbWatchLink =
-    (typeof area.link === 'string' && area.link) ||
-    (typeof tmdbId === 'number'
-      ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${R}`
-      : null)
+    (area && typeof area.link === 'string' && area.link) ||
+    (typeof tmdbId === 'number' ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${R}` : null)
 
-  // normaliza ofertas
+  // normaliza ofertas (aceita vários formatos)
   let offers: any[] = []
+  const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
+
   if (Array.isArray(area)) {
     offers = area
   } else if (area && typeof area === 'object') {
-    offers = [
-      ...(Array.isArray(area.flatrate) ? area.flatrate : []),
-      ...(Array.isArray(area.ads) ? area.ads : []),
-      ...(Array.isArray(area.free) ? area.free : []),
-      ...(Array.isArray(area.rent) ? area.rent : []),
-      ...(Array.isArray(area.buy) ? area.buy : []),
-    ]
+    // formato TMDB clássico
+    pushAll(area.flatrate)
+    pushAll(area.ads)
+    pushAll(area.free)
+    pushAll(area.rent)
+    pushAll(area.buy)
+    // alguns wrappers usam "offers"
+    pushAll((area as any).offers)
+    pushAll((area as any).streaming)
   }
 
+  // outros lugares possíveis (edge custom)
+  pushAll((details as any)?.offers)
+  pushAll((details as any)?.providers)
+  pushAll((details as any)?.providers_list)
+  pushAll((details as any)?.providers_flat)
+  pushAll((details as any)?.justwatch?.offers)
+
+  // monta providers (de-dup por id)
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string }>()
   for (const o of offers) {
-    const id = Number(o?.provider_id ?? o?.id)
+    const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
     if (!Number.isFinite(id)) continue
 
     const name = String(o?.provider_name ?? o?.name ?? 'Provider')
-    const rawLogo = o?.logo_path ?? o?.logo ?? null
+    const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
     const logoUrl =
       !rawLogo ? null :
       String(rawLogo).startsWith('http') ? String(rawLogo) :
       `${baseImg}${rawLogo}`
 
-    const deep = o?.deep_link ?? o?.deepLink ?? o?.url
-    const url = (typeof deep === 'string' && deep && deep.length > 0)
+    const deep = o?.deep_link ?? o?.deepLink ?? o?.url ?? o?.web_url ?? o?.href
+    const url = (typeof deep === 'string' && deep.length > 0)
       ? deep
       : (tmdbWatchLink || '#')
 
@@ -538,7 +566,9 @@ function extractProviders(
   }
 
   const providers = Array.from(byId.values())
+  // ordem previsível A→Z
   providers.sort((a, b) => a.name.localeCompare(b.name))
+
   out.providers = providers
   return out
 }
