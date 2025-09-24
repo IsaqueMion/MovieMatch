@@ -94,8 +94,9 @@ export async function discoverMovies(opts: { page?: number; filters?: DiscoverFi
 const MD_CACHE_PREFIX = 'mm:md:v1:'
 const MD_TTL = 1000 * 60 * 60 * 3 // 3 horas
 
-export async function getMovieDetails(tmdb_id: number): Promise<MovieDetails> {
-  const key = `${MD_CACHE_PREFIX}${tmdb_id}`
+export async function getMovieDetails(tmdb_id: number, opts?: { region?: string }): Promise<MovieDetails> {
+  const region = (opts?.region || 'BR').toUpperCase()
+  const key = `${MD_CACHE_PREFIX}${tmdb_id}:${region}`
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -106,7 +107,7 @@ export async function getMovieDetails(tmdb_id: number): Promise<MovieDetails> {
     }
   } catch {}
 
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}`
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}&region=${region}`
   const res = await fetchWithRetry(url, {
     headers: {
       'Content-Type': 'application/json',

@@ -97,6 +97,22 @@ export default function Matches() {
     return () => { supabase.removeChannel(ch) }
   }, [sessionId])
 
+  const tmdbId = typeof modal?.item?.tmdb_id === 'number' ? modal.item.tmdb_id : null
+
+  // Carrega os detalhes do filme para o modal respeitando a região da sessão
+  useEffect(() => {
+    if (!tmdbId) return
+    setLoadingDetails(true)
+    getMovieDetails(tmdbId, { region: watchRegion })
+      .then((det) => {
+        setModal((m) => (m ? { ...m, details: det } : m))
+      })
+      .catch(() => {
+        /* silencioso */
+      })
+      .finally(() => setLoadingDetails(false))
+  }, [tmdbId, watchRegion])
+
   async function loadMatches(sid: string) {
     const { data, error } = await supabase
       .from('reactions')

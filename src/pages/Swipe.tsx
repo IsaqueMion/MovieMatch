@@ -554,7 +554,7 @@ function Swipe() {
       const key = current.tmdb_id
       if (detailsCache[key]) return
       try {
-        const det = await getMovieDetails(key)
+        const det = await getMovieDetails(key, { region: filters.watchRegion ?? 'BR' })
         setDetailsCache(prev => {
           const next: Record<number, MovieDetails> = { ...prev, [key]: det }
           const keys = Object.keys(next)
@@ -577,7 +577,7 @@ function Swipe() {
       if (!m) return
       const key = m.tmdb_id
       if (!detailsCache[key]) {
-        getMovieDetails(key)
+        getMovieDetails(key, { region: filters.watchRegion ?? 'BR' })
           .then(det => {
             setDetailsCache(prev => {
               const next: Record<number, MovieDetails> = { ...prev, [key]: det }
