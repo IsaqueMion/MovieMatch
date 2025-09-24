@@ -197,21 +197,23 @@ export default function Matches() {
 
   return (
     <main className="min-h-dvh bg-neutral-900 text-white">
-      <div className="mx-auto max-w-5xl px-4 py-4">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto max-w-5xl px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+        <div className="sticky top-0 z-10 -mx-3 mb-3 border-b border-white/10 bg-neutral-900/90 px-3 py-2 backdrop-blur
+                sm:static sm:mb-4 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0
+                flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-xl font-semibold">Matches — {code.toUpperCase()}</h1>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Buscar título..."
-                className="h-9 w-56 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm outline-none placeholder:text-white/40"
+                className="h-10 w-full sm:w-56 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm outline-none placeholder:text-white/40"
               />
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="h-9 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
+                className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
                 title="Ordenar por"
               >
                 <option value="recent">Mais recentes</option>
@@ -221,7 +223,7 @@ export default function Matches() {
               <select
                 value={String(minLikes)}
                 onChange={(e) => setMinLikes(Number(e.target.value) || 0)}
-                className="h-9 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
+                className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
                 title="Mínimo de likes"
               >
                 <option value="2">2+ likes</option>
@@ -230,7 +232,7 @@ export default function Matches() {
                 <option value="1">1+ like</option>
               </select>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
               <button onClick={copyList} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
                 Copiar lista
               </button>
@@ -246,7 +248,7 @@ export default function Matches() {
             <p className="text-white/80">Nenhum resultado com os filtros atuais.</p>
           </div>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
             {visible.map(m => (
               <li
                 key={m.movie_id}
@@ -264,7 +266,7 @@ export default function Matches() {
                     {m.likes} like{m.likes === 1 ? '' : 's'}
                   </div>
                 </div>
-                <div className="p-3">
+                <div className="p-2.5 sm:p-3">
                   <h3 className="font-semibold leading-tight">
                     {m.title} {m.year ? <span className="text-white/60">({m.year})</span> : null}
                   </h3>
