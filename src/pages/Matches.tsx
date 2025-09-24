@@ -88,7 +88,7 @@ export default function Matches() {
     const rows = (data ?? []) as Row[]
 
     const map = new Map<number, {
-      title: string; year: number | null; poster_url: string | null;
+      title: string; year: number | null; poster_url: string | null; tmdb_id: number | null;
       users: Set<string>; latestAt: number
     }>()
 
