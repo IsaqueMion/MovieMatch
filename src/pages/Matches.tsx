@@ -679,10 +679,9 @@ function extractProviders(
 function providerSearchUrl(
   providerId: number,
   title: string,
-  year: number | null,
 ): string | null {
   // Normaliza consulta
-  const q = encodeURIComponent(`${title}${year ? ' ' + year : ''}`)
+  const q = encodeURIComponent(`${title}`)
 
   // Mapeamento dos principais provedores (IDs do TMDB)
   switch (providerId) {
