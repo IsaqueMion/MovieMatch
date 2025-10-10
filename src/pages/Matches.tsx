@@ -461,7 +461,8 @@ export default function Matches() {
     </main>
   )
 }
-// Ícones dos provedores (sem links). Aceita vários formatos de retorno.
+// Ícones dos provedores (sem links). Se não houver dados no details, injeta placeholders TEMPORÁRIOS
+// para validar o layout. Remova o bloco de placeholders quando o backend estiver ok.
   function extractProviders(
     details: any,
     region: string
@@ -469,8 +470,6 @@ export default function Matches() {
     providers: Array<{ id: number; name: string; logoUrl: string | null }>
   } {
     const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null }> }
-    if (!details) return out
-
     const baseImg = 'https://image.tmdb.org/t/p/w45'
     const R = String(region || 'BR').toUpperCase()
     const rLow = R.toLowerCase()
@@ -488,7 +487,7 @@ export default function Matches() {
       return null
     }
 
-    // Onde os provedores podem vir
+    // tenta achar provedores no details
     const wp =
       (details as any)?.watch_providers ??
       (details as any)?.watchProviders ??
@@ -500,7 +499,7 @@ export default function Matches() {
 
     let area: any = pickArea(wp)
 
-    // normaliza ofertas em um array
+    // normaliza ofertas
     let offers: any[] = []
     const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
 
@@ -528,7 +527,6 @@ export default function Matches() {
     for (const o of offers) {
       const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
       if (!Number.isFinite(id)) continue
-
       const name = String(o?.provider_name ?? o?.name ?? 'Provider')
       const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
       const logoUrl =
@@ -539,7 +537,20 @@ export default function Matches() {
       if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
     }
 
-    const providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+    let providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+
+    // ---------- PLACEHOLDERS TEMPORÁRIOS ----------
+    if (providers.length === 0) {
+      providers = [
+        // ids TMDB comuns
+        { id: 8,   name: 'Netflix',     logoUrl: 'https://image.tmdb.org/t/p/w45/t2yyOv40HZeVlLjYsCsPHnWLk4W.png' },
+        { id: 119, name: 'Prime Video', logoUrl: 'https://image.tmdb.org/t/p/w45/emthp39XA2YScoYL1p0sdbAH2WA.png' },
+        { id: 337, name: 'Disney+',     logoUrl: 'https://image.tmdb.org/t/p/w45/7rwgEs15tFwyR9NPQ5vpzxTj19Q.png' },
+        { id: 384, name: 'Max',         logoUrl: 'https://image.tmdb.org/t/p/w45/9A1JSVmSxsyaBK4SUFsYVqbAYfW.png' },
+      ]
+    }
+    // ----------------------------------------------
+
     out.providers = providers
     return out
   }
