@@ -525,6 +525,39 @@ function extractProviders(
   const baseImg = 'https://image.tmdb.org/t/p/w45'
   const R = String(region || 'BR').toUpperCase()
 
+  // Preferências por domínio (por provider_id do TMDB)
+  // (IDs comuns do TMDB: Netflix=8, Prime=119, Disney+=337, Max=384/hbomax,
+  //  Globoplay=307, Apple TV+=350, Paramount+=531, Star+=619)
+  const PROVIDER_HOSTS: Record<number, string[]> = {
+    8:   ['netflix.com'],
+    119: ['primevideo.com', 'amazon.com'],
+    337: ['disneyplus.com'],
+    384: ['max.com', 'hbomax.com'],
+    307: ['globoplay.com'],
+    350: ['tv.apple.com', 'apple.com'],
+    531: ['paramountplus.com'],
+    619: ['starplus.com'],
+  }
+
+  // Domínios que NÃO queremos abrir como “link do provedor”
+  const BAD_HOSTS = ['imdb.com', 'youtube.com', 'youtu.be', 'themoviedb.org', 'google.com']
+
+  const safeHost = (u: string) => {
+    try {
+      const h = new URL(u).hostname.replace(/^www\./, '')
+      return !BAD_HOSTS.some(bad => h.endsWith(bad))
+    } catch { return false }
+  }
+
+  const hostMatch = (u: string, providerId: number) => {
+    try {
+      const h = new URL(u).hostname.replace(/^www\./, '')
+      const allow = PROVIDER_HOSTS[providerId]
+      if (!allow || allow.length === 0) return safeHost(u) // sem mapa: aceita se não for “ruim”
+      return allow.some(dom => h.endsWith(dom))
+    } catch { return false }
+  }
+
   // 1) Objeto bruto de provedores
   const wp =
     (details as any)?.watch_providers ??
@@ -566,42 +599,65 @@ function extractProviders(
     pushAll((area as any).streaming)
   }
 
-  // Fallbacks “soltos” (quando você injeta JustWatch no backend)
+  // Fallbacks “soltos” (quando seu backend injeta JustWatch)
   pushAll((details as any)?.offers)
   pushAll((details as any)?.providers)
   pushAll((details as any)?.providers_list)
   pushAll((details as any)?.providers_flat)
   pushAll((details as any)?.justwatch?.offers)
 
-  // 4) Dedup por provider_id + tenta capturar URL por provedor (se vier do JustWatch)
+  // Função que escolhe a MELHOR URL para um provider específico
+  const bestUrlForProvider = (providerId: number, list: any[]): string | null => {
+    // 1) pega todas as URLs válidas dessa provider
+    const urls: string[] = []
+    for (const o of list) {
+      const pid = Number(o?.provider_id ?? o?.id ?? o?.providerId)
+      if (pid !== providerId) continue
+      const candidates = [
+        o?.urls?.standard_web,
+        o?.urls?.deeplink_web,
+        o?.url,
+        o?.deep_link,
+      ].filter(Boolean)
+      for (const c of candidates) {
+        const u = String(c)
+        if (safeHost(u)) urls.push(u)
+      }
+    }
+    if (urls.length === 0) return null
+
+    // 2) se houver host permitido mapeado para o provider, prioriza
+    const preferred = urls.find(u => hostMatch(u, providerId))
+    if (preferred) return preferred
+
+    // 3) senão, usa a primeira “segura” (não-IMDb/YT/TMDb)
+    return urls[0] || null
+  }
+
+  // 4) Dedup por provider_id + anexa url escolhida
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string | null }>()
   for (const o of offers) {
     const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
     if (!Number.isFinite(id)) continue
-    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
 
+    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
     const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
     const logoUrl =
       !rawLogo ? null :
       String(rawLogo).startsWith('http') ? String(rawLogo) :
       `${baseImg}${rawLogo}`
 
-    // Possíveis campos de URL (quando vem de JustWatch)
-    const url =
-      (o?.urls && (o.urls.standard_web || o.urls.deeplink_web)) ||
-      (typeof o?.url === 'string' ? o.url : null) ||
-      (typeof o?.deep_link === 'string' ? o.deep_link : null) ||
-      null
-
-    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
-    else {
-      // se já existia mas este tem url, preferimos manter a url
-      const prev = byId.get(id)!
-      if (!prev.url && url) byId.set(id, { ...prev, url })
+    if (!byId.has(id)) {
+      byId.set(id, { id, name, logoUrl, url: null })
     }
+  }
+
+  // Atribui a melhor URL por provider
+  for (const [id, entry] of byId.entries()) {
+    const chosen = bestUrlForProvider(id, offers)
+    byId.set(id, { ...entry, url: chosen })
   }
 
   out.providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
   return out
 }
-
