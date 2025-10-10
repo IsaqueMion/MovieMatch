@@ -19,6 +19,13 @@ export type DiscoverFilters = {
   monetization?: MonetizationType[]
 }
 
+export type ProviderInfo = {
+  id: number
+  name: string
+  logo_url: string
+  url?: string
+}
+
 export type MovieDetails = {
   tmdb_id: number
   title: string
@@ -30,6 +37,7 @@ export type MovieDetails = {
   overview: string
   trailer: { key: string } | null
   age_rating: string
+  providers?: ProviderInfo[]
 }
 
 /* ---------------- Retry helpers ---------------- */

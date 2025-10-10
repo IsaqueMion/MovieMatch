@@ -1,3 +1,4 @@
+// src/pages/Matches.tsx
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -22,11 +23,11 @@ export default function Matches() {
   const [loading, setLoading] = useState(true)
 
   // Controles da UI
-  const [q, setQ] = useState('')                    // busca por título
+  const [q, setQ] = useState('')                     // busca por título
   const [sort, setSort] = useState<SortKey>('recent') // ordenação
-  const [minLikes, setMinLikes] = useState(2)       // mínimo de likes para aparecer
+  const [minLikes, setMinLikes] = useState(2)        // mínimo de likes
 
-  // Região para provedores (cai no BR por padrão)
+  // Região para provedores (lida na sessão; usamos no extractProviders)
   const [watchRegion, setWatchRegion] = useState<string>('BR')
 
   // Modal de detalhes
@@ -39,6 +40,7 @@ export default function Matches() {
     let det: MovieDetails | null = null
     try {
       if (item.tmdb_id != null) {
+        // getMovieDetails já faz cache e busca da Edge Function
         det = await getMovieDetails(item.tmdb_id)
       }
     } catch (e) {
@@ -69,6 +71,7 @@ export default function Matches() {
       }
 
       setSessionId(sess.id)
+
       // tenta descobrir a região da sessão (se foi salva nos filtros)
       try {
         const { data: sf } = await supabase
@@ -76,8 +79,9 @@ export default function Matches() {
           .select('watch_region')
           .eq('session_id', sess.id)
           .maybeSingle()
-        if (sf?.watch_region) setWatchRegion(sf.watch_region as string)
+        if (sf?.watch_region) setWatchRegion(String(sf.watch_region))
       } catch {}
+
       await loadMatches(sess.id)
       setLoading(false)
     })()
@@ -96,22 +100,6 @@ export default function Matches() {
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [sessionId])
-
-  const tmdbId = typeof modal?.item?.tmdb_id === 'number' ? modal.item.tmdb_id : null
-
-  // Carrega os detalhes do filme para o modal respeitando a região da sessão
-  useEffect(() => {
-    if (!tmdbId) return
-    setLoadingDetails(true)
-    getMovieDetails(tmdbId, { region: watchRegion })
-      .then((det) => {
-        setModal((m) => (m ? { ...m, details: det } : m))
-      })
-      .catch(() => {
-        /* silencioso */
-      })
-      .finally(() => setLoadingDetails(false))
-  }, [tmdbId, watchRegion])
 
   async function loadMatches(sid: string) {
     const { data, error } = await supabase
@@ -163,7 +151,6 @@ export default function Matches() {
     const list: MatchItem[] = []
     for (const [movie_id, m] of map.entries()) {
       const likes = m.users.size
-      // Empilhamos todos; filtro por mínimo acontece na view
       list.push({
         movie_id,
         tmdb_id: m.tmdb_id ?? null,
@@ -226,6 +213,7 @@ export default function Matches() {
   return (
     <main className="min-h-dvh bg-neutral-900 text-white">
       <div className="mx-auto max-w-5xl px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+        {/* Header */}
         <div className="sticky top-0 z-10 -mx-3 mb-3 border-b border-white/10 bg-neutral-900/90 px-3 py-2 backdrop-blur
                 sm:static sm:mb-4 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0
                 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -271,6 +259,7 @@ export default function Matches() {
           </div>
         </div>
 
+        {/* Lista */}
         {visible.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <p className="text-white/80">Nenhum resultado com os filtros atuais.</p>
@@ -457,94 +446,96 @@ export default function Matches() {
     </main>
   )
 }
-// Ícones dos provedores (sem links). Se não houver dados no details, injeta placeholders TEMPORÁRIOS
-// para validar o layout. Remova o bloco de placeholders quando o backend estiver ok.
-  function extractProviders(
-    details: any,
-    region: string
-  ): {
-    providers: Array<{ id: number; name: string; logoUrl: string | null }>
-  } {
-    const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null }> }
-    const baseImg = 'https://image.tmdb.org/t/p/w45'
-    const R = String(region || 'BR').toUpperCase()
-    const rLow = R.toLowerCase()
-    const rAlt = R.replace('-', '_')
-    const rAltLow = rAlt.toLowerCase()
 
-    const pickArea = (obj: any): any => {
-      if (!obj) return null
-      const tryKeys = [R, rLow, rAlt, rAltLow, 'BR', 'br', 'US', 'us']
-      if (Array.isArray(obj)) return obj
-      if (obj.results) {
-        for (const k of tryKeys) if (obj.results[k]) return obj.results[k]
-      }
-      for (const k of tryKeys) if (obj[k]) return obj[k]
-      return null
+/** Extrai provedores de vários formatos possíveis em MovieDetails e aplica fallback de logos locais. */
+function extractProviders(
+  details: any,
+  region: string
+): {
+  providers: Array<{ id: number; name: string; logoUrl: string | null }>
+} {
+  const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null }> }
+  const baseImg = 'https://image.tmdb.org/t/p/w45'
+  const R = String(region || 'BR').toUpperCase()
+  const rLow = R.toLowerCase()
+  const rAlt = R.replace('-', '_')
+  const rAltLow = rAlt.toLowerCase()
+
+  const pickArea = (obj: any): any => {
+    if (!obj) return null
+    const tryKeys = [R, rLow, rAlt, rAltLow, 'BR', 'br', 'US', 'us']
+    if (Array.isArray(obj)) return obj
+    if (obj.results) {
+      for (const k of tryKeys) if (obj.results[k]) return obj.results[k]
     }
-
-    // tenta achar provedores no details
-    const wp =
-      (details as any)?.watch_providers ??
-      (details as any)?.watchProviders ??
-      (details as any)?.watchProvidersV2 ??
-      (details as any)?.providers ??
-      (details as any)?.providersByRegion ??
-      (details as any)?.watchProvidersByRegion ??
-      null
-
-    let area: any = pickArea(wp)
-
-    // normaliza ofertas
-    let offers: any[] = []
-    const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
-
-    if (Array.isArray(area)) {
-      offers = area
-    } else if (area && typeof area === 'object') {
-      pushAll(area.flatrate)
-      pushAll(area.ads)
-      pushAll(area.free)
-      pushAll(area.rent)
-      pushAll(area.buy)
-      pushAll((area as any).offers)
-      pushAll((area as any).streaming)
-    }
-
-    // também checa campos soltos comuns
-    pushAll((details as any)?.offers)
-    pushAll((details as any)?.providers)
-    pushAll((details as any)?.providers_list)
-    pushAll((details as any)?.providers_flat)
-    pushAll((details as any)?.justwatch?.offers)
-
-    // monta providers deduplicados por id
-    const byId = new Map<number, { id: number; name: string; logoUrl: string | null }>()
-    for (const o of offers) {
-      const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
-      if (!Number.isFinite(id)) continue
-      const name = String(o?.provider_name ?? o?.name ?? 'Provider')
-      const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
-      const logoUrl =
-        !rawLogo ? null :
-        String(rawLogo).startsWith('http') ? String(rawLogo) :
-        `${baseImg}${rawLogo}`
-
-      if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
-    }
-
-    let providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
-
-      // ---------- PLACEHOLDERS TEMPORÁRIOS (usar logos locais) ----------
-    if (providers.length === 0) {
-      providers = [
-        { id: 8,   name: 'Netflix',     logoUrl: '/providers/netflix.svg' },
-        { id: 119, name: 'Prime Video', logoUrl: '/providers/primevideo.svg' },
-        { id: 337, name: 'Disney+',     logoUrl: '/providers/disneyplus.svg' },
-        { id: 384, name: 'Max',         logoUrl: '/providers/max.svg' },
-      ]
-    }
-    // ------------------------------------------------------------------
-    out.providers = providers
-    return out
+    for (const k of tryKeys) if (obj[k]) return obj[k]
+    return null
   }
+
+  // tenta achar provedores no details (vários nomes que podemos ter no objeto)
+  const wp =
+    (details as any)?.providers ??
+    (details as any)?.watch_providers ??
+    (details as any)?.watchProviders ??
+    (details as any)?.watchProvidersV2 ??
+    (details as any)?.providersByRegion ??
+    (details as any)?.watchProvidersByRegion ??
+    null
+
+  let area: any = pickArea(wp)
+
+  // normaliza ofertas
+  let offers: any[] = []
+  const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
+
+  if (Array.isArray(area)) {
+    offers = area
+  } else if (area && typeof area === 'object') {
+    pushAll(area.flatrate)
+    pushAll(area.ads)
+    pushAll(area.free)
+    pushAll(area.rent)
+    pushAll(area.buy)
+    pushAll((area as any).offers)
+    pushAll((area as any).streaming)
+  }
+
+  // também checa campos soltos comuns (defensivo)
+  pushAll((details as any)?.offers)
+  pushAll((details as any)?.providers_list)
+  pushAll((details as any)?.providers_flat)
+  pushAll((details as any)?.justwatch?.offers)
+
+  // monta providers deduplicados por id
+  const byId = new Map<number, { id: number; name: string; logoUrl: string | null }>()
+  for (const o of offers) {
+    const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
+    if (!Number.isFinite(id)) continue
+    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
+    const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
+    const logoUrl =
+      !rawLogo ? null :
+      String(rawLogo).startsWith('http') ? String(rawLogo) :
+      `${baseImg}${rawLogo}`
+
+    if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
+  }
+
+  let providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+
+  // ---------- PLACEHOLDERS TEMPORÁRIOS ----------
+  // Se o backend ainda não estiver retornando "providers", mostramos alguns
+  // ícones para validar o layout. Remova este bloco quando tudo estiver ok.
+  if (providers.length === 0) {
+    providers = [
+      { id: 8,   name: 'Netflix',     logoUrl: '/providers/netflix.svg' },
+      { id: 119, name: 'Prime Video', logoUrl: '/providers/primevideo.svg' },
+      { id: 337, name: 'Disney+',     logoUrl: '/providers/disneyplus.svg' },
+      { id: 384, name: 'Max',         logoUrl: '/providers/max.svg' },
+    ]
+  }
+  // ----------------------------------------------
+
+  out.providers = providers
+  return out
+}
