@@ -425,18 +425,14 @@ export default function Matches() {
                                 title={p.name}
                                 className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
                               >
-                                {p.logoUrl ? (
-                                  <img
-                                    src={p.logoUrl}
-                                    alt={p.name}
-                                    className="h-6 w-6 object-contain opacity-90"
-                                    loading="lazy"
-                                    decoding="async"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                ) : (
-                                  <span className="text-[11px] px-1 text-white/80">{p.name.slice(0, 3).toUpperCase()}</span>
-                                )}
+                                <img
+                                  src={p.logoUrl || '/providers/generic.svg'}
+                                  alt={p.name}
+                                  className="h-6 w-6 object-contain opacity-90"
+                                  loading="lazy"
+                                  decoding="async"
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
+                                />
                               </div>
                             ))}
                           </div>
@@ -539,18 +535,16 @@ export default function Matches() {
 
     let providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
 
-    // ---------- PLACEHOLDERS TEMPORÁRIOS ----------
+      // ---------- PLACEHOLDERS TEMPORÁRIOS (usar logos locais) ----------
     if (providers.length === 0) {
       providers = [
-        // ids TMDB comuns
-        { id: 8,   name: 'Netflix',     logoUrl: 'https://image.tmdb.org/t/p/w45/t2yyOv40HZeVlLjYsCsPHnWLk4W.png' },
-        { id: 119, name: 'Prime Video', logoUrl: 'https://image.tmdb.org/t/p/w45/emthp39XA2YScoYL1p0sdbAH2WA.png' },
-        { id: 337, name: 'Disney+',     logoUrl: 'https://image.tmdb.org/t/p/w45/7rwgEs15tFwyR9NPQ5vpzxTj19Q.png' },
-        { id: 384, name: 'Max',         logoUrl: 'https://image.tmdb.org/t/p/w45/9A1JSVmSxsyaBK4SUFsYVqbAYfW.png' },
+        { id: 8,   name: 'Netflix',     logoUrl: '/providers/netflix.svg' },
+        { id: 119, name: 'Prime Video', logoUrl: '/providers/primevideo.svg' },
+        { id: 337, name: 'Disney+',     logoUrl: '/providers/disneyplus.svg' },
+        { id: 384, name: 'Max',         logoUrl: '/providers/max.svg' },
       ]
     }
-    // ----------------------------------------------
-
+    // ------------------------------------------------------------------
     out.providers = providers
     return out
   }
