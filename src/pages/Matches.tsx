@@ -422,7 +422,7 @@ export default function Matches() {
                                 // 2) fallback: busca do serviço
                                 const href =
                                   p.url ||
-                                  providerSearchUrl(p.id, modal.item.title) ||
+                                  providerSearchUrl(p.id, modal.item.title, watchRegion) ||
                                   undefined
 
                                 const content = (
@@ -678,12 +678,10 @@ function extractProviders(
   out.providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
   return out
 }
-function providerSearchUrl(
-  providerId: number,
-  title: string,
-): string | null {
+function providerSearchUrl(providerId: number, title: string, region?: string): string | undefined {
   // Normaliza consulta
   const q = encodeURIComponent(title)
+  const cc = String(region || 'BR').toLowerCase(); // país em minúsculas (ex.: 'br')
 
   // Mapeamento dos principais provedores (IDs do TMDB)
   switch (providerId) {
@@ -698,13 +696,13 @@ function providerSearchUrl(
     case 307: // Globoplay
       return `https://globoplay.globo.com/busca/?q=${q}`
     case 350: // Apple TV+
-      return `https://tv.apple.com/search?term=${q}`
+      return `https://tv.apple.com/${cc}/search?term=${q}`
     case 531: // Paramount+
       return `https://www.paramountplus.com/search/?searchTerm=${q}`
     case 619: // Star+
       return `https://www.starplus.com/search/${q}`
     default:
       // Não mapeado: sem fallback para TMDB/JustWatch
-      return null
+      return undefined;
   }
 }
