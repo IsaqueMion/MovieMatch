@@ -418,22 +418,31 @@ export default function Matches() {
                           <div className="mt-4">
                             <div className="mb-2 text-sm text-white/70">Disponível em</div>
                             <div className="flex flex-wrap items-center gap-2.5">
-                              {providers.map((p) => (
-                                <div
-                                  key={p.id}
-                                  title={p.name}
-                                  className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
-                                >
-                                  <img
-                                    src={p.logoUrl || '/providers/generic.svg'}
-                                    alt={p.name}
-                                    className="h-6 w-6 object-contain opacity-90"
-                                    loading="lazy"
-                                    decoding="async"
-                                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
-                                  />
-                                </div>
-                              ))}
+                              {providers.map((p) => {
+                                const href = p.url || regionLink || null
+                                const content = (
+                                  <div
+                                    title={p.name}
+                                    className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5 hover:bg-white/10 transition"
+                                  >
+                                    <img
+                                      src={p.logoUrl || '/providers/generic.svg'}
+                                      alt={p.name}
+                                      className="h-6 w-6 object-contain opacity-90"
+                                      loading="lazy"
+                                      decoding="async"
+                                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
+                                    />
+                                  </div>
+                                )
+                                return href ? (
+                                  <a key={p.id} href={href} target="_blank" rel="noreferrer">
+                                    {content}
+                                  </a>
+                                ) : (
+                                  <div key={p.id}>{content}</div>
+                                )
+                              })}
                             </div>
                           </div>
                         );
@@ -499,17 +508,16 @@ export default function Matches() {
   )
 }
 
-/** Extrai provedores de vários formatos possíveis em MovieDetails e aplica fallback de logos locais. */
 function extractProviders(
   details: any,
   region: string
 ): {
-  providers: Array<{ id: number; name: string; logoUrl: string | null }>
+  providers: Array<{ id: number; name: string; logoUrl: string | null; url: string | null }>
   hasRegion: boolean
   regionLink: string | null
 } {
   const out = {
-    providers: [] as Array<{ id: number; name: string; logoUrl: string | null }>,
+    providers: [] as Array<{ id: number; name: string; logoUrl: string | null; url: string | null }>,
     hasRegion: false,
     regionLink: null as string | null,
   }
@@ -517,7 +525,7 @@ function extractProviders(
   const baseImg = 'https://image.tmdb.org/t/p/w45'
   const R = String(region || 'BR').toUpperCase()
 
-  // 1) Pega o objeto bruto
+  // 1) Objeto bruto de provedores
   const wp =
     (details as any)?.watch_providers ??
     (details as any)?.watchProviders ??
@@ -527,11 +535,10 @@ function extractProviders(
     (details as any)?.watchProvidersByRegion ??
     null
 
-  // 2) Descobre exatamente a área da região R (sem cair em outra)
+  // 2) Seleciona a área da região
   let area: any = null
   if (wp) {
     if (Array.isArray(wp)) {
-      // pouquíssimo provável para TMDB; se vier array, trata como ofertas diretas
       area = wp
     } else if (wp.results && typeof wp.results === 'object') {
       area = wp.results[R] ?? null
@@ -540,15 +547,10 @@ function extractProviders(
     }
   }
 
-  // há uma entrada para a região?
   if (area) out.hasRegion = true
+  if (area && typeof area.link === 'string' && area.link) out.regionLink = area.link
 
-  // 3) Link para agregador (quando o TMDB traz)
-  if (area && typeof area.link === 'string' && area.link) {
-    out.regionLink = area.link
-  }
-
-  // 4) Normaliza ofertas em um array plano
+  // 3) Junta ofertas em um array
   let offers: any[] = []
   const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
 
@@ -564,28 +566,42 @@ function extractProviders(
     pushAll((area as any).streaming)
   }
 
-  // também checa campos soltos comuns (fallbacks)
+  // Fallbacks “soltos” (quando você injeta JustWatch no backend)
   pushAll((details as any)?.offers)
   pushAll((details as any)?.providers)
   pushAll((details as any)?.providers_list)
   pushAll((details as any)?.providers_flat)
   pushAll((details as any)?.justwatch?.offers)
 
-  // 5) Monta providers deduplicados por id
-  const byId = new Map<number, { id: number; name: string; logoUrl: string | null }>()
+  // 4) Dedup por provider_id + tenta capturar URL por provedor (se vier do JustWatch)
+  const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string | null }>()
   for (const o of offers) {
     const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
     if (!Number.isFinite(id)) continue
     const name = String(o?.provider_name ?? o?.name ?? 'Provider')
+
     const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
     const logoUrl =
       !rawLogo ? null :
       String(rawLogo).startsWith('http') ? String(rawLogo) :
       `${baseImg}${rawLogo}`
 
-    if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
+    // Possíveis campos de URL (quando vem de JustWatch)
+    const url =
+      (o?.urls && (o.urls.standard_web || o.urls.deeplink_web)) ||
+      (typeof o?.url === 'string' ? o.url : null) ||
+      (typeof o?.deep_link === 'string' ? o.deep_link : null) ||
+      null
+
+    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
+    else {
+      // se já existia mas este tem url, preferimos manter a url
+      const prev = byId.get(id)!
+      if (!prev.url && url) byId.set(id, { ...prev, url })
+    }
   }
 
   out.providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
   return out
 }
+
