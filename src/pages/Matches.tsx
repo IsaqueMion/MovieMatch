@@ -521,21 +521,5 @@ function extractProviders(
     if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
   }
 
-  let providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
-
-  // ---------- PLACEHOLDERS TEMPORÁRIOS ----------
-  // Se o backend ainda não estiver retornando "providers", mostramos alguns
-  // ícones para validar o layout. Remova este bloco quando tudo estiver ok.
-  if (providers.length === 0) {
-    providers = [
-      { id: 8,   name: 'Netflix',     logoUrl: '/providers/netflix.svg' },
-      { id: 119, name: 'Prime Video', logoUrl: '/providers/primevideo.svg' },
-      { id: 337, name: 'Disney+',     logoUrl: '/providers/disneyplus.svg' },
-      { id: 384, name: 'Max',         logoUrl: '/providers/max.svg' },
-    ]
-  }
-  // ----------------------------------------------
-
-  out.providers = providers
   return out
 }
