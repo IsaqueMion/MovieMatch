@@ -419,11 +419,16 @@ export default function Matches() {
                             <div className="mb-2 text-sm text-white/70">Disponível em</div>
                             <div className="flex flex-wrap items-center gap-2.5">
                               {providers.map((p) => {
-                                const href = p.url || regionLink || null
+                                // 1) tenta deeplink vindo do backend (p.url)
+                                // 2) senão, cai na busca do serviço (providerSearchUrl)
+                                const href =
+                                  p.url ||
+                                  providerSearchUrl(p.id, modal.item.title, modal.item.year, watchRegion) ||
+                                  undefined  // ❌ sem fallback para TMDB/JustWatch
+
                                 const content = (
                                   <div
-                                    title={p.name}
-                                    className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5 hover:bg-white/10 transition"
+                                    className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
                                   >
                                     <img
                                       src={p.logoUrl || '/providers/generic.svg'}
@@ -435,12 +440,22 @@ export default function Matches() {
                                     />
                                   </div>
                                 )
+
                                 return href ? (
-                                  <a key={p.id} href={href} target="_blank" rel="noreferrer">
+                                  <a
+                                    key={p.id}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={p.name}
+                                    className="inline-block"
+                                  >
                                     {content}
                                   </a>
                                 ) : (
-                                  <div key={p.id}>{content}</div>
+                                  <div key={p.id} title={p.name} className="inline-block opacity-80">
+                                    {content}
+                                  </div>
                                 )
                               })}
                             </div>
@@ -660,4 +675,36 @@ function extractProviders(
 
   out.providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
   return out
+}
+function providerSearchUrl(
+  providerId: number,
+  title: string,
+  year: number | null,
+  region: string
+): string | null {
+  // Normaliza consulta
+  const q = encodeURIComponent(`${title}${year ? ' ' + year : ''}`)
+
+  // Mapeamento dos principais provedores (IDs do TMDB)
+  switch (providerId) {
+    case 8:   // Netflix
+      return `https://www.netflix.com/search?q=${q}`
+    case 119: // Prime Video
+      return `https://www.primevideo.com/search?phrase=${q}`
+    case 337: // Disney+
+      return `https://www.disneyplus.com/search/${q}`
+    case 384: // Max (HBO Max)
+      return `https://www.max.com/search?q=${q}`
+    case 307: // Globoplay
+      return `https://globoplay.globo.com/busca/?q=${q}`
+    case 350: // Apple TV+
+      return `https://tv.apple.com/search?term=${q}`
+    case 531: // Paramount+
+      return `https://www.paramountplus.com/search/?searchTerm=${q}`
+    case 619: // Star+
+      return `https://www.starplus.com/search/${q}`
+    default:
+      // Não mapeado: sem fallback para TMDB/JustWatch
+      return null
+  }
 }
