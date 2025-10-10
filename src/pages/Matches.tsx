@@ -403,33 +403,30 @@ export default function Matches() {
                     {(() => {
                       // Logs de diagnóstico — veja no Console para inspecionar o payload bruto
                       console.log('details.providers:', (modal.details as any)?.providers);
-                      console.log('details.providers_keys:', (modal.details as any)?.providers_keys);
+                      console.log('details.providers_keys:', (modal.details as any)?.providers_keys);                    
 
-                      const rawProviders = (modal.details as any)?.providers ?? null;
-                      const regionKeys: string[] = Array.isArray((modal.details as any)?.providers_keys)
-                        ? (modal.details as any).providers_keys
-                        : (rawProviders ? Object.keys(rawProviders) : []);
+                      const { providers, hasRegion, regionLink } = extractProviders(modal.details, watchRegion)
 
-                      const { providers, hasRegion, regionLink } = extractProviders(modal.details, watchRegion);
+                      // Link de busca no Google (título + ano + "onde assistir")
+                      const gq = encodeURIComponent(`${modal.item.title} ${modal.item.year ?? ''} onde assistir`)
+                      const gHref = `https://www.google.com/search?q=${gq}`
 
-                      // Caso 1: Há provedores na região selecionada (ex.: BR) → renderiza ícones
+                      // Caso 1: Há provedores na região selecionada (ex.: BR) → renderiza ícones normalmente
                       if (providers.length > 0) {
                         return (
                           <div className="mt-4">
                             <div className="mb-2 text-sm text-white/70">Disponível em</div>
                             <div className="flex flex-wrap items-center gap-2.5">
                               {providers.map((p) => {
-                                // 1) tenta deeplink vindo do backend (p.url)
-                                // 2) senão, cai na busca do serviço (providerSearchUrl)
+                                // 1) deeplink do backend (p.url)
+                                // 2) fallback: busca do serviço
                                 const href =
                                   p.url ||
                                   providerSearchUrl(p.id, modal.item.title) ||
-                                  undefined  // ❌ sem fallback para TMDB/JustWatch
+                                  undefined
 
                                 const content = (
-                                  <div
-                                    className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
-                                  >
+                                  <div className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5">
                                     <img
                                       src={p.logoUrl || '/providers/generic.svg'}
                                       alt={p.name}
@@ -460,18 +457,18 @@ export default function Matches() {
                               })}
                             </div>
                           </div>
-                        );
+                        )
                       }
 
-                      // Caso 2: A região existe no payload (ex.: BR consta em providers_keys),
-                      // mas não há nenhuma oferta listada (flatrate/free/ads/buy/rent).
-                      if (hasRegion || regionKeys.map(String).map(s => s.toUpperCase()).includes(String(watchRegion).toUpperCase())) {
+                      // Caso 2: A região consta no payload, mas sem ofertas listadas → mostra aviso + Google
+                      if (hasRegion) {
                         return (
                           <div className="mt-4 text-sm text-white/70">
                             Disponível na região <span className="font-medium">{watchRegion}</span>, mas sem plataformas listadas no momento.
+                            {' '}
                             {regionLink ? (
                               <>
-                                {' '}Tente abrir no{' '}
+                                Tente abrir no{' '}
                                 <a
                                   href={regionLink}
                                   target="_blank"
@@ -479,30 +476,35 @@ export default function Matches() {
                                   className="underline hover:text-white"
                                 >
                                   agregador da região
-                                </a>.
+                                </a>
+                                {' '}ou
                               </>
-                            ) : null}
+                            ) : null}{' '}
+                            <a
+                              href={gHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 ring-1 ring-white/15 hover:bg-white/15"
+                            >
+                              🔎 Buscar no Google
+                            </a>
                           </div>
-                        );
+                        )
                       }
 
-                      // Caso 3: Sem BR, mas há outras regiões disponíveis → lista regiões
-                      if (Array.isArray(regionKeys) && regionKeys.length > 0) {
-                        const unique = Array.from(new Set(regionKeys.map((k) => String(k).toUpperCase())));
-                        return (
-                          <div className="mt-4">
-                            <div className="text-sm text-white/70">
-                              Sem disponibilidade na região <span className="font-medium">{watchRegion}</span>.
-                            </div>
-                            <div className="mt-1 text-sm text-white/70">
-                              Disponível em outras regiões: <span className="font-medium">{unique.join(', ')}</span>
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      // Caso 4: nada de providers em lugar nenhum → não renderiza o bloco
-                      return null;
+                      // Caso 3: nenhuma info de plataforma → apenas botão Google
+                      return (
+                        <div className="mt-4">
+                          <a
+                            href={gHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/15 hover:bg-white/15"
+                          >
+                            🔎 Buscar no Google
+                          </a>
+                        </div>
+                      )
                     })()}
                   </div>
 
