@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
+import { providerSearchUrl, providerMeta } from '../lib/providers'
+
 
 type MatchItem = {
   movie_id: number
@@ -542,9 +544,7 @@ function extractProviders(
   const baseImg = 'https://image.tmdb.org/t/p/w45'
   const R = String(region || 'BR').toUpperCase()
 
-  // Preferências por domínio (por provider_id do TMDB)
-  // (IDs comuns do TMDB: Netflix=8, Prime=119, Disney+=337, Max=384/hbomax,
-  //  Globoplay=307, Apple TV+=350, Paramount+=531, Star+=619)
+  // Preferências por domínio (IDs TMDB)
   const PROVIDER_HOSTS: Record<number, string[]> = {
     8:   ['netflix.com'],
     119: ['primevideo.com', 'amazon.com'],
@@ -556,7 +556,7 @@ function extractProviders(
     619: ['starplus.com'],
   }
 
-  // Domínios que NÃO queremos abrir como “link do provedor”
+  // Domínios que NÃO queremos abrir
   const BAD_HOSTS = ['imdb.com', 'youtube.com', 'youtu.be', 'themoviedb.org', 'google.com']
 
   const safeHost = (u: string) => {
@@ -570,12 +570,12 @@ function extractProviders(
     try {
       const h = new URL(u).hostname.replace(/^www\./, '')
       const allow = PROVIDER_HOSTS[providerId]
-      if (!allow || allow.length === 0) return safeHost(u) // sem mapa: aceita se não for “ruim”
+      if (!allow || allow.length === 0) return safeHost(u)
       return allow.some(dom => h.endsWith(dom))
     } catch { return false }
   }
 
-  // 1) Objeto bruto de provedores
+  // 1) Origem bruta
   const wp =
     (details as any)?.watch_providers ??
     (details as any)?.watchProviders ??
@@ -585,7 +585,7 @@ function extractProviders(
     (details as any)?.watchProvidersByRegion ??
     null
 
-  // 2) Seleciona a área da região
+  // 2) Pega o “bloco” da região
   let area: any = null
   if (wp) {
     if (Array.isArray(wp)) {
@@ -600,7 +600,7 @@ function extractProviders(
   if (area) out.hasRegion = true
   if (area && typeof area.link === 'string' && area.link) out.regionLink = area.link
 
-  // 3) Junta ofertas em um array
+  // 3) Junta ofertas
   let offers: any[] = []
   const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
 
@@ -616,16 +616,15 @@ function extractProviders(
     pushAll((area as any).streaming)
   }
 
-  // Fallbacks “soltos” (quando seu backend injeta JustWatch)
+  // fallbacks soltos (quando backend injeta do JustWatch)
   pushAll((details as any)?.offers)
   pushAll((details as any)?.providers)
   pushAll((details as any)?.providers_list)
   pushAll((details as any)?.providers_flat)
   pushAll((details as any)?.justwatch?.offers)
 
-  // Função que escolhe a MELHOR URL para um provider específico
+  // 4) Melhor URL por provider
   const bestUrlForProvider = (providerId: number, list: any[]): string | null => {
-    // 1) pega todas as URLs válidas dessa provider
     const urls: string[] = []
     for (const o of list) {
       const pid = Number(o?.provider_id ?? o?.id ?? o?.providerId)
@@ -642,16 +641,11 @@ function extractProviders(
       }
     }
     if (urls.length === 0) return null
-
-    // 2) se houver host permitido mapeado para o provider, prioriza
     const preferred = urls.find(u => hostMatch(u, providerId))
-    if (preferred) return preferred
-
-    // 3) senão, usa a primeira “segura” (não-IMDb/YT/TMDb)
-    return urls[0] || null
+    return preferred || urls[0] || null
   }
 
-  // 4) Dedup por provider_id + anexa url escolhida
+  // 5) Dedup por provider_id + monta campos
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string | null }>()
   for (const o of offers) {
     const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
@@ -669,15 +663,20 @@ function extractProviders(
     }
   }
 
-  // Atribui a melhor URL por provider
+  // 6) Atribui melhor URL calculada
   for (const [id, entry] of byId.entries()) {
     const chosen = bestUrlForProvider(id, offers)
     byId.set(id, { ...entry, url: chosen })
   }
 
-  out.providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+  // 7) Ordena por nome e devolve
+  const providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+  out.providers = providers
+
   return out
 }
+
+
 function providerSearchUrl(providerId: number, title: string, region?: string): string | undefined {
   // Normaliza consulta
   const q = encodeURIComponent(title)
