@@ -399,34 +399,65 @@ export default function Matches() {
                         : <span className="text-white/60">Sem sinopse disponível.</span>}
                     </div>
 
-                    {/* Provedores de streaming (somente ícones) */}
+                    {/* Provedores de streaming (somente ícones, com fallback informativo) */}
                     {(() => {
-                      const { providers } = extractProviders(modal.details, watchRegion)
-                      if (!providers.length) return null
+                      // Logs de diagnóstico — abra o DevTools (aba Network e Console)
+                      // para ver o JSON que a function está retornando.
+                      console.log('details.providers:', (modal.details as any)?.providers);
+                      console.log('details.providers_keys:', (modal.details as any)?.providers_keys);
 
-                      return (
-                        <div className="mt-4">
-                          <div className="mb-2 text-sm text-white/70">Disponível em</div>
-                          <div className="flex flex-wrap items-center gap-2.5">
-                            {providers.map((p) => (
-                              <div
-                                key={p.id}
-                                title={p.name}
-                                className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
-                              >
-                                <img
-                                  src={p.logoUrl || '/providers/generic.svg'}
-                                  alt={p.name}
-                                  className="h-6 w-6 object-contain opacity-90"
-                                  loading="lazy"
-                                  decoding="async"
-                                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
-                                />
-                              </div>
-                            ))}
+                      const rawProviders = (modal.details as any)?.providers ?? null;
+                      const regionKeys: string[] = Array.isArray((modal.details as any)?.providers_keys)
+                        ? (modal.details as any).providers_keys
+                        : (rawProviders ? Object.keys(rawProviders) : []);
+
+                      const { providers } = extractProviders(modal.details, watchRegion);
+
+                      // 1) Se há providers na região selecionada (ex.: BR), mostra os ícones
+                      if (providers.length > 0) {
+                        return (
+                          <div className="mt-4">
+                            <div className="mb-2 text-sm text-white/70">Disponível em</div>
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              {providers.map((p) => (
+                                <div
+                                  key={p.id}
+                                  title={p.name}
+                                  className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
+                                >
+                                  <img
+                                    src={p.logoUrl || '/providers/generic.svg'}
+                                    alt={p.name}
+                                    className="h-6 w-6 object-contain opacity-90"
+                                    loading="lazy"
+                                    decoding="async"
+                                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )
+                        );
+                      }
+
+                      // 2) Sem providers na região, mas a API devolveu outras regiões (ex.: US, CA…)
+                      if (Array.isArray(regionKeys) && regionKeys.length > 0) {
+                        // remove duplicatas e normaliza
+                        const unique = Array.from(new Set(regionKeys.map((k) => String(k).toUpperCase())));
+                        return (
+                          <div className="mt-4">
+                            <div className="text-sm text-white/70">
+                              Sem disponibilidade na região <span className="font-medium">{watchRegion}</span>.
+                            </div>
+                            <div className="mt-1 text-sm text-white/70">
+                              Disponível em outras regiões: <span className="font-medium">{unique.join(', ')}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // 3) Nada de providers em lugar nenhum: não renderiza bloco
+                      return null;
                     })()}
                   </div>
 
