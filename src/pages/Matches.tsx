@@ -423,7 +423,7 @@ export default function Matches() {
                                 // 2) senão, cai na busca do serviço (providerSearchUrl)
                                 const href =
                                   p.url ||
-                                  providerSearchUrl(p.id, modal.item.title, modal.item.year, watchRegion) ||
+                                  providerSearchUrl(p.id, modal.item.title, modal.item.year) ||
                                   undefined  // ❌ sem fallback para TMDB/JustWatch
 
                                 const content = (
@@ -680,7 +680,6 @@ function providerSearchUrl(
   providerId: number,
   title: string,
   year: number | null,
-  region: string
 ): string | null {
   // Normaliza consulta
   const q = encodeURIComponent(`${title}${year ? ' ' + year : ''}`)
