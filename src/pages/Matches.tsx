@@ -399,10 +399,9 @@ export default function Matches() {
                         : <span className="text-white/60">Sem sinopse disponível.</span>}
                     </div>
 
-                    {/* Provedores de streaming (somente ícones, com fallback informativo) */}
+                    {/* Provedores de streaming (ícones + mensagens corretas para a região) */}
                     {(() => {
-                      // Logs de diagnóstico — abra o DevTools (aba Network e Console)
-                      // para ver o JSON que a function está retornando.
+                      // Logs de diagnóstico — veja no Console para inspecionar o payload bruto
                       console.log('details.providers:', (modal.details as any)?.providers);
                       console.log('details.providers_keys:', (modal.details as any)?.providers_keys);
 
@@ -411,9 +410,9 @@ export default function Matches() {
                         ? (modal.details as any).providers_keys
                         : (rawProviders ? Object.keys(rawProviders) : []);
 
-                      const { providers } = extractProviders(modal.details, watchRegion);
+                      const { providers, hasRegion, regionLink } = extractProviders(modal.details, watchRegion);
 
-                      // 1) Se há providers na região selecionada (ex.: BR), mostra os ícones
+                      // Caso 1: Há provedores na região selecionada (ex.: BR) → renderiza ícones
                       if (providers.length > 0) {
                         return (
                           <div className="mt-4">
@@ -440,9 +439,31 @@ export default function Matches() {
                         );
                       }
 
-                      // 2) Sem providers na região, mas a API devolveu outras regiões (ex.: US, CA…)
+                      // Caso 2: A região existe no payload (ex.: BR consta em providers_keys),
+                      // mas não há nenhuma oferta listada (flatrate/free/ads/buy/rent).
+                      if (hasRegion || regionKeys.map(String).map(s => s.toUpperCase()).includes(String(watchRegion).toUpperCase())) {
+                        return (
+                          <div className="mt-4 text-sm text-white/70">
+                            Disponível na região <span className="font-medium">{watchRegion}</span>, mas sem plataformas listadas no momento.
+                            {regionLink ? (
+                              <>
+                                {' '}Tente abrir no{' '}
+                                <a
+                                  href={regionLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="underline hover:text-white"
+                                >
+                                  agregador da região
+                                </a>.
+                              </>
+                            ) : null}
+                          </div>
+                        );
+                      }
+
+                      // Caso 3: Sem BR, mas há outras regiões disponíveis → lista regiões
                       if (Array.isArray(regionKeys) && regionKeys.length > 0) {
-                        // remove duplicatas e normaliza
                         const unique = Array.from(new Set(regionKeys.map((k) => String(k).toUpperCase())));
                         return (
                           <div className="mt-4">
@@ -456,7 +477,7 @@ export default function Matches() {
                         );
                       }
 
-                      // 3) Nada de providers em lugar nenhum: não renderiza bloco
+                      // Caso 4: nada de providers em lugar nenhum → não renderiza o bloco
                       return null;
                     })()}
                   </div>
@@ -484,38 +505,50 @@ function extractProviders(
   region: string
 ): {
   providers: Array<{ id: number; name: string; logoUrl: string | null }>
+  hasRegion: boolean
+  regionLink: string | null
 } {
-  const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null }> }
-  const baseImg = 'https://image.tmdb.org/t/p/w45'
-  const R = String(region || 'BR').toUpperCase()
-  const rLow = R.toLowerCase()
-  const rAlt = R.replace('-', '_')
-  const rAltLow = rAlt.toLowerCase()
-
-  const pickArea = (obj: any): any => {
-    if (!obj) return null
-    const tryKeys = [R, rLow, rAlt, rAltLow, 'BR', 'br', 'US', 'us']
-    if (Array.isArray(obj)) return obj
-    if (obj.results) {
-      for (const k of tryKeys) if (obj.results[k]) return obj.results[k]
-    }
-    for (const k of tryKeys) if (obj[k]) return obj[k]
-    return null
+  const out = {
+    providers: [] as Array<{ id: number; name: string; logoUrl: string | null }>,
+    hasRegion: false,
+    regionLink: null as string | null,
   }
 
-  // tenta achar provedores no details (vários nomes que podemos ter no objeto)
+  const baseImg = 'https://image.tmdb.org/t/p/w45'
+  const R = String(region || 'BR').toUpperCase()
+
+  // 1) Pega o objeto bruto
   const wp =
-    (details as any)?.providers ??
     (details as any)?.watch_providers ??
     (details as any)?.watchProviders ??
     (details as any)?.watchProvidersV2 ??
+    (details as any)?.providers ??
     (details as any)?.providersByRegion ??
     (details as any)?.watchProvidersByRegion ??
     null
 
-  let area: any = pickArea(wp)
+  // 2) Descobre exatamente a área da região R (sem cair em outra)
+  let area: any = null
+  if (wp) {
+    if (Array.isArray(wp)) {
+      // pouquíssimo provável para TMDB; se vier array, trata como ofertas diretas
+      area = wp
+    } else if (wp.results && typeof wp.results === 'object') {
+      area = wp.results[R] ?? null
+    } else if (wp[R]) {
+      area = wp[R]
+    }
+  }
 
-  // normaliza ofertas
+  // há uma entrada para a região?
+  if (area) out.hasRegion = true
+
+  // 3) Link para agregador (quando o TMDB traz)
+  if (area && typeof area.link === 'string' && area.link) {
+    out.regionLink = area.link
+  }
+
+  // 4) Normaliza ofertas em um array plano
   let offers: any[] = []
   const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
 
@@ -531,13 +564,14 @@ function extractProviders(
     pushAll((area as any).streaming)
   }
 
-  // também checa campos soltos comuns (defensivo)
+  // também checa campos soltos comuns (fallbacks)
   pushAll((details as any)?.offers)
+  pushAll((details as any)?.providers)
   pushAll((details as any)?.providers_list)
   pushAll((details as any)?.providers_flat)
   pushAll((details as any)?.justwatch?.offers)
 
-  // monta providers deduplicados por id
+  // 5) Monta providers deduplicados por id
   const byId = new Map<number, { id: number; name: string; logoUrl: string | null }>()
   for (const o of offers) {
     const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
@@ -552,5 +586,6 @@ function extractProviders(
     if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
   }
 
+  out.providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
   return out
 }
