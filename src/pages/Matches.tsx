@@ -410,9 +410,9 @@ export default function Matches() {
                         : <span className="text-white/60">Sem sinopse disponível.</span>}
                     </div>
 
-                    {/* Provedores de streaming */}
+                    {/* Provedores de streaming (somente ícones) */}
                     {(() => {
-                      const { providers } = extractProviders(modal.details, watchRegion, modal.item.tmdb_id)
+                      const { providers } = extractProviders(modal.details, watchRegion)
                       if (!providers.length) return null
 
                       return (
@@ -420,19 +420,16 @@ export default function Matches() {
                           <div className="mb-2 text-sm text-white/70">Disponível em</div>
                           <div className="flex flex-wrap items-center gap-2.5">
                             {providers.map((p) => (
-                              <a
+                              <div
                                 key={p.id}
-                                href={p.url}
-                                target="_blank"
-                                rel="noreferrer"
                                 title={p.name}
-                                className="group inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5 hover:ring-white/25"
+                                className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5"
                               >
                                 {p.logoUrl ? (
                                   <img
                                     src={p.logoUrl}
                                     alt={p.name}
-                                    className="h-6 w-6 object-contain opacity-90 group-hover:opacity-100 transition"
+                                    className="h-6 w-6 object-contain opacity-90"
                                     loading="lazy"
                                     decoding="async"
                                     referrerPolicy="no-referrer"
@@ -440,7 +437,7 @@ export default function Matches() {
                                 ) : (
                                   <span className="text-[11px] px-1 text-white/80">{p.name.slice(0, 3).toUpperCase()}</span>
                                 )}
-                              </a>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -464,111 +461,85 @@ export default function Matches() {
     </main>
   )
 }
-// Ícones + link: usa deep_link do provedor quando existir; senão cai na página "Assistir" do TMDB (por região).
-// Ícones + link por provedor.
-// - Usa deep_link (ou url) do provedor quando existir;
-// - Se não houver, usa fallback para a página "Assistir" do TMDB na região.
-// Cobre formatos: watch_providers.results[REG], watchProviders(.results[REG]),
-// providers[REG], arrays diretas (providers/offers/justwatch.offers), etc.
-function extractProviders(
-  details: any,
-  region: string,
-  tmdbId?: number | null
-): {
-  providers: Array<{ id: number; name: string; logoUrl: string | null; url: string }>
-} {
-  const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null; url: string }> }
-  if (!details) return out
+// Ícones dos provedores (sem links). Aceita vários formatos de retorno.
+  function extractProviders(
+    details: any,
+    region: string
+  ): {
+    providers: Array<{ id: number; name: string; logoUrl: string | null }>
+  } {
+    const out = { providers: [] as Array<{ id: number; name: string; logoUrl: string | null }> }
+    if (!details) return out
 
-  const baseImg = 'https://image.tmdb.org/t/p/w45'
-  const R = String(region || 'BR').toUpperCase()
-  const rLow = R.toLowerCase()
-  const rAlt = R.replace('-', '_')
-  const rAltLow = rAlt.toLowerCase()
+    const baseImg = 'https://image.tmdb.org/t/p/w45'
+    const R = String(region || 'BR').toUpperCase()
+    const rLow = R.toLowerCase()
+    const rAlt = R.replace('-', '_')
+    const rAltLow = rAlt.toLowerCase()
 
-  // tenta extrair um "area" por região dentro de vários contêineres
-  const wp =
-    (details as any)?.watch_providers ??
-    (details as any)?.watchProviders ??
-    (details as any)?.watchProvidersV2 ??
-    (details as any)?.providers ??
-    null
-
-  const pickArea = (obj: any): any => {
-    if (!obj) return null
-    const tryKeys = [R, rLow, rAlt, rAltLow, 'BR', 'br', 'US', 'us']
-    if (Array.isArray(obj)) return obj
-    if (obj.results) {
-      for (const k of tryKeys) if (obj.results[k]) return obj.results[k]
+    const pickArea = (obj: any): any => {
+      if (!obj) return null
+      const tryKeys = [R, rLow, rAlt, rAltLow, 'BR', 'br', 'US', 'us']
+      if (Array.isArray(obj)) return obj
+      if (obj.results) {
+        for (const k of tryKeys) if (obj.results[k]) return obj.results[k]
+      }
+      for (const k of tryKeys) if (obj[k]) return obj[k]
+      return null
     }
-    for (const k of tryKeys) if (obj[k]) return obj[k]
-    return null
+
+    // Onde os provedores podem vir
+    const wp =
+      (details as any)?.watch_providers ??
+      (details as any)?.watchProviders ??
+      (details as any)?.watchProvidersV2 ??
+      (details as any)?.providers ??
+      (details as any)?.providersByRegion ??
+      (details as any)?.watchProvidersByRegion ??
+      null
+
+    let area: any = pickArea(wp)
+
+    // normaliza ofertas em um array
+    let offers: any[] = []
+    const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
+
+    if (Array.isArray(area)) {
+      offers = area
+    } else if (area && typeof area === 'object') {
+      pushAll(area.flatrate)
+      pushAll(area.ads)
+      pushAll(area.free)
+      pushAll(area.rent)
+      pushAll(area.buy)
+      pushAll((area as any).offers)
+      pushAll((area as any).streaming)
+    }
+
+    // também checa campos soltos comuns
+    pushAll((details as any)?.offers)
+    pushAll((details as any)?.providers)
+    pushAll((details as any)?.providers_list)
+    pushAll((details as any)?.providers_flat)
+    pushAll((details as any)?.justwatch?.offers)
+
+    // monta providers deduplicados por id
+    const byId = new Map<number, { id: number; name: string; logoUrl: string | null }>()
+    for (const o of offers) {
+      const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
+      if (!Number.isFinite(id)) continue
+
+      const name = String(o?.provider_name ?? o?.name ?? 'Provider')
+      const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
+      const logoUrl =
+        !rawLogo ? null :
+        String(rawLogo).startsWith('http') ? String(rawLogo) :
+        `${baseImg}${rawLogo}`
+
+      if (!byId.has(id)) byId.set(id, { id, name, logoUrl })
+    }
+
+    const providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
+    out.providers = providers
+    return out
   }
-
-  let area: any = pickArea(wp)
-
-  // fallback: alguns formatos vêm em outros campos
-  if (!area) {
-    area = pickArea((details as any)?.providersByRegion)
-      ?? pickArea((details as any)?.watchProvidersByRegion)
-      ?? null
-  }
-
-  // link agregador do TMDB (fallback por região)
-  const tmdbWatchLink =
-    (area && typeof area.link === 'string' && area.link) ||
-    (typeof tmdbId === 'number' ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${R}` : null)
-
-  // normaliza ofertas (aceita vários formatos)
-  let offers: any[] = []
-  const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
-
-  if (Array.isArray(area)) {
-    offers = area
-  } else if (area && typeof area === 'object') {
-    // formato TMDB clássico
-    pushAll(area.flatrate)
-    pushAll(area.ads)
-    pushAll(area.free)
-    pushAll(area.rent)
-    pushAll(area.buy)
-    // alguns wrappers usam "offers"
-    pushAll((area as any).offers)
-    pushAll((area as any).streaming)
-  }
-
-  // outros lugares possíveis (edge custom)
-  pushAll((details as any)?.offers)
-  pushAll((details as any)?.providers)
-  pushAll((details as any)?.providers_list)
-  pushAll((details as any)?.providers_flat)
-  pushAll((details as any)?.justwatch?.offers)
-
-  // monta providers (de-dup por id)
-  const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string }>()
-  for (const o of offers) {
-    const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
-    if (!Number.isFinite(id)) continue
-
-    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
-    const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
-    const logoUrl =
-      !rawLogo ? null :
-      String(rawLogo).startsWith('http') ? String(rawLogo) :
-      `${baseImg}${rawLogo}`
-
-    const deep = o?.deep_link ?? o?.deepLink ?? o?.url ?? o?.web_url ?? o?.href
-    const url = (typeof deep === 'string' && deep.length > 0)
-      ? deep
-      : (tmdbWatchLink || '#')
-
-    if (!byId.has(id)) byId.set(id, { id, name, logoUrl, url })
-  }
-
-  const providers = Array.from(byId.values())
-  // ordem previsível A→Z
-  providers.sort((a, b) => a.name.localeCompare(b.name))
-
-  out.providers = providers
-  return out
-}
