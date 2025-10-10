@@ -99,7 +99,7 @@ export async function discoverMovies(opts: { page?: number; filters?: DiscoverFi
 
 /* ---------------- Detalhes com cache (TTL) + retry ---------------- */
 
-const MD_CACHE_PREFIX = 'mm:md:v1:'
+const MD_CACHE_PREFIX = 'mm:md:v2:'
 const MD_TTL = 1000 * 60 * 60 * 3 // 3 horas
 
 export async function getMovieDetails(tmdb_id: number, opts?: { region?: string }): Promise<MovieDetails> {
