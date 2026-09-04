@@ -48,10 +48,10 @@ function sleep(ms: number) {
 
 async function invokeWithRetry<T>(
   name: string,
-  body: any,
+  body: Record<string, unknown>,
   tries = 3,
 ): Promise<T> {
-  let lastErr: any = null
+  let lastErr: unknown = null
   for (let i = 0; i < tries; i++) {
     const { data, error } = await supabase.functions.invoke(name, { body })
     if (!error) return data as T
@@ -63,7 +63,7 @@ async function invokeWithRetry<T>(
 }
 
 async function fetchWithRetry(input: RequestInfo, init?: RequestInit, tries = 3): Promise<Response> {
-  let lastErr: any = null
+  let lastErr: unknown = null
   for (let i = 0; i < tries; i++) {
     try {
       const res = await fetch(input, init)
@@ -113,7 +113,9 @@ export async function getMovieDetails(tmdb_id: number, opts?: { region?: string 
         return obj.data as MovieDetails
       }
     }
-  } catch {}
+  } catch {
+    // Cache indisponível ou inválido: continua buscando os dados normalmente.
+  }
 
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}&region=${region}`
   const res = await fetchWithRetry(url, {
@@ -128,7 +130,9 @@ export async function getMovieDetails(tmdb_id: number, opts?: { region?: string 
 
   try {
     localStorage.setItem(key, JSON.stringify({ t: Date.now(), data }))
-  } catch {}
+  } catch {
+    // Falha ao salvar o cache não deve impedir o retorno dos dados.
+  }
 
   return data
 }
