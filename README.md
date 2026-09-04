@@ -1,69 +1,209 @@
-# React + TypeScript + Vite
+# MovieMatch
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+O **MovieMatch** é uma aplicação web para ajudar grupos de pessoas a encontrar um filme que todos queiram assistir.
 
-Currently, two official plugins are available:
+Os participantes entram em uma sessão compartilhada, avaliam filmes com likes e dislikes e acompanham os matches encontrados entre os membros da sessão.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Funcionalidades
 
-## Expanding the ESLint configuration
+* Criação e entrada em sessões por código
+* Sessões compartilhadas entre vários usuários
+* Autenticação anônima com Supabase
+* Swipe de filmes com like e dislike
+* Sincronização de participantes em tempo real
+* Detecção de matches
+* Histórico e opção de desfazer o último swipe
+* Filtros avançados por:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+  * gênero
+  * ano
+  * avaliação
+  * quantidade de votos
+  * duração
+  * idioma
+  * serviços de streaming
+  * região
+  * tipo de oferta
+* Consulta de detalhes dos filmes
+* Exibição de provedores de streaming
+* Verificação de maioridade para conteúdo adulto
+* Interface responsiva
+* Suporte a PWA
+* Página de matches
+* Integração com publicidade
+* Páginas públicas de privacidade, termos e publicidade
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Tecnologias
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+### Frontend
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+* React 19
+* TypeScript
+* Vite
+* React Router
+* Tailwind CSS
+* Framer Motion
+* Lucide React
+* Sonner
+
+### Backend e dados
+
+* Supabase
+
+  * autenticação anônima
+  * banco de dados
+  * Realtime
+  * Edge Functions
+
+### Outras integrações
+
+* TMDB para dados e metadados de filmes
+* Google AdSense para publicidade
+
+## Estrutura principal
+
+```text
+MovieMatch/
+├── public/
+│   ├── manifest.webmanifest
+│   ├── sw.js
+│   ├── offline.html
+│   ├── privacy.html
+│   ├── terms.html
+│   └── ads.html
+│
+├── src/
+│   ├── components/
+│   ├── lib/
+│   ├── pages/
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+│
+├── .env.example
+├── package.json
+├── pnpm-lock.yaml
+├── tailwind.config.js
+└── vite.config.ts
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Rotas
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Rota               | Função                     |
+| ------------------ | -------------------------- |
+| `/`                | Página inicial             |
+| `/join`            | Entrada em uma sessão      |
+| `/s/:code`         | Sessão e seleção de filmes |
+| `/s/:code/matches` | Matches da sessão          |
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Requisitos
+
+Para executar o projeto localmente:
+
+* Node.js
+* pnpm
+* Projeto Supabase configurado
+
+## Instalação
+
+Clone o repositório:
+
+```bash
+git clone https://github.com/IsaqueMion/MovieMatch.git
+cd MovieMatch
 ```
+
+Instale as dependências:
+
+```bash
+pnpm install
+```
+
+## Variáveis de ambiente
+
+Crie um arquivo `.env` na raiz do projeto usando `.env.example` como referência:
+
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-anon-aqui
+```
+
+Nunca versione chaves ou credenciais privadas.
+
+A chave utilizada pelo frontend deve ser somente a chave pública apropriada para aplicações cliente. A segurança do banco de dados não deve depender do sigilo dessa chave, mas das políticas de acesso configuradas no Supabase.
+
+## Desenvolvimento
+
+Inicie o servidor local:
+
+```bash
+pnpm dev
+```
+
+## Validação do código
+
+Execute o ESLint:
+
+```bash
+pnpm lint
+```
+
+## Build de produção
+
+```bash
+pnpm build
+```
+
+## Visualizar o build
+
+```bash
+pnpm preview
+```
+
+## PWA
+
+O MovieMatch possui suporte a Progressive Web App.
+
+O Service Worker é registrado somente em ambiente de produção e oferece cache de recursos estáticos e uma página de fallback para situações offline.
+
+## Privacidade
+
+O MovieMatch utiliza autenticação anônima para permitir participação em sessões sem exigir cadastro convencional.
+
+Quando o usuário opta por habilitar conteúdo adulto, a data de nascimento é utilizada apenas para verificar se ele possui 18 anos ou mais. A data completa não é armazenada pelo aplicativo; somente o status de maioridade é persistido.
+
+Mais informações:
+
+* `/privacy.html`
+* `/terms.html`
+* `/ads.html`
+
+## Status do projeto
+
+O projeto está passando por uma revisão e modernização de sua base de código.
+
+Entre os trabalhos em andamento estão:
+
+* melhoria da organização interna
+* revisão da segurança do Supabase
+* redução do tamanho dos componentes principais
+* melhoria da experiência mobile
+* testes automatizados
+* otimização de performance
+* revisão das regras de negócio de sessões e matches
+
+A branch utilizada para esse trabalho é:
+
+```text
+revival/2026-09
+```
+
+## Dados de filmes
+
+Este produto utiliza dados da API do TMDB.
+
+**Este produto usa a API do TMDB, mas não é endossado ou certificado pelo TMDB.**
+
+## Autor
+
+Desenvolvido por [Isaque Mion](https://github.com/IsaqueMion).
