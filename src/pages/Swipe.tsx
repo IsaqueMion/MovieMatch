@@ -1,5 +1,9 @@
 ﻿// src/pages/Swipe.tsx
-import { Component, type ReactNode } from 'react'
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react'
 import {
   useEffect,
   useRef,
@@ -106,6 +110,14 @@ function hash32(str: string): number {
     h = Math.imul(h, 16777619)
   }
   return h >>> 0
+}
+
+function vibrate(duration: number): void {
+  try {
+    navigator.vibrate?.(duration)
+  } catch {
+    // Alguns navegadores ou dispositivos podem bloquear a vibração.
+  }
 }
 
 // embaralha de forma determinística por usuário **dentro** de janelas pequenas
@@ -287,6 +299,17 @@ const SORT_OPTIONS = [
   { value: 'revenue.asc',               label: 'Bilheteria (↑)' },
   { value: 'original_title.asc',        label: 'Título A→Z' },
   { value: 'original_title.desc',       label: 'Título Z→A' },
+]
+
+const MONETIZATION_OPTIONS: Array<{
+  k: MonetizationType
+  label: string
+}> = [
+  { k: 'flatrate', label: 'Assinatura' },
+  { k: 'free', label: 'Gratuito' },
+  { k: 'ads', label: 'Com anúncios' },
+  { k: 'rent', label: 'Aluguel' },
+  { k: 'buy', label: 'Compra' },
 ]
 
 function Swipe() {
@@ -1430,14 +1453,8 @@ const confirmAdult = async (birthdateISO?: string) => {
                   <div className="mt-4">
                     <div className="text-xs text-white/70 mb-1">Tipo de oferta</div>
                     <div className="flex flex-wrap gap-2 text-sm">
-                      {[
-                        { k: 'flatrate', label: 'Assinatura' },
-                        { k: 'free',     label: 'Gratuito' },
-                        { k: 'ads',      label: 'Com anúncios' },
-                        { k: 'rent',     label: 'Aluguel' },
-                        { k: 'buy',      label: 'Compra' },
-                      ].map(({ k, label }) => {
-                        const checked = (filters.monetization ?? []).includes(k as any)
+                      {MONETIZATION_OPTIONS.map(({ k, label }) => {
+                        const checked = (filters.monetization ?? []).includes(k)
                         return (
                           <label key={k} className={`px-2 py-1 rounded-md border cursor-pointer ${
                             checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
@@ -1448,9 +1465,18 @@ const confirmAdult = async (birthdateISO?: string) => {
                               checked={checked}
                               onChange={(e) => {
                                 setFilters(f => {
-                                  const s = new Set<string>(f.monetization ?? [])
-                                  if (e.target.checked) s.add(k); else s.delete(k)
-                                  return { ...f, monetization: Array.from(s) as any }
+                                  const s = new Set<MonetizationType>(f.monetization ?? [])
+
+                                  if (e.target.checked) {
+                                    s.add(k)
+                                  } else {
+                                    s.delete(k)
+                                  }
+
+                                  return {
+                                    ...f,
+                                    monetization: Array.from(s),
+                                  }
                                 })
                               }}
                             />
@@ -1701,7 +1727,9 @@ const confirmAdult = async (birthdateISO?: string) => {
                           } catch (e) {
                             console.warn('broadcast filtros falhou', e)
                           }
-                        } catch {}
+                        } catch (error) {
+                          console.error('failed to save session filters:', error)
+                        }
                       }
                       clearProgress(sessionId, userIdRef.current, fSnap)
                       await resetAndLoad(false, fSnap, sessionId)
@@ -1788,8 +1816,23 @@ function filtersSig(f: DiscoverFilters) {
 function progressKey(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
   return sessionId && userId ? `mm_prog:v2:${sessionId}:${userId}:${filtersSig(f)}` : ''
 }
-function saveProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters, idx: number) {
-  try { const k = progressKey(sessionId, userId, f); if (!k) return; localStorage.setItem(k, JSON.stringify({ i: idx })) } catch {}
+function saveProgress(
+  sessionId: string | null,
+  userId: string | null,
+  f: DiscoverFilters,
+  idx: number,
+) {
+  try {
+    const key = progressKey(sessionId, userId, f)
+    if (!key) return
+
+    localStorage.setItem(
+      key,
+      JSON.stringify({ i: idx }),
+    )
+  } catch (error) {
+    console.error('failed to save swipe progress:', error)
+  }
 }
 function loadProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters): number {
   try {
@@ -1798,8 +1841,17 @@ function loadProgress(sessionId: string | null, userId: string | null, f: Discov
     const obj = JSON.parse(raw); return Number.isFinite(obj?.i) ? obj.i : 0
   } catch { return 0 }
 }
-function clearProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
-  try { const k = progressKey(sessionId, userId, f); if (k) localStorage.removeItem(k) } catch {}
+function clearProgress(
+  sessionId: string | null,
+  userId: string | null,
+  f: DiscoverFilters,
+) {
+  try {
+    const key = progressKey(sessionId, userId, f)
+    if (key) localStorage.removeItem(key)
+  } catch (error) {
+    console.error('failed to clear swipe progress:', error)
+  }
 }
 
 /** Card com motionValue próprio */
@@ -1833,7 +1885,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
     swipe: (value: 1 | -1) => {
       const dir = value === 1 ? 1 : -1
       const endX = dir * (window.innerWidth + 180)
-      try { navigator.vibrate?.(10) } catch {}
+      vibrate(10)
       const controls = animate(x, endX, TWEEN_SWIPE)
       controls.then(() => onDecision(value))
     },
@@ -1864,7 +1916,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, {
         const shouldSwipe = passDistance || passVelocity
 
         if (shouldSwipe) {
-          try { navigator.vibrate?.(10) } catch {}
+          vibrate(10)
           const dir = info.offset.x > 0 ? 1 : -1
           const endX = dir * (window.innerWidth + 180)
 
@@ -1984,7 +2036,7 @@ const AdSwipeCard = forwardRef<SwipeCardHandle, {
     swipe: (value: 1 | -1) => {
       const dir = value === 1 ? 1 : -1
       const endX = dir * (window.innerWidth + 180)
-      try { navigator.vibrate?.(6) } catch {}
+      vibrate(6)
       const controls = animate(x, endX, TWEEN_SWIPE)
       controls.then(() => onDecision(value))
     },
@@ -2012,7 +2064,7 @@ const AdSwipeCard = forwardRef<SwipeCardHandle, {
         const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
         const shouldSwipe = passDistance || passVelocity
         if (shouldSwipe) {
-          try { navigator.vibrate?.(6) } catch {}
+          vibrate(6)
           const dir = info.offset.x > 0 ? 1 : -1
           const endX = dir * (window.innerWidth + 180)
           const controls = animate(x, endX, TWEEN_SWIPE)
@@ -2051,18 +2103,31 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unkn
   super(props)
   this.state = { error: undefined, stack: undefined }
 }
-  static getDerivedStateFromError(error: any) {
+  static getDerivedStateFromError(error: unknown) {
     return { error }
   }
-  componentDidCatch(error: any, info: { componentStack?: string }) {
-  console.error('Render error (Swipe):', error, info)
-  this.setState({ stack: info?.componentStack })
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Render error (Swipe):', error, info)
+
+    this.setState({
+      stack: info.componentStack ?? undefined,
+    })
   }
-    private toMessage(e: unknown): string {
-    if (typeof e === 'object' && e && 'message' in (e as any)) return String((e as any).message)
-    try { return JSON.stringify(e) } catch { /* noop */ }
-    return String(e)
-  }
+    private toMessage(error: unknown): string {
+      if (error instanceof Error) {
+        return error.message
+      }
+
+      try {
+        const serialized = JSON.stringify(error)
+        if (serialized) return serialized
+      } catch {
+        // Usa a conversão simples abaixo caso a serialização falhe.
+      }
+
+      return String(error)
+    }
 
   render() {
     if (this.state.error) {
