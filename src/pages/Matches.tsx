@@ -42,7 +42,7 @@ export default function Matches() {
     try {
       if (item.tmdb_id != null) {
         // getMovieDetails já faz cache e busca da Edge Function
-        det = await getMovieDetails(item.tmdb_id)
+        det = await getMovieDetails(item.tmdb_id, { region: watchRegion })
       }
     } catch (e) {
       console.error('getMovieDetails failed:', e)
@@ -354,7 +354,7 @@ export default function Matches() {
                   {loadingDetails ? (
                     <div className="w-full aspect-video grid place-items-center text-white/60">Carregando…</div>
                   ) : (() => {
-                    const trailerKey = (modal.details as any)?.trailer?.key as string | undefined
+                    const trailerKey = modal.details?.trailer?.key ?? undefined
                     const youtubeEmbed = trailerKey ? `https://www.youtube.com/embed/${trailerKey}?playsinline=1&rel=0` : null
                     if (youtubeEmbed) {
                       return (
@@ -386,30 +386,35 @@ export default function Matches() {
                   <div className="rounded-xl ring-1 ring-white/10 bg-white/5 p-4 order-2 md:order-1">
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
                       <dt className="text-white/60">Duração</dt>
-                      <dd>{typeof (modal.details as any)?.runtime === 'number' ? `${(modal.details as any).runtime} min` : '—'}</dd>
+                      <dd>
+                        {typeof modal.details?.runtime === 'number'
+                          ? `${modal.details.runtime} min`
+                          : '—'}
+                      </dd>
 
                       <dt className="text-white/60">Nota TMDB</dt>
-                      <dd>{typeof (modal.details as any)?.vote_average === 'number' ? (modal.details as any).vote_average.toFixed(1) : '—'}</dd>
+                      <dd>
+                        {typeof modal.details?.vote_average === 'number'
+                          ? modal.details.vote_average.toFixed(1)
+                          : '—'}
+                      </dd>
 
                       <dt className="text-white/60">Gêneros</dt>
                       <dd>
-                        {(Array.isArray((modal.details as any)?.genres) && (modal.details as any).genres.length > 0)
-                          ? (modal.details as any).genres.map((g: any) => g.name).join(' • ')
+                        {modal.details?.genres?.length
+                          ? modal.details.genres.map((g) => g.name).join(' • ')
                           : '—'}
                       </dd>
                     </dl>
 
                     <div className="mt-3 text-sm leading-relaxed max-h-56 md:max-h-64 overflow-auto pr-1">
-                      {(typeof (modal.details as any)?.overview === 'string' && (modal.details as any).overview.length > 0)
-                        ? (modal.details as any).overview
+                      {modal.details?.overview
+                        ? modal.details.overview
                         : <span className="text-white/60">Sem sinopse disponível.</span>}
                     </div>
 
                     {/* Provedores de streaming (ícones + mensagens corretas para a região) */}
-                    {(() => {
-                      // Logs de diagnóstico — veja no Console para inspecionar o payload bruto
-                      console.log('details.providers:', (modal.details as any)?.providers);
-                      console.log('details.providers_keys:', (modal.details as any)?.providers_keys);                    
+                    {(() => {                  
 
                       const { providers, hasRegion, regionLink } = extractProviders(modal.details, watchRegion)
 
