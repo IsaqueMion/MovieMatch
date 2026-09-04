@@ -16,6 +16,7 @@ import {
   getMovieDetails,
   type MovieDetails,
   type DiscoverFilters,
+  type MonetizationType,
 } from '../lib/functions'
 import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
@@ -36,9 +37,62 @@ type Movie = {
   genres: number[]
 }
 
-function isAdItem(m: any): boolean {
-  // cobre formatos comuns de sentinela de ad-card
-  return !!(m && (m.__ad === true || m.kind === 'ad' || m.type === 'ad'));
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : fallback
+}
+
+function toString(value: unknown, fallback: string): string {
+  return typeof value === 'string'
+    ? value
+    : fallback
+}
+
+function toNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(Number)
+    .filter(Number.isFinite)
+}
+
+const MONETIZATION_TYPES = new Set<MonetizationType>([
+  'flatrate',
+  'free',
+  'ads',
+  'rent',
+  'buy',
+])
+
+function toMonetizationTypes(value: unknown): MonetizationType[] {
+  if (!Array.isArray(value)) return ['flatrate']
+
+  const result = value.filter(
+    (item): item is MonetizationType =>
+      typeof item === 'string' &&
+      MONETIZATION_TYPES.has(item as MonetizationType),
+  )
+
+  return result.length > 0 ? result : ['flatrate']
+}
+
+function isAdItem(item: unknown): boolean {
+  if (!isRecord(item)) return false
+
+  return (
+    item.__ad === true ||
+    item.kind === 'ad' ||
+    item.type === 'ad'
+  )
 }
 
 const DRAG_LIMIT = 160
@@ -347,7 +401,9 @@ function Swipe() {
   const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
     try {
       const data = await discoverMovies({ page: pageToLoad, filters: f })
-      if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
+      if (pageToLoad === 1) {
+        setDiscoverHint(data?.hint ?? null)
+      }
 
       const baseSeed = `${sessionId ?? 'nosess'}:${userIdRef.current ?? 'nouser'}`
 
@@ -364,9 +420,9 @@ function Swipe() {
         setPage(pageToLoad)
       }
       return unique.length
-    } catch (err: any) {
-      console.error('discoverMovies error:', err)
-      toast.error(`Falha ao buscar filmes: ${err?.message ?? err}`)
+    } catch (error: unknown) {
+      console.error('discoverMovies error:', error)
+      toast.error(`Falha ao buscar filmes: ${getErrorMessage(error)}`)
       return 0
     }
   }, [filters, sessionId])
@@ -411,9 +467,9 @@ function Swipe() {
         const resolved = resume ? Math.min(target, safeMax) : 0
         setI(resolved)
       }
-    } catch (e: any) {
-      console.error(e)
-      toast.error(`Erro ao carregar filmes: ${e.message ?? e}`)
+    } catch (error: unknown) {
+      console.error(error)
+      toast.error(`Erro ao carregar filmes: ${getErrorMessage(error)}`)
     } finally {
       if (bootVersionRef.current === myVersion) setLoading(false)
     }
@@ -526,16 +582,18 @@ function Swipe() {
               monetization: Array.isArray(sf.monetization) ? sf.monetization : ['flatrate'],
             }
           }
-        } catch {}
+        } catch {
+          // Se os filtros salvos não puderem ser lidos, mantém os filtros padrão.
+        }
 
         if (bootVersionRef.current !== myVersion || cancelled) return
         setFilters(effectiveFilters)
 
         // retomar progresso de forma segura
         await resetAndLoad(true, effectiveFilters, sess.id)
-      } catch (e: any) {
-        console.error(e)
-        const msg = e?.message ?? 'Erro desconhecido ao iniciar a sessão.'
+      } catch (error: unknown) {
+        console.error(error)
+        const msg = getErrorMessage(error)
         setFatalError(msg)
         toast.error(`Erro ao preparar a sessão: ${msg}`)
         setLoading(false)
@@ -634,20 +692,39 @@ function Swipe() {
     if (!sessionId || !userId) return
     const ch = supabase.channel(`presence-${sessionId}`, { config: { presence: { key: userId } } })
     ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState() as Record<string, any[]>
+      const state = ch.presenceState() as Record<string, unknown[]>
       const arr: OnlineUser[] = []
+
       Object.values(state).forEach((metas) => {
-        metas.forEach((m: any) => arr.push({ id: String(m.user_id ?? m.key ?? ''), name: String(m.display_name ?? 'Guest') }))
+        metas.forEach((meta) => {
+          if (!isRecord(meta)) return
+
+          arr.push({
+            id: String(meta.user_id ?? meta.key ?? ''),
+            name: String(meta.display_name ?? 'Guest'),
+          })
+        })
       })
-      const dedup = Array.from(new Map(arr.map(u => [u.id, u])).values())
+
+      const dedup = Array.from(
+        new Map(arr.map((user) => [user.id, user])).values(),
+      )
+
       setOnline(dedup)
     })
+
     ch.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         ch.track({ user_id: userId, display_name: displayName, joined_at: new Date().toISOString() })
       }
     })
-    return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
+    return () => {
+      void ch.untrack().catch((error) => {
+        console.error('presence untrack failed:', error)
+      })
+
+      void supabase.removeChannel(ch)
+    }
   }, [sessionId, userId, displayName])
 
   // broadcast de filtros — replica para todos, mesmo sem realtime na tabela
@@ -655,27 +732,73 @@ function Swipe() {
     if (!sessionId) return
     const ch = supabase
       .channel(`filtersbus-${sessionId}`)
-      .on('broadcast', { event: 'filters_update' }, (payload: any) => {
+      .on('broadcast', { event: 'filters_update' }, (payload) => {
         try {
-          const row = payload?.payload || {}
+          const row =
+            isRecord(payload) && isRecord(payload.payload)
+              ? payload.payload
+              : {}
           // se fui eu quem enviou, ignora (evita loop)
           if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
 
           const f: DiscoverFilters = {
-            genres: row.genres ?? [],
-            excludeGenres: row.exclude_genres ?? [],
-            yearMin: row.yearMin ?? row.year_min ?? 1990,
-            yearMax: row.yearMax ?? row.year_max ?? new Date().getFullYear(),
-            ratingMin: typeof row.ratingMin === 'number' ? row.ratingMin : (typeof row.rating_min === 'number' ? row.rating_min : 0),
-            voteCountMin: typeof row.voteCountMin === 'number' ? row.voteCountMin : (typeof row.vote_count_min === 'number' ? row.vote_count_min : 0),
-            runtimeMin: typeof row.runtimeMin === 'number' ? row.runtimeMin : (typeof row.runtime_min === 'number' ? row.runtime_min : 60),
-            runtimeMax: typeof row.runtimeMax === 'number' ? row.runtimeMax : (typeof row.runtime_max === 'number' ? row.runtime_max : 220),
-            language: row.language ?? '',
-            sortBy: row.sortBy ?? row.sort_by ?? 'popularity.desc',
-            includeAdult: Boolean(row.includeAdult ?? row.include_adult),
-            providers: Array.isArray(row.providers) ? row.providers : [],
-            watchRegion: row.watchRegion ?? row.watch_region ?? 'BR',
-            monetization: Array.isArray(row.monetization) ? row.monetization : ['flatrate'],
+            genres: toNumberArray(row.genres),
+            excludeGenres: toNumberArray(row.exclude_genres),
+
+            yearMin: toNumber(
+              row.yearMin ?? row.year_min,
+              1990,
+            ),
+
+            yearMax: toNumber(
+              row.yearMax ?? row.year_max,
+              new Date().getFullYear(),
+            ),
+
+            ratingMin: toNumber(
+              row.ratingMin ?? row.rating_min,
+              0,
+            ),
+
+            voteCountMin: toNumber(
+              row.voteCountMin ?? row.vote_count_min,
+              0,
+            ),
+
+            runtimeMin: toNumber(
+              row.runtimeMin ?? row.runtime_min,
+              60,
+            ),
+
+            runtimeMax: toNumber(
+              row.runtimeMax ?? row.runtime_max,
+              220,
+            ),
+
+            language: toString(
+              row.language,
+              '',
+            ),
+
+            sortBy: toString(
+              row.sortBy ?? row.sort_by,
+              'popularity.desc',
+            ),
+
+            includeAdult: Boolean(
+              row.includeAdult ?? row.include_adult,
+            ),
+
+            providers: toNumberArray(row.providers),
+
+            watchRegion: toString(
+              row.watchRegion ?? row.watch_region,
+              'BR',
+            ),
+
+            monetization: toMonetizationTypes(
+              row.monetization,
+            ),
           }
 
           setFilters(f)
@@ -693,9 +816,9 @@ function Swipe() {
     })
 
     return () => {
-      try { filtersBusRef.current = null } catch {}
-      try { supabase.removeChannel(ch) } catch {}
-    }
+      filtersBusRef.current = null
+        void supabase.removeChannel(ch)
+      }
   }, [sessionId, userId, resetAndLoad])
 
   useEffect(() => {
@@ -794,9 +917,9 @@ function Swipe() {
       historyRef.current.push(movieId)
       reactedTmdbRef.current.add(Number(current.tmdb_id))
 
-    } catch (e: any) {
-      console.error('reactions upsert error:', e)
-      toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
+    } catch (error: unknown) {
+      console.error('reactions upsert error:', error)
+      toast.error(`Erro ao salvar reação: ${getErrorMessage(error)}`)
     } finally {
       // deixa 1 frame pra animação de exit engatar
       await new Promise(res => setTimeout(res, 16))
@@ -826,12 +949,14 @@ function Swipe() {
           .eq('id', last)
           .maybeSingle()
         if (mv?.tmdb_id != null) reactedTmdbRef.current.delete(Number(mv.tmdb_id))
-      } catch {}
+      } catch (error) {
+        console.error('failed to restore reacted movie state:', error)
+      }
       setUndoMsg('Último swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
-    } catch (e: any) {
-      console.error(e)
-      toast.error(`Não foi possível desfazer: ${e.message ?? e}`)
+    } catch (error: unknown) {
+      console.error(error)
+      toast.error(`Não foi possível desfazer: ${getErrorMessage(error)}`)
     } finally { setBusy(false) }
   }, [sessionId, userId, busy, filters])
 
@@ -865,8 +990,13 @@ function Swipe() {
     await navigator.clipboard.writeText(invite)
     toast('Link copiado!', { description: invite })
   } catch {
-    try { await navigator.clipboard.writeText(invite) } catch {}
-    toast('Link copiado!', { description: invite })
+    try {
+      await navigator.clipboard.writeText(invite)
+      toast('Link copiado!', { description: invite })
+    } catch (error) {
+      console.error('clipboard write failed:', error)
+      toast.error('Não foi possível copiar o link.')
+    }
   }
 }
 
@@ -900,15 +1030,19 @@ const confirmAdult = async (birthdateISO?: string) => {
           .eq('id', userId)
       } else {
         // fallback local se ainda não houver userId (ainda assim exige a data)
-        try { localStorage.setItem('mm:isAdult', '1') } catch {}
+        try {
+          localStorage.setItem('mm:isAdult', '1')
+        } catch (error) {
+          console.error('failed to persist adult status locally:', error)
+        }
       }
 
       setIsAdult(true)
       setFilters(f => ({ ...f, includeAdult: true }))
       setShowAgeGate(false)
       toast.success('Verificação concluída. Conteúdo adulto ativado.')
-    } catch (e: any) {
-      toast.error(`Falha ao confirmar maioridade: ${e?.message ?? e}`)
+    } catch (error: unknown) {
+      toast.error(`Falha ao confirmar maioridade: ${getErrorMessage(error)}`)
       setIsAdult(false)
       setFilters(f => ({ ...f, includeAdult: false }))
       setShowAgeGate(true)
