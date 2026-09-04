@@ -7,13 +7,13 @@ type Props = {
 }
 
 export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
-  if (!open) return null
-
   const [birthdate, setBirthdate] = useState<string>('')
   const [touched, setTouched] = useState(false)
 
   const age = birthdate ? calcAge(birthdate) : null
   const valid = !!birthdate && age !== null && age >= 18 && age <= 120
+
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
