@@ -369,7 +369,7 @@ function Swipe() {
       toast.error(`Falha ao buscar filmes: ${err?.message ?? err}`)
       return 0
     }
-  }, [filters])
+  }, [filters, sessionId])
 
   const resetAndLoad = useCallback(async (resume = false, f?: DiscoverFilters, sessionRef?: string | null) => {
     const effective = f ?? filters
