@@ -1,7 +1,9 @@
 {
-  "name": "app",
+  "name": "moviematch",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Aplicação colaborativa para encontrar filmes que todos querem assistir.",
+  "author": "Isaque Mion",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -34,7 +36,6 @@
     "tailwindcss": "3.4.14",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite": "^7.1.2"
   }
 }
