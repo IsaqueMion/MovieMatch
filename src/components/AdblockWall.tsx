@@ -9,6 +9,7 @@ export default function AdblockWall({ enabled = true }: Props) {
     if (!enabled) return
 
     let flagged = false
+
     const flag = () => {
       if (!flagged) {
         flagged = true
@@ -21,46 +22,54 @@ export default function AdblockWall({ enabled = true }: Props) {
     bait.className = 'adsbygoogle adsbox ad-banner ad-unit'
     bait.style.cssText =
       'width:1px;height:1px;position:absolute;left:-9999px;top:-9999px;pointer-events:none;'
+
     document.body.appendChild(bait)
-    setTimeout(() => {
+
+    const baitCheckTimer = window.setTimeout(() => {
       try {
         const cs = getComputedStyle(bait)
+
         const hidden =
           cs.display === 'none' ||
           cs.visibility === 'hidden' ||
           bait.offsetParent === null ||
           bait.offsetHeight === 0 ||
           bait.offsetWidth === 0
+
         if (hidden) flag()
       } catch {
-        /* ignore */
+        // O elemento pode já ter sido removido durante o cleanup.
       } finally {
         bait.remove()
       }
     }, 120)
 
-    // Teste 2: tentar carregar a tag do Google (muitos adblocks bloqueiam o request)
+    // Teste 2: tentar carregar a tag do Google
     const s = document.createElement('script')
     s.async = true
     s.src =
       'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?mm_bait=1'
+
     s.onload = () => {
-      /* ok, não sinaliza */
+      // Script carregado normalmente.
     }
+
     s.onerror = () => {
       flag()
     }
+
     document.head.appendChild(s)
 
-    // Teste 3: fallback por timeout — se nada carregou e não existe adsbygoogle, sinaliza
-    const t = setTimeout(() => {
-      if (!(window as any).adsbygoogle) flag()
+    // Teste 3: fallback por timeout
+    const adblockTimeout = window.setTimeout(() => {
+      if (!window.adsbygoogle) flag()
     }, 1500)
 
     return () => {
-      clearTimeout(t)
-      try { s.remove() } catch {}
-      try { bait.remove() } catch {}
+      clearTimeout(baitCheckTimer)
+      clearTimeout(adblockTimeout)
+      s.remove()
+      bait.remove()
     }
   }, [enabled])
 
