@@ -3,7 +3,6 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
-import { providerSearchUrl, providerMeta } from '../lib/providers'
 
 
 type MatchItem = {
