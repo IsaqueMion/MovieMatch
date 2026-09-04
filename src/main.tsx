@@ -9,12 +9,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 // Registrar Service Worker (PWA)
-if ('serviceWorker' in navigator) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
-      // opcional: logar silenciosamente
-      console.warn('SW registration failed:', err);
-    });
-  });
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.warn('SW registration failed:', error)
+    })
+  })
 }
-
