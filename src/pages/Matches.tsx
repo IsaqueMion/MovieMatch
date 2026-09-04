@@ -536,26 +536,45 @@ export default function Matches() {
   )
 }
 
+type ProviderCard = {
+  id: number
+  name: string
+  logoUrl: string | null
+  url: string | null
+}
+
+type UnknownRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 function extractProviders(
-  details: any,
-  region: string
+  details: unknown,
+  region: string,
 ): {
-  providers: Array<{ id: number; name: string; logoUrl: string | null; url: string | null }>
+  providers: ProviderCard[]
   hasRegion: boolean
   regionLink: string | null
 } {
-  const out = {
-    providers: [] as Array<{ id: number; name: string; logoUrl: string | null; url: string | null }>,
+  const out: {
+    providers: ProviderCard[]
+    hasRegion: boolean
+    regionLink: string | null
+  } = {
+    providers: [],
     hasRegion: false,
-    regionLink: null as string | null,
+    regionLink: null,
   }
+
+  if (!isRecord(details)) return out
 
   const baseImg = 'https://image.tmdb.org/t/p/w45'
   const R = String(region || 'BR').toUpperCase()
 
   // Preferências por domínio (IDs TMDB)
   const PROVIDER_HOSTS: Record<number, string[]> = {
-    8:   ['netflix.com'],
+    8: ['netflix.com'],
     119: ['primevideo.com', 'amazon.com'],
     337: ['disneyplus.com'],
     384: ['max.com', 'hbomax.com'],
@@ -565,126 +584,209 @@ function extractProviders(
     619: ['starplus.com'],
   }
 
-  // Domínios que NÃO queremos abrir
-  const BAD_HOSTS = ['imdb.com', 'youtube.com', 'youtu.be', 'themoviedb.org', 'google.com']
+  // Domínios que não queremos abrir como link de streaming.
+  const BAD_HOSTS = [
+    'imdb.com',
+    'youtube.com',
+    'youtu.be',
+    'themoviedb.org',
+    'google.com',
+  ]
 
-  const safeHost = (u: string) => {
+  const safeHost = (url: string) => {
     try {
-      const h = new URL(u).hostname.replace(/^www\./, '')
-      return !BAD_HOSTS.some(bad => h.endsWith(bad))
-    } catch { return false }
-  }
-
-  const hostMatch = (u: string, providerId: number) => {
-    try {
-      const h = new URL(u).hostname.replace(/^www\./, '')
-      const allow = PROVIDER_HOSTS[providerId]
-      if (!allow || allow.length === 0) return safeHost(u)
-      return allow.some(dom => h.endsWith(dom))
-    } catch { return false }
-  }
-
-  // 1) Origem bruta
-  const wp =
-    (details as any)?.watch_providers ??
-    (details as any)?.watchProviders ??
-    (details as any)?.watchProvidersV2 ??
-    (details as any)?.providers ??
-    (details as any)?.providersByRegion ??
-    (details as any)?.watchProvidersByRegion ??
-    null
-
-  // 2) Pega o “bloco” da região
-  let area: any = null
-  if (wp) {
-    if (Array.isArray(wp)) {
-      area = wp
-    } else if (wp.results && typeof wp.results === 'object') {
-      area = wp.results[R] ?? null
-    } else if (wp[R]) {
-      area = wp[R]
+      const host = new URL(url).hostname.replace(/^www\./, '')
+      return !BAD_HOSTS.some((bad) => host.endsWith(bad))
+    } catch {
+      return false
     }
   }
 
-  if (area) out.hasRegion = true
-  if (area && typeof area.link === 'string' && area.link) out.regionLink = area.link
+  const hostMatch = (url: string, providerId: number) => {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '')
+      const allowedHosts = PROVIDER_HOSTS[providerId]
 
-  // 3) Junta ofertas
-  let offers: any[] = []
-  const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
+      if (!allowedHosts || allowedHosts.length === 0) {
+        return safeHost(url)
+      }
+
+      return allowedHosts.some((domain) => host.endsWith(domain))
+    } catch {
+      return false
+    }
+  }
+
+  // Formatos aceitos de payload de provedores.
+  const wp =
+    details.watch_providers ??
+    details.watchProviders ??
+    details.watchProvidersV2 ??
+    details.providers ??
+    details.providersByRegion ??
+    details.watchProvidersByRegion ??
+    null
+
+  let area: unknown = null
+
+  if (Array.isArray(wp)) {
+    area = wp
+  } else if (isRecord(wp)) {
+    if (isRecord(wp.results)) {
+      area = wp.results[R] ?? null
+    } else {
+      area = wp[R] ?? null
+    }
+  }
+
+  if (area) {
+    out.hasRegion = true
+  }
+
+  if (
+    isRecord(area) &&
+    typeof area.link === 'string' &&
+    area.link.length > 0
+  ) {
+    out.regionLink = area.link
+  }
+
+  // Reúne todas as ofertas encontradas no payload.
+  let offers: unknown[] = []
+
+  const pushAll = (value: unknown) => {
+    if (Array.isArray(value)) {
+      offers.push(...value)
+    }
+  }
 
   if (Array.isArray(area)) {
-    offers = area
-  } else if (area && typeof area === 'object') {
+    offers = [...area]
+  } else if (isRecord(area)) {
     pushAll(area.flatrate)
     pushAll(area.ads)
     pushAll(area.free)
     pushAll(area.rent)
     pushAll(area.buy)
-    pushAll((area as any).offers)
-    pushAll((area as any).streaming)
+    pushAll(area.offers)
+    pushAll(area.streaming)
   }
 
-  // fallbacks soltos (quando backend injeta do JustWatch)
-  pushAll((details as any)?.offers)
-  pushAll((details as any)?.providers)
-  pushAll((details as any)?.providers_list)
-  pushAll((details as any)?.providers_flat)
-  pushAll((details as any)?.justwatch?.offers)
+  // Fallbacks para formatos legados ou enriquecidos pelo backend.
+  pushAll(details.offers)
+  pushAll(details.providers)
+  pushAll(details.providers_list)
+  pushAll(details.providers_flat)
 
-  // 4) Melhor URL por provider
-  const bestUrlForProvider = (providerId: number, list: any[]): string | null => {
+  if (isRecord(details.justwatch)) {
+    pushAll(details.justwatch.offers)
+  }
+
+  const bestUrlForProvider = (
+    providerId: number,
+    list: unknown[],
+  ): string | null => {
     const urls: string[] = []
-    for (const o of list) {
-      const pid = Number(o?.provider_id ?? o?.id ?? o?.providerId)
-      if (pid !== providerId) continue
-      const candidates = [
-        o?.urls?.standard_web,
-        o?.urls?.deeplink_web,
-        o?.url,
-        o?.deep_link,
-      ].filter(Boolean)
-      for (const c of candidates) {
-        const u = String(c)
-        if (safeHost(u)) urls.push(u)
+
+    for (const item of list) {
+      if (!isRecord(item)) continue
+
+      const id = Number(
+        item.provider_id ??
+        item.id ??
+        item.providerId,
+      )
+
+      if (id !== providerId) continue
+
+      const urlData = isRecord(item.urls) ? item.urls : null
+
+      const candidates: unknown[] = [
+        urlData?.standard_web,
+        urlData?.deeplink_web,
+        item.url,
+        item.deep_link,
+      ]
+
+      for (const candidate of candidates) {
+        if (candidate == null) continue
+
+        const url = String(candidate)
+
+        if (safeHost(url)) {
+          urls.push(url)
+        }
       }
     }
+
     if (urls.length === 0) return null
-    const preferred = urls.find(u => hostMatch(u, providerId))
-    return preferred || urls[0] || null
+
+    const preferred = urls.find((url) =>
+      hostMatch(url, providerId),
+    )
+
+    return preferred ?? urls[0] ?? null
   }
 
-  // 5) Dedup por provider_id + monta campos
-  const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string | null }>()
-  for (const o of offers) {
-    const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
+  // Deduplica por provider_id.
+  const byId = new Map<number, ProviderCard>()
+
+  for (const item of offers) {
+    if (!isRecord(item)) continue
+
+    const id = Number(
+      item.provider_id ??
+      item.id ??
+      item.providerId,
+    )
+
     if (!Number.isFinite(id)) continue
 
-    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
-    const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
+    const name = String(
+      item.provider_name ??
+      item.name ??
+      'Provider',
+    )
+
+    const rawLogo =
+      item.logo_url ??
+      item.logo_path ??
+      item.logo ??
+      item.icon ??
+      item.icon_path ??
+      null
+
     const logoUrl =
-      !rawLogo ? null :
-      String(rawLogo).startsWith('http') ? String(rawLogo) :
-      `${baseImg}${rawLogo}`
+      rawLogo == null
+        ? null
+        : String(rawLogo).startsWith('http')
+          ? String(rawLogo)
+          : `${baseImg}${String(rawLogo)}`
 
     if (!byId.has(id)) {
-      byId.set(id, { id, name, logoUrl, url: null })
+      byId.set(id, {
+        id,
+        name,
+        logoUrl,
+        url: null,
+      })
     }
   }
 
-  // 6) Atribui melhor URL calculada
+  // Escolhe a melhor URL encontrada para cada serviço.
   for (const [id, entry] of byId.entries()) {
-    const chosen = bestUrlForProvider(id, offers)
-    byId.set(id, { ...entry, url: chosen })
+    byId.set(id, {
+      ...entry,
+      url: bestUrlForProvider(id, offers),
+    })
   }
 
-  // 7) Ordena por nome e devolve
-  const providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
-  out.providers = providers
+  out.providers = Array.from(byId.values()).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  )
 
   return out
 }
-
 
 function providerSearchUrl(providerId: number, title: string, region?: string): string | undefined {
   // Normaliza consulta
