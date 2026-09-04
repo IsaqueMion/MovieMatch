@@ -81,7 +81,9 @@ export default function Matches() {
           .eq('session_id', sess.id)
           .maybeSingle()
         if (sf?.watch_region) setWatchRegion(String(sf.watch_region))
-      } catch {}
+      } catch {
+        // Falha ao recuperar a região não impede o carregamento da sessão.
+      }
 
       await loadMatches(sess.id)
       setLoading(false)
@@ -137,7 +139,10 @@ export default function Matches() {
         title: mInfo?.title ?? '—',
         year: mInfo?.year ?? null,
         poster_url: mInfo?.poster_url ?? null,
-        tmdb_id: (typeof (mInfo as any)?.tmdb_id === 'number' ? (mInfo as any).tmdb_id : null) as number | null,
+        tmdb_id:
+          typeof mInfo?.tmdb_id === 'number'
+            ? mInfo.tmdb_id
+            : null,
         users: new Set<string>(),
         latestAt: 0,
       }
