@@ -16,16 +16,20 @@ type SlideKind = 'poster' | 'trailer' | 'synopsis'
 
 // helpers para ler campos opcionais que não estão no tipo
 function getTrailerKey(details?: MovieDetails): string | null {
-  const key = (details as any)?.trailer?.key
+  const key = details?.trailer?.key
   return typeof key === 'string' && key.length > 0 ? key : null
 }
+
 function getRuntime(details?: MovieDetails): number | undefined {
-  const rt = (details as any)?.runtime
-  return typeof rt === 'number' ? rt : undefined
+  const runtime = details?.runtime
+  return typeof runtime === 'number' ? runtime : undefined
 }
+
 function getOverview(details?: MovieDetails): string | undefined {
-  const ov = (details as any)?.overview
-  return typeof ov === 'string' && ov.length > 0 ? ov : undefined
+  const overview = details?.overview
+  return typeof overview === 'string' && overview.length > 0
+    ? overview
+    : undefined
 }
 
 export default function MovieCarousel({
