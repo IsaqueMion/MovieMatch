@@ -1699,7 +1699,9 @@ const confirmAdult = async (birthdateISO?: string) => {
                       const fSnap = { ...filters }
                       if (sessionId && userId) {
                         try {
-                          await supabase.from('session_filters').upsert({
+                          const { error: filtersError } = await supabase
+                          .from('session_filters')
+                          .upsert({
                             session_id: sessionId,
                             genres: fSnap.genres ?? [],
                             exclude_genres: fSnap.excludeGenres ?? [],
@@ -1717,7 +1719,9 @@ const confirmAdult = async (birthdateISO?: string) => {
                             ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
                             ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
                           }, { onConflict: 'session_id' })
-                          // broadcast p/ todos os membros da sessão
+
+                          if (filtersError) throw filtersError
+                          
                           try {
                             await filtersBusRef.current?.send({
                               type: 'broadcast',
@@ -1729,6 +1733,7 @@ const confirmAdult = async (birthdateISO?: string) => {
                           }
                         } catch (error) {
                           console.error('failed to save session filters:', error)
+                          toast.error(`Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`)
                         }
                       }
                       clearProgress(sessionId, userIdRef.current, fSnap)
