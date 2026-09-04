@@ -111,9 +111,16 @@ export default function Landing() {
               filters: LANDING_FILTERS,
         })
         const list = (data?.results ?? [])
-          .filter((m: any) => m?.poster_url)
+          .filter(
+            (m): m is typeof m & { poster_url: string } =>
+              typeof m.poster_url === 'string' && m.poster_url.length > 0,
+          )
           .slice(0, 8)
-          .map((m: any) => ({ title: m.title, year: m.year ?? null, poster_url: m.poster_url }))
+          .map((m): CarouselItem => ({
+            title: m.title,
+            year: m.year ?? null,
+            poster_url: m.poster_url,
+        }))
         if (list.length > 0) setItems(list)
       } catch (e) {
         console.error('discoverMovies failed:', e)
