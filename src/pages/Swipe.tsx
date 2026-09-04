@@ -1048,9 +1048,9 @@ const confirmAdult = async (birthdateISO?: string) => {
     try {
       if (userId) {
         await supabase
-          .from('users')
-          .update({ is_adult: true, birthdate: birthdateISO })
-          .eq('id', userId)
+        .from('users')
+        .update({ is_adult: true })
+        .eq('id', userId)
       } else {
         // fallback local se ainda não houver userId (ainda assim exige a data)
         try {

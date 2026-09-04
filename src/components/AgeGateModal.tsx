@@ -21,7 +21,8 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
       <div className="relative z-10 w-[min(92vw,28rem)] rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white">
         <h3 className="text-lg font-semibold">Confirme sua idade</h3>
         <p className="text-sm text-white/70 mt-1">
-          Para ativar conteúdo adulto, informe sua data de nascimento (18+).
+          Para ativar conteúdo adulto, informe sua data de nascimento.
+          Ela será usada somente para confirmar se você tem 18 anos ou mais e não será armazenada.
         </p>
 
         <label className="block mt-4 text-sm">
