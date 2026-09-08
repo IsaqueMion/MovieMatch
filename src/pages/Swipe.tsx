@@ -41,6 +41,24 @@ import {
   loadProgress,
   saveProgress,
 } from '../lib/swipeProgress'
+import {
+  FilterChip,
+  NumberField,
+} from '../components/swipe/FilterControls'
+
+import {
+  GENRES,
+  LANGUAGES,
+  MONETIZATION_OPTIONS,
+  PROVIDERS_BR,
+  REGIONS,
+  SORT_OPTIONS,
+} from '../components/swipe/filterOptions'
+
+import {
+  hash32,
+  shuffleWithinWindows,
+} from '../lib/swipeShuffle'
 
 type Movie = SwipeMovie
 
@@ -110,189 +128,10 @@ function toMonetizationTypes(value: unknown): MonetizationType[] {
   return result.length > 0 ? result : ['flatrate']
 }
 
-function hash32(str: string): number {
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-// embaralha de forma determinística por usuário **dentro** de janelas pequenas
-const SHUFFLE_WINDOW = 10
-const SHUFFLE_WEIGHT = 0.85 // 0..1 (quanto maior, mais “anda” dentro da janela)
-function shuffleWithinWindows<T extends { tmdb_id: number }>(items: T[], baseSeed: string, win = SHUFFLE_WINDOW): T[] {
-  const out: T[] = []
-  for (let i = 0; i < items.length; i += win) {
-    const start = i
-    const slice = items.slice(i, i + win)
-      .map((m, j) => {
-        const noise = (hash32(`${baseSeed}:${m.tmdb_id}`) >>> 0) / 0xFFFFFFFF // 0..1
-        const score = start + j + (noise - 0.5) * (win - 1) * SHUFFLE_WEIGHT
-        return { m, score }
-      })
-      .sort((a, b) => a.score - b.score)
-      .map(x => x.m)
-    out.push(...slice)
-  }
-  return out
-}
-
-
 // tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
 
 type OnlineUser = { id: string; name: string }
-
-function FilterChip({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
-  const base = 'rounded-full px-3 py-1 text-xs font-medium transition'
-  const selected = 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-  const idle = 'bg-white/10 text-white/80 hover:bg-white/15'
-  return (
-    <button type="button" onClick={onClick} className={`${base} ${active ? selected : idle}`}>
-      {children}
-    </button>
-  )
-}
-
-type NumberFieldProps = {
-  label: string
-  value: number
-  min: number
-  max: number
-  step?: number
-  suffix?: string
-  onChange: (value: number) => void
-}
-
-function NumberField({ label, value, min, max, step = 1, suffix, onChange }: NumberFieldProps) {
-  const clamp = (val: number) => Math.min(max, Math.max(min, val))
-  const adjust = (delta: number) => {
-    const next = clamp(Number((value + delta).toFixed(3)))
-    onChange(next)
-  }
-  const inputPadding = suffix ? 'pr-9' : 'pr-2'
-
-  return (
-    <label className="flex flex-col gap-1 text-xs text-white/70">
-      <span>{label}</span>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => adjust(-step)}
-          disabled={value <= min}
-          className="h-8 w-8 rounded-md bg-white/10 text-white/80 transition hover:bg-white/15 disabled:opacity-40"
-        >
-          -
-        </button>
-        <div className="relative flex-1">
-          <input
-            type="number"
-            value={Number(value.toFixed(2))}
-            min={min}
-            max={max}
-            step={step}
-            onChange={(e) => {
-              const raw = Number(e.target.value)
-              if (Number.isNaN(raw)) return
-              onChange(clamp(raw))
-            }}
-            className={`w-full rounded-md bg-white/10 px-2 py-1 text-sm text-white outline-none focus:ring-2 focus:ring-emerald-500 ${inputPadding}`}
-          />
-          {suffix ? (
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-white/60">{suffix}</span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          onClick={() => adjust(step)}
-          disabled={value >= max}
-          className="h-8 w-8 rounded-md bg-white/10 text-white/80 transition hover:bg-white/15 disabled:opacity-40"
-        >
-          +
-        </button>
-      </div>
-    </label>
-  )
-}
-
-const GENRES = [
-  { id: 28, name: 'Ação' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animação' },
-  { id: 35, name: 'Comédia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentário' },
-  { id: 18, name: 'Drama' }, { id: 10751, name: 'Família' }, { id: 14, name: 'Fantasia' },
-  { id: 36, name: 'História' }, { id: 27, name: 'Terror' }, { id: 10402, name: 'Música' },
-  { id: 9648, name: 'Mistério' }, { id: 10749, name: 'Romance' }, { id: 878, name: 'Ficção científica' },
-  { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
-  { id: 37, name: 'Faroeste' },
-]
-
-// Principais provedores (IDs TMDB)
-const PROVIDERS_BR = [
-  { id: 8,   name: 'Netflix' },
-  { id: 119, name: 'Prime Video' },
-  { id: 337, name: 'Disney+' },
-  { id: 384, name: 'Max' },
-  { id: 307, name: 'Globoplay' },
-  { id: 350, name: 'Apple TV+' },
-  { id: 531, name: 'Paramount+' },
-  { id: 619, name: 'Star+' },
-]
-
-const LANGUAGES = [
-  { value: '',  label: 'Qualquer' },
-  { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' },
-  { value: 'fr', label: 'Francês' },   { value: 'de', label: 'Alemão' },  { value: 'it', label: 'Italiano' },
-  { value: 'ja', label: 'Japonês' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chinês' },
-  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: 'Árabe' },
-  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holandês' },{ value: 'sv', label: 'Sueco' },
-  { value: 'no', label: 'Norueguês' }, { value: 'fi', label: 'Finlandês'},{ value: 'da', label: 'Dinamarquês' },
-  { value: 'pl', label: 'Polonês' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
-  { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
-  { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio' },{ value: 'vi', label: 'Vietnamita' },
-  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
-]
-
-const REGIONS = [
-  { value: 'BR', label: 'Brasil (BR)' },
-  { value: 'US', label: 'Estados Unidos (US)' },
-  { value: 'GB', label: 'Reino Unido (GB)' },
-  { value: 'PT', label: 'Portugal (PT)' },
-  { value: 'ES', label: 'Espanha (ES)' },
-  { value: 'FR', label: 'França (FR)' },
-  { value: 'DE', label: 'Alemanha (DE)' },
-  { value: 'IT', label: 'Itália (IT)' },
-  { value: 'JP', label: 'Japão (JP)' },
-  { value: 'KR', label: 'Coreia do Sul (KR)' },
-  { value: 'AR', label: 'Argentina (AR)' },
-  { value: 'MX', label: 'México (MX)' },
-]
-
-const SORT_OPTIONS = [
-  { value: 'popularity.desc',           label: 'Popularidade (↓)' },
-  { value: 'popularity.asc',            label: 'Popularidade (↑)' },
-  { value: 'vote_average.desc',         label: 'Nota (↓)' },
-  { value: 'vote_average.asc',          label: 'Nota (↑)' },
-  { value: 'vote_count.desc',           label: 'Votos (↓)' },
-  { value: 'vote_count.asc',            label: 'Votos (↑)' },
-  { value: 'primary_release_date.desc', label: 'Lançamento (recente)' },
-  { value: 'primary_release_date.asc',  label: 'Lançamento (antigo)' },
-  { value: 'revenue.desc',              label: 'Bilheteria (↓)' },
-  { value: 'revenue.asc',               label: 'Bilheteria (↑)' },
-  { value: 'original_title.asc',        label: 'Título A→Z' },
-  { value: 'original_title.desc',       label: 'Título Z→A' },
-]
-
-const MONETIZATION_OPTIONS: Array<{
-  k: MonetizationType
-  label: string
-}> = [
-  { k: 'flatrate', label: 'Assinatura' },
-  { k: 'free', label: 'Gratuito' },
-  { k: 'ads', label: 'Com anúncios' },
-  { k: 'rent', label: 'Aluguel' },
-  { k: 'buy', label: 'Compra' },
-]
 
 function Swipe() {
   const { code } = useParams()

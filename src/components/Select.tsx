@@ -5,7 +5,7 @@ type Option = { value: string; label: string }
 type Props = {
   value: string
   onChange: (v: string) => void
-  options: Option[]
+  options: readonly Option[]
   placeholder?: string
   className?: string
 }
