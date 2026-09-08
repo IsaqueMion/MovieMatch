@@ -79,7 +79,7 @@ const AdSwipeCard = forwardRef<
 
   return (
     <motion.div
-      className="h-full will-change-transform relative"
+      className="relative h-full w-full will-change-transform"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.12 }}

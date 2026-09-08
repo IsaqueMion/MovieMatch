@@ -104,16 +104,20 @@ const MONETIZATION_TYPES = new Set<MonetizationType>([
   'buy',
 ])
 
-function toMonetizationTypes(value: unknown): MonetizationType[] {
-  if (!Array.isArray(value)) return ['flatrate']
+function toMonetizationTypes(
+  value: unknown,
+): MonetizationType[] {
+  if (!Array.isArray(value)) {
+    return ['flatrate']
+  }
 
-  const result = value.filter(
+  return value.filter(
     (item): item is MonetizationType =>
       typeof item === 'string' &&
-      MONETIZATION_TYPES.has(item as MonetizationType),
+      MONETIZATION_TYPES.has(
+        item as MonetizationType,
+      ),
   )
-
-  return result.length > 0 ? result : ['flatrate']
 }
 
 // tempo pro exit terminar antes de liberar clique
@@ -150,10 +154,11 @@ function Swipe() {
   const seenRef = useRef(new Set<number>())
   const userIdRef = useRef<string | null>(null)
   const adsShown = useRef(0)
+  const consumedAdStepsRef = useRef(new Set<number>())
+  const suppressAdForMovieIndexRef = useRef<number | null>(null)
   const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
   const matchChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
-
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
@@ -210,6 +215,19 @@ function Swipe() {
   const adSeed = `${sessionId ?? 's'}:${userIdRef.current ?? 'u'}:${filtersSig(filters)}`
   const adInterval = 8 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
   const adOffset = hash32(adSeed + ':o') % adInterval
+  const totalSteps = i + adsShown.current
+  const isAdStep =
+    !isPremium &&
+    totalSteps > 0 &&
+    suppressAdForMovieIndexRef.current !== i &&
+    (
+      (totalSteps - adOffset) %
+        adInterval ===
+      0
+    ) &&
+    !consumedAdStepsRef.current.has(
+      totalSteps,
+    )
 
   const filtersCount = [
     (filters.genres?.length ?? 0) > 0,
@@ -357,7 +375,11 @@ function Swipe() {
         bootVersionRef.current
 
       setLoading(true)
+
       adsShown.current = 0
+      consumedAdStepsRef.current.clear()
+      suppressAdForMovieIndexRef.current = null
+
       setNoResults(false)
       setDiscoverHint(null)
 
@@ -636,19 +658,32 @@ function Swipe() {
     async (movieId: number, notifyPeers = true) => {
       if (!sessionId || matchedRef.current.has(movieId)) return
 
-      const { count, error: countError } = await supabase
-        .from('reactions')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('session_id', sessionId)
-        .eq('movie_id', movieId)
-        .eq('value', 1)
+      // A decisão de match fica no banco:
+      // todos os integrantes da sessão precisam ter dado like.
+      const {
+        data: matchRows,
+        error: matchError,
+      } = await supabase.rpc(
+        'check_session_match',
+        {
+          p_session_id: sessionId,
+          p_movie_id: movieId,
+        },
+      )
 
-      if (countError) {
-        console.error('match count failed:', countError)
+      if (matchError) {
+        console.error(
+          'match check failed:',
+          matchError,
+        )
         return
       }
 
-      if ((count ?? 0) < 2) return
+      const matchResult = Array.isArray(matchRows)
+        ? matchRows[0]
+        : null
+
+      if (!matchResult?.is_match) return
 
       // Evita duas chamadas concorrentes abrirem o mesmo match.
       if (matchedRef.current.has(movieId)) return
@@ -662,7 +697,10 @@ function Swipe() {
 
       if (movieError) {
         matchedRef.current.delete(movieId)
-        console.error('match movie lookup failed:', movieError)
+        console.error(
+          'match movie lookup failed:',
+          movieError,
+        )
         return
       }
 
@@ -805,7 +843,10 @@ function Swipe() {
 
           const f: DiscoverFilters = {
             genres: toNumberArray(row.genres),
-            excludeGenres: toNumberArray(row.exclude_genres),
+            excludeGenres: toNumberArray(
+              row.excludeGenres ??
+                row.exclude_genres,
+            ),
 
             yearMin: toNumber(
               row.yearMin ?? row.year_min,
@@ -973,9 +1014,6 @@ function Swipe() {
 
   const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
     if (!sessionId || !userId || !current) return
-    // ——— AD STEP: se for hora do anúncio, só consome o ad e NÃO grava reação —
-    const totalSteps = i + adsShown.current
-    const isAdStep = !isPremium && totalSteps > 0 && ((totalSteps - adOffset) % adInterval === 0)
     if (isAdStep) {
       if (!options?.skipAnimation) { cardRef.current?.swipe(value) }
       clickGuardRef.current = true
@@ -986,6 +1024,10 @@ function Swipe() {
       } finally {
         await new Promise(res => setTimeout(res, 16))
         // marca o anúncio como “consumido” e mantém o índice do filme
+        consumedAdStepsRef.current.add(
+          totalSteps,
+        )
+
         adsShown.current += 1
         setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
       }
@@ -1058,10 +1100,20 @@ function Swipe() {
       console.error('reactions upsert error:', error)
       toast.error(`Erro ao salvar reação: ${getErrorMessage(error)}`)
     } finally {
+      // Se este filme veio de um Undo, a supressão vale só enquanto
+      // ele estiver novamente na tela. Ao avançar, os anúncios voltam
+      // a seguir a programação normal.
+      if (suppressAdForMovieIndexRef.current === i) {
+        suppressAdForMovieIndexRef.current = null
+      }
+
       // deixa 1 frame pra animação de exit engatar
       await new Promise(res => setTimeout(res, 16))
       await goNext()
-      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
+      setTimeout(() => {
+        clickGuardRef.current = false
+        setBusy(false)
+      }, releaseDelay + 60)
     }
   }, [
     sessionId,
@@ -1070,43 +1122,82 @@ function Swipe() {
     busy,
     goNext,
     i,
-    isPremium,
-    adOffset,
-    adInterval,
+    isAdStep,
+    totalSteps,
     checkMatch,
   ])
 
   const undo = useCallback(async () => {
-    if (!sessionId || !userId || busy) return
+    if (!sessionId || !userId || busy || isAdStep) return
+
     const last = historyRef.current.pop()
     if (!last) return
+
     setBusy(true)
+
     try {
-      setI(idx => { const v = Math.max(0, idx - 1); saveProgress(sessionId, userIdRef.current, filters, v); return v })
+      setI((index) => {
+        const previousIndex = Math.max(0, index - 1)
+
+        // O Undo deve restaurar o último FILME, nunca um anúncio.
+        // A supressão é temporária e vale apenas para esse índice.
+        suppressAdForMovieIndexRef.current = previousIndex
+
+        saveProgress(
+          sessionId,
+          userIdRef.current,
+          filters,
+          previousIndex,
+        )
+
+        return previousIndex
+      })
+
       const { error } = await supabase
         .from('reactions')
         .delete()
         .eq('session_id', sessionId)
         .eq('user_id', userId)
         .eq('movie_id', last)
+
       if (error) throw error
+
       try {
         const { data: mv } = await supabase
           .from('movies')
           .select('tmdb_id')
           .eq('id', last)
           .maybeSingle()
-        if (mv?.tmdb_id != null) reactedTmdbRef.current.delete(Number(mv.tmdb_id))
+
+        if (mv?.tmdb_id != null) {
+          reactedTmdbRef.current.delete(
+            Number(mv.tmdb_id),
+          )
+        }
       } catch (error) {
-        console.error('failed to restore reacted movie state:', error)
+        console.error(
+          'failed to restore reacted movie state:',
+          error,
+        )
       }
+
       setUndoMsg('Último swipe desfeito')
       setTimeout(() => setUndoMsg(null), 1800)
     } catch (error: unknown) {
       console.error(error)
-      toast.error(`Não foi possível desfazer: ${getErrorMessage(error)}`)
-    } finally { setBusy(false) }
-  }, [sessionId, userId, busy, filters])
+      toast.error(
+        `Não foi possível desfazer: ${getErrorMessage(error)}`,
+      )
+    } finally {
+      setBusy(false)
+    }
+  }, [
+    sessionId,
+    userId,
+    busy,
+    filters,
+    isAdStep,
+  ])
 
   // atalhos de teclado
   const reactRef = useRef(react)
@@ -1148,58 +1239,65 @@ function Swipe() {
   }
 }
 
-  // aceita birthdate obrigatório — sem data não libera adulto
-const confirmAdult = async (birthdateISO?: string) => {
-    // 1) Sem data -> não permite ativar
+  // A verificação apenas autoriza o usuário a selecionar conteúdo adulto.
+  // O filtro só é efetivamente aplicado pelo FilterModal ao clicar em Aplicar.
+  const confirmAdult = async (birthdateISO?: string) => {
     if (!birthdateISO) {
-      toast.error('Informe sua data de nascimento para ativar conteúdo adulto.')
+      toast.error(
+        'Informe sua data de nascimento para ativar conteúdo adulto.',
+      )
       setIsAdult(false)
-      setFilters(f => ({ ...f, includeAdult: false }))
-      setShowAgeGate(true) // mantém o modal aberto
+      setShowAgeGate(true)
       return
     }
 
-    // 2) Valida idade
     const age = calcAge(birthdateISO)
+
     if (age < 18) {
-      toast.error('Você precisa ter 18+ para ver esse conteúdo.')
+      toast.error(
+        'Você precisa ter 18+ para ver esse conteúdo.',
+      )
       setIsAdult(false)
-      setFilters(f => ({ ...f, includeAdult: false }))
-      setShowAgeGate(false) // fecha o modal
+      setShowAgeGate(false)
       return
     }
 
-    // 3) Registra somente o status de maioridade
     try {
       if (userId) {
-        await supabase
-        .from('users')
-        .update({ is_adult: true })
-        .eq('id', userId)
+        const { error } = await supabase
+          .from('users')
+          .update({ is_adult: true })
+          .eq('id', userId)
+
+        if (error) throw error
       } else {
-        // fallback local se ainda não houver userId (ainda assim exige a data)
         try {
           localStorage.setItem('mm:isAdult', '1')
         } catch (error) {
-          console.error('failed to persist adult status locally:', error)
+          console.error(
+            'failed to persist adult status locally:',
+            error,
+          )
         }
       }
 
       setIsAdult(true)
-      setFilters(f => ({ ...f, includeAdult: true }))
       setShowAgeGate(false)
-      toast.success('Verificação concluída. Conteúdo adulto ativado.')
+
+      toast.success(
+        'Verificação concluída. Conteúdo adulto autorizado.',
+      )
     } catch (error: unknown) {
-      toast.error(`Falha ao confirmar maioridade: ${getErrorMessage(error)}`)
+      toast.error(
+        `Falha ao confirmar maioridade: ${getErrorMessage(error)}`,
+      )
       setIsAdult(false)
-      setFilters(f => ({ ...f, includeAdult: false }))
       setShowAgeGate(true)
     }
   }
 
   const cancelAdult = () => {
     setShowAgeGate(false)
-    setFilters(f => ({ ...f, includeAdult: false }))
   }
 
   async function applyFilters(
@@ -1426,11 +1524,10 @@ const confirmAdult = async (birthdateISO?: string) => {
       <div className="relative z-0 flex-1 min-h-0 overflow-hidden px-3 sm:px-4">
         <div className="mx-auto h-full min-h-0 w-full max-w-md">
           <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0">
-              <AnimatePresence mode="wait" initial={false}>
+            <div className="relative flex-1 min-h-0 overflow-hidden">
                 {current ? (
                   // se for hora do anúncio, mostra AdSwipeCard; senão, o SwipeCard normal
-                  (!isPremium && (i + adsShown.current) > 0 && (((i + adsShown.current) - adOffset) % adInterval === 0)) ? (
+                  isAdStep ? (
                     <AdSwipeCard
                       ref={cardRef}
                       key={`ad-${i}-${adsShown.current}`}
@@ -1440,7 +1537,7 @@ const confirmAdult = async (birthdateISO?: string) => {
                   ) :
                   <SwipeCard
                     ref={cardRef}
-                    key={current.movie_id}
+                    key={`movie-${current.tmdb_id}`}
                     movie={current}
                     details={det}
                     onDragState={setDragging}
@@ -1488,7 +1585,6 @@ const confirmAdult = async (birthdateISO?: string) => {
                     </div>
                   </motion.div>
                 )}
-              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -1534,7 +1630,8 @@ const confirmAdult = async (birthdateISO?: string) => {
 
           <motion.button
             onClick={() => undo()}
-            disabled={busy || dragging || historyRef.current.length === 0}
+            disabled={ busy || dragging || isAdStep || historyRef.current.length === 0}
+            
             className="w-10 h-10 sm:w-12 sm:h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
             aria-label="Desfazer"
             whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}

@@ -73,10 +73,14 @@ export default function MovieCarousel({
   const overview = getOverview(details)
 
   return (
-    <div className="w-full h-full select-none">
-      <div className="relative h-full overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5">
+    <div className="h-full min-h-0 w-full select-none">
+      <div className="relative h-full min-h-0 overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5">
         {/* área do slide */}
-        <div className={`relative h-full ${fullHeight ? '' : 'min-h-[520px]'} bg-neutral-950 text-white`}>
+        <div
+          className={`relative h-full min-h-0 overflow-hidden ${
+            fullHeight ? '' : 'min-h-[520px]'
+          } bg-neutral-950 text-white`}
+        >
           {/* Poster */}
           <FadeSlide visible={slideKey === 'poster'}>
             <PosterResponsive

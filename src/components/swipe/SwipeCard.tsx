@@ -106,7 +106,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
 
     return (
       <motion.div
-        className="h-full will-change-transform relative"
+        className="relative h-full w-full will-change-transform"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.12 }}
@@ -167,8 +167,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           </motion.div>
         </div>
 
-        <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-          <div className="relative min-h-0 h-full">
+        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden">
+          <div className="relative min-h-0 overflow-hidden">
             <MovieCarousel
               key={movie.tmdb_id}
               title={movie.title}
@@ -180,7 +180,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           </div>
 
           <div
-            className="text-white shrink-0 select-text"
+            className="relative z-10 shrink-0 select-text text-white"
             data-interactive="true"
           >
             <div className="flex items-center justify-between gap-2">
