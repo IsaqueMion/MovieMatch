@@ -1,4 +1,4 @@
-﻿// src/pages/Swipe.tsx
+// src/pages/Swipe.tsx
 import {
   Component,
   type ErrorInfo,
@@ -10,8 +10,6 @@ import {
   useState,
   useMemo,
   useCallback,
-  useImperativeHandle,
-  forwardRef,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -22,9 +20,9 @@ import {
   type DiscoverFilters,
   type MonetizationType,
 } from '../lib/functions'
-import MovieCarousel from '../components/MovieCarousel'
 import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
-import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+
 import { Toaster, toast } from 'sonner'
 import Select from '../components/Select'
 import AgeGateModal from '../components/AgeGateModal'
@@ -32,15 +30,13 @@ import AdSlot from '../components/AdSlot'
 import AdblockWall from '../components/AdblockWall'
 import confetti from 'canvas-confetti'
 import { ensureAnonymousUser } from '../lib/auth'
+import SwipeCard, {
+  type SwipeCardHandle,
+  type SwipeMovie,
+} from '../components/swipe/SwipeCard'
+import AdSwipeCard from '../components/swipe/AdSwipeCard'
 
-type Movie = {
-  movie_id: number
-  tmdb_id: number
-  title: string
-  year: number | null
-  poster_url: string | null
-  genres: number[]
-}
+type Movie = SwipeMovie
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -108,20 +104,6 @@ function toMonetizationTypes(value: unknown): MonetizationType[] {
   return result.length > 0 ? result : ['flatrate']
 }
 
-function isAdItem(item: unknown): boolean {
-  if (!isRecord(item)) return false
-
-  return (
-    item.__ad === true ||
-    item.kind === 'ad' ||
-    item.type === 'ad'
-  )
-}
-
-const DRAG_LIMIT = 160
-const SWIPE_DISTANCE = 120
-const SWIPE_VELOCITY = 800
-
 function hash32(str: string): number {
   let h = 2166136261 >>> 0
   for (let i = 0; i < str.length; i++) {
@@ -129,14 +111,6 @@ function hash32(str: string): number {
     h = Math.imul(h, 16777619)
   }
   return h >>> 0
-}
-
-function vibrate(duration: number): void {
-  try {
-    navigator.vibrate?.(duration)
-  } catch {
-    // Alguns navegadores ou dispositivos podem bloquear a vibração.
-  }
 }
 
 // embaralha de forma determinística por usuário **dentro** de janelas pequenas
@@ -163,26 +137,9 @@ function shuffleWithinWindows<T extends { tmdb_id: number }>(items: T[], baseSee
 // tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
 
-// animação do swipe: tween (sem molinha), lenta e suave
-const TWEEN_SWIPE = {
-  type: 'tween' as const,
-  duration: 0.45,
-  ease: 'easeOut' as const,
-}
-
-// voltar ao centro quando não passa do limiar
-const TWEEN_SNAP = {
-  type: 'tween' as const,
-  duration: 0.38,
-  ease: 'easeOut' as const,
-}
-
 type OnlineUser = { id: string; name: string }
 
-// handle exposto pelo card para swipe imperativo (botões/teclas)
-export type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
-
-function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function FilterChip({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   const base = 'rounded-full px-3 py-1 text-xs font-medium transition'
   const selected = 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
   const idle = 'bg-white/10 text-white/80 hover:bg-white/15'
@@ -416,14 +373,6 @@ function Swipe() {
 
   const current = movies[i]
 
-  useEffect(() => {
-  if (!isPremium) return;
-  const m = movies[i];
-  if (isAdItem(m)) {
-    // pula o ad-card de forma transparente para premium
-        goNextRef.current();
-  }
-}, [isPremium, i, movies]);
 
   const adSeed = `${sessionId ?? 's'}:${userIdRef.current ?? 'u'}:${filtersSig(filters)}`
   const adInterval = 8 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
@@ -945,8 +894,8 @@ function Swipe() {
 
     return () => {
       filtersBusRef.current = null
-        void supabase.removeChannel(ch)
-      }
+      void supabase.removeChannel(ch)
+    }
   }, [sessionId, userId, resetAndLoad])
 
   useEffect(() => {
@@ -1996,249 +1945,6 @@ function clearProgress(
     console.error('failed to clear swipe progress:', error)
   }
 }
-
-/** Card com motionValue próprio */
-const SwipeCard = forwardRef<SwipeCardHandle, {
-  movie: Movie
-  details?: MovieDetails
-  onDragState: (dragging: boolean) => void
-  onDecision: (value: 1 | -1) => void
-}>(function SwipeCard(
-  { movie, details, onDragState, onDecision },
-  ref
-) {
-  const x = useMotionValue(0)
-  // rotação sutil só durante o arrasto
-  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
-  const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
-  const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
-  useEffect(() => { x.set(0) }, [x])
-
-  // controla quando o drag pode iniciar
-  const dragControls = useDragControls()
-  function handlePointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    const target = e.target as HTMLElement
-    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
-    dragControls.start(e)
-  }
-
-  // permite “swipe” imperativo (botões/teclas)
-  useImperativeHandle(ref, () => ({
-    swipe: (value: 1 | -1) => {
-      const dir = value === 1 ? 1 : -1
-      const endX = dir * (window.innerWidth + 180)
-      vibrate(10)
-      const controls = animate(x, endX, TWEEN_SWIPE)
-      controls.then(() => onDecision(value))
-    },
-  }), [onDecision, x])
-
-  return (
-    <motion.div
-      className="h-full will-change-transform relative"
-      // sem balanço: só um fade curtinho ao montar
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.12 }}
-      style={{ x, rotate, touchAction: 'pan-y' }}
-      drag="x"
-      dragControls={dragControls}
-      dragListener={false}
-      dragElastic={0.18}
-      dragMomentum={false}
-      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onPointerDownCapture={handlePointerDown}
-      onTouchStartCapture={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
-      onDragStart={() => onDragState(true)}
-      onDragEnd={(_, info) => {
-        onDragState(false)
-
-        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
-        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        const shouldSwipe = passDistance || passVelocity
-
-        if (shouldSwipe) {
-          vibrate(10)
-          const dir = info.offset.x > 0 ? 1 : -1
-          const endX = dir * (window.innerWidth + 180)
-
-          // tween lento e suave
-          const controls = animate(x, endX, TWEEN_SWIPE)
-          controls.then(() => onDecision(dir === 1 ? 1 : -1))
-        } else {
-          // volta ao centro com tween curto (sem molinha)
-          animate(x, 0, TWEEN_SNAP)
-        }
-      }}
-    >
-      {/* Overlay feedback */}
-      <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
-        <motion.div
-          style={{ opacity: dislikeOpacity }}
-          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-6deg] bg-black/20"
-        >
-          NOPE
-        </motion.div>
-        <motion.div
-          style={{ opacity: likeOpacity }}
-          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[6deg] bg-black/20"
-        >
-          LIKE
-        </motion.div>
-      </div>
-
-      {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
-      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        {/* Pôster / Carousel */}
-        <div className="relative min-h-0 h-full">
-          {details ? (
-          <MovieCarousel
-            key={movie.tmdb_id}
-            title={movie.title}
-            year={movie.year}
-            poster_url={movie.poster_url || ''}
-            details={details}
-            fullHeight
-          />
-        ) : (
-          <div className="relative min-h-0 h-full">
-            <div className="w-full h-full grid place-items-center">
-              {movie.poster_url ? (
-                <img
-                  src={movie.poster_url}
-                  alt={movie.title}
-                  className="max-h-full w-auto object-contain rounded-lg ring-1 ring-white/10"
-                  loading="eager"
-                  decoding="async"
-                />
-              ) : (
-                <div className="text-white/70 text-sm">Carregando…</div>
-              )}
-            </div>
-          </div>
-        )}
-        </div>
-
-        {/* Meta abaixo */}
-        <div className="text-white shrink-0 select-text" data-interactive="true">
-          {/* linha 1: título + nota */}
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
-              {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
-            </h3>
-            <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
-            </div>
-          </div>
-
-          {/* linha 2: gêneros */}
-          {details?.genres?.length ? (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {details.genres.slice(0, 3).map(g => (
-                <span key={g.id} className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90">{g.name}</span>
-              ))}
-            </div>
-          ) : null}
-
-          {/* linha 3: classificação indicativa */}
-          <div className="mt-1">
-            <span className="text-[11px] text-white/70 mr-1.5">Classificação:</span>
-            <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-              {details?.age_rating?.trim() || '—'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  )
-})
-
-/** Card de anúncio intercalado (swipe para pular; não grava reação) */
-const AdSwipeCard = forwardRef<SwipeCardHandle, {
-  onDragState: (dragging: boolean) => void
-  onDecision: (value: 1 | -1) => void
-}>(function AdSwipeCard(
-  { onDragState, onDecision },
-  ref
-) {
-  const x = useMotionValue(0)
-  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-4, 0, 4])
-  useEffect(() => { x.set(0) }, [x])
-
-  const dragControls = useDragControls()
-  function handlePointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    const target = e.target as HTMLElement
-    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
-    dragControls.start(e)
-  }
-
-  useImperativeHandle(ref, () => ({
-    swipe: (value: 1 | -1) => {
-      const dir = value === 1 ? 1 : -1
-      const endX = dir * (window.innerWidth + 180)
-      vibrate(6)
-      const controls = animate(x, endX, TWEEN_SWIPE)
-      controls.then(() => onDecision(value))
-    },
-  }), [onDecision, x])
-
-  return (
-    <motion.div
-      className="h-full will-change-transform relative"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.12 }}
-      style={{ x, rotate, touchAction: 'pan-y' }}
-      drag="x"
-      dragControls={dragControls}
-      dragListener={false}
-      dragElastic={0.18}
-      dragMomentum={false}
-      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onPointerDownCapture={handlePointerDown}
-      onTouchStartCapture={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
-      onDragStart={() => onDragState(true)}
-      onDragEnd={(_, info) => {
-        onDragState(false)
-        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
-        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        const shouldSwipe = passDistance || passVelocity
-        if (shouldSwipe) {
-          vibrate(6)
-          const dir = info.offset.x > 0 ? 1 : -1
-          const endX = dir * (window.innerWidth + 180)
-          const controls = animate(x, endX, TWEEN_SWIPE)
-          controls.then(() => onDecision(dir === 1 ? 1 : -1))
-        } else {
-          animate(x, 0, TWEEN_SNAP)
-        }
-      }}
-    >
-      {/* Conteúdo visual do ad */}
-      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        <div className="relative min-h-0 h-full">
-          <div className="w-full h-full grid place-items-center">
-            {/* placeholder/house ad — depois pode integrar provedor */}
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-700/20 to-cyan-600/20 ring-1 ring-white/10 p-5 text-white w-[min(92vw,22rem)]">
-              <div className="text-[11px] uppercase tracking-wide text-white/70 mb-1">Publicidade</div>
-              <div className="text-lg font-semibold">Dica de hoje 🍿</div>
-              <p className="text-sm text-white/80 mt-1">
-                Aproveite filmes sem anúncios futuramente com o plano simbólico.
-              </p>
-              <div className="mt-3 text-xs text-white/60">Deslize para continuar</div>
-            </div>
-          </div>
-        </div>
-        <div className="text-white shrink-0 text-center text-xs opacity-70" data-interactive="true">
-          Este card não conta como like/dislike
-        </div>
-      </div>
-    </motion.div>
-  )
-})
 
 // === ErrorBoundary local p/ esta página ===
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unknown | undefined; stack?: string }> {
