@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
+import { ensureAnonymousUser } from '../lib/auth'
 
 
 type MatchItem = {
@@ -68,19 +69,14 @@ export default function Matches() {
         return
       }
 
-      // Garante uma identidade anônima antes de entrar na sessão.
-      const { data: userData } = await supabase.auth.getUser()
-
-      if (!userData.user) {
-        const { error: authError } = await supabase.auth.signInAnonymously()
-
-        if (authError) {
-          console.error('anonymous auth failed:', authError)
-          setSessionId(null)
-          setItems([])
-          setLoading(false)
-          return
-        }
+      try {
+        await ensureAnonymousUser()
+      } catch (authError) {
+        console.error('anonymous auth failed:', authError)
+        setSessionId(null)
+        setItems([])
+        setLoading(false)
+        return
       }
 
       const { data: sessionRows, error: sessionError } = await supabase.rpc(

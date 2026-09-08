@@ -31,6 +31,7 @@ import AgeGateModal from '../components/AgeGateModal'
 import AdSlot from '../components/AdSlot'
 import AdblockWall from '../components/AdblockWall'
 import confetti from 'canvas-confetti'
+import { ensureAnonymousUser } from '../lib/auth'
 
 type Movie = {
   movie_id: number
@@ -46,7 +47,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (isRecord(error)) {
+    const message = error.message
+
+    if (typeof message === 'string' && message.length > 0) {
+      return message
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return 'Erro desconhecido'
+    }
+  }
+
+  return String(error)
 }
 
 function toNumber(value: unknown, fallback: number): number {
@@ -343,6 +362,7 @@ function Swipe() {
   const adsShown = useRef(0)
   const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
+  const matchChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
 
   // histórico p/ UNDO (guarda movie.id real)
@@ -512,15 +532,9 @@ function Swipe() {
           return
         }
 
-        // auth
-        let { data: userData } = await supabase.auth.getUser()
-        if (!userData?.user) {
-          // se seu projeto não habilitou "Anonymous Sign-in", isso falha
-          const { data: auth, error: authErr } = await supabase.auth.signInAnonymously()
-          if (authErr) throw authErr
-          userData = { user: auth.user! }
-        }
-        const uid = userData.user!.id
+        const authUser = await ensureAnonymousUser()
+        const uid = authUser.id
+
         userIdRef.current = uid
         if (bootVersionRef.current !== myVersion || cancelled) return
         setUserId(uid)
@@ -684,42 +698,122 @@ function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i, movies])
 
+  const checkMatch = useCallback(
+    async (movieId: number, notifyPeers = true) => {
+      if (!sessionId || matchedRef.current.has(movieId)) return
+
+      const { count, error: countError } = await supabase
+        .from('reactions')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('session_id', sessionId)
+        .eq('movie_id', movieId)
+        .eq('value', 1)
+
+      if (countError) {
+        console.error('match count failed:', countError)
+        return
+      }
+
+      if ((count ?? 0) < 2) return
+
+      // Evita duas chamadas concorrentes abrirem o mesmo match.
+      if (matchedRef.current.has(movieId)) return
+      matchedRef.current.add(movieId)
+
+      const { data: movie, error: movieError } = await supabase
+        .from('movies')
+        .select('title, year, poster_url')
+        .eq('id', movieId)
+        .maybeSingle()
+
+      if (movieError) {
+        matchedRef.current.delete(movieId)
+        console.error('match movie lookup failed:', movieError)
+        return
+      }
+
+      setMatchModal({
+        title: movie?.title ?? `Filme #${movieId}`,
+        poster_url: movie?.poster_url ?? null,
+        year: movie?.year ?? null,
+      })
+
+      setLatestMatchAt(Date.now())
+
+      if (notifyPeers && matchChannelRef.current) {
+        void matchChannelRef.current.send({
+          type: 'broadcast',
+          event: 'match_found',
+          payload: {
+            movie_id: movieId,
+          },
+        })
+      }
+    },
+    [sessionId],
+  )
+
   // realtime de match
   useEffect(() => {
     if (!sessionId) return
+
     const channel = supabase
       .channel(`sess-${sessionId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'reactions', filter: `session_id=eq.${sessionId}` },
-        async (payload) => {
-          if (payload.new?.value !== 1) return
-          const movieId = payload.new.movie_id as number
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reactions',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          if (!isRecord(payload.new)) return
 
-          const { count } = await supabase
-            .from('reactions')
-            .select('user_id', { count: 'exact', head: true })
-            .eq('session_id', sessionId)
-            .eq('movie_id', movieId)
-            .eq('value', 1)
+          if (Number(payload.new.value) !== 1) return
 
-          if ((count ?? 0) >= 2 && !matchedRef.current.has(movieId)) {
-            matchedRef.current.add(movieId)
-            const { data: mv } = await supabase
-              .from('movies')
-              .select('title, year, poster_url')
-              .eq('id', movieId)
-              .maybeSingle()
+          const movieId = Number(payload.new.movie_id)
 
-            const title = mv?.title ?? `Filme #${movieId}`
-            setMatchModal({ title, poster_url: mv?.poster_url ?? null, year: mv?.year ?? null })
-            setLatestMatchAt(Date.now())
-          }
-        }
+          if (!movieId) return
+
+          void checkMatch(movieId)
+        },
       )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [sessionId])
+      .on(
+        'broadcast',
+        {
+          event: 'match_found',
+        },
+        (message) => {
+          const payload =
+            isRecord(message) && isRecord(message.payload)
+              ? message.payload
+              : null
+
+          if (!payload) return
+
+          const movieId = Number(payload.movie_id)
+
+          if (!movieId) return
+
+          // Confirma no banco antes de mostrar o match recebido.
+          void checkMatch(movieId, false)
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          matchChannelRef.current = channel
+        }
+      })
+
+    return () => {
+      if (matchChannelRef.current === channel) {
+        matchChannelRef.current = null
+      }
+
+      void supabase.removeChannel(channel)
+    }
+  }, [sessionId, checkMatch])
 
   // presença
   useEffect(() => {
@@ -966,6 +1060,10 @@ function Swipe() {
         )
       if (rxErr) throw rxErr
 
+      if (value === 1) {
+        await checkMatch(movieId)
+      }
+
       historyRef.current.push(movieId)
       reactedTmdbRef.current.add(Number(current.tmdb_id))
 
@@ -978,7 +1076,18 @@ function Swipe() {
       await goNext()
       setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
     }
-  }, [sessionId, userId, current, busy, goNext, i, isPremium, adOffset, adInterval])
+  }, [
+    sessionId,
+    userId,
+    current,
+    busy,
+    goNext,
+    i,
+    isPremium,
+    adOffset,
+    adInterval,
+    checkMatch,
+  ])
 
   const undo = useCallback(async () => {
     if (!sessionId || !userId || busy) return

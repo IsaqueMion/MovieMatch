@@ -5,6 +5,7 @@ import { Clapperboard, Heart, Users, Play, Film, Sparkles, X as XIcon } from 'lu
 import { discoverMovies } from '../lib/functions'
 import { supabase } from '../lib/supabase'
 import type { DiscoverFilters } from '../lib/functions'
+import { ensureAnonymousUser } from '../lib/auth'
 
 const LANDING_FILTERS: DiscoverFilters = {
   genres: [],
@@ -27,18 +28,30 @@ export default function Landing() {
   const [, setStatus] = useState<string>('')
 
   useEffect(() => {
-    (async () => {
+    let cancelled = false
+
+    ;(async () => {
       setStatus('Conectando...')
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        const { data, error } = await supabase.auth.signInAnonymously()
-        if (error) { setStatus('Falha no login anônimo'); return }
-        setUserId(data.user?.id ?? null)
-      } else {
+
+      try {
+        const user = await ensureAnonymousUser()
+
+        if (cancelled) return
+
         setUserId(user.id)
+        setStatus('Usuário anônimo conectado ✅')
+      } catch (error) {
+        console.error('anonymous auth failed:', error)
+
+        if (!cancelled) {
+          setStatus('Falha no login anônimo')
+        }
       }
-      setStatus('Usuário anônimo conectado ✅')
     })()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // --- Entrar usando o código digitado (sem página /join) ---
