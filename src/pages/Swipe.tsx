@@ -525,7 +525,12 @@ function Swipe() {
         if (bootVersionRef.current !== myVersion || cancelled) return
         setUserId(uid)
 
-        await supabase.from('users').upsert({ id: uid, display_name: displayName })
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({ display_name: displayName })
+          .eq('id', uid)
+
+        if (profileError) throw profileError
 
         // ler se já é adulto
         const { data: prof } = await supabase
@@ -537,47 +542,53 @@ function Swipe() {
         setIsPremium(!!prof?.is_premium)
 
         // ⚠️ busca da sessão com single + limit(1)
-        const { data: sess, error: sessErr } = await supabase
-          .from('sessions')
-          .select('id, code')
-          .eq('code', CODE)
-          .limit(1)
-          .maybeSingle()
+        const { data: sessionRows, error: sessErr } = await supabase.rpc(
+          'join_session',
+          {
+            p_code: CODE,
+          },
+        )
 
-        if (sessErr) throw sessErr
-        if (!sess?.id) {
+        const sess = Array.isArray(sessionRows) ? sessionRows[0] : null
+
+        if (sessErr || !sess?.id) {
           setFatalError('Sessão não encontrada. Verifique o código.')
           setLoading(false)
           return
         }
 
         if (bootVersionRef.current !== myVersion || cancelled) return
+
         setSessionId(sess.id)
 
-        await supabase
-          .from('session_members')
-          .upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
-          // carrega filmes já swipados pelo usuário nesta sessão (para não reaparecerem)
-          try {
-            const { data: rxRows } = await supabase
-              .from('reactions')
-              .select('movie_id')
-              .eq('session_id', sess.id)
-              .eq('user_id', uid)
+        // Carrega filmes já avaliados pelo usuário nesta sessão
+        // para evitar que apareçam novamente.
+        try {
+          const { data: rxRows, error: reactionsError } = await supabase
+            .from('reactions')
+            .select('movie_id')
+            .eq('session_id', sess.id)
+            .eq('user_id', uid)
 
-            const ids = (rxRows ?? []).map(r => r.movie_id)
-            if (ids.length) {
-              const { data: mvRows } = await supabase
-                .from('movies')
-                .select('id, tmdb_id')
-                .in('id', ids)
+          if (reactionsError) throw reactionsError
 
-              reactedTmdbRef.current = new Set((mvRows ?? []).map(m => Number(m.tmdb_id)))
-            }
-          } catch (e) {
-            console.warn('falha ao carregar reações antigas:', e)
+          const ids = (rxRows ?? []).map((row) => row.movie_id)
+
+          if (ids.length) {
+            const { data: mvRows, error: moviesError } = await supabase
+              .from('movies')
+              .select('id, tmdb_id')
+              .in('id', ids)
+
+            if (moviesError) throw moviesError
+
+            reactedTmdbRef.current = new Set(
+              (mvRows ?? []).map((movie) => Number(movie.tmdb_id)),
+            )
           }
-
+        } catch (error) {
+          console.warn('falha ao carregar reações antigas:', error)
+        }
 
         // filtros salvos
         let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
@@ -911,7 +922,7 @@ function Swipe() {
     const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
 
     try {
-      const { data: upserted, error: movieErr } = await supabase
+      const { data: insertedMovie, error: movieErr } = await supabase
         .from('movies')
         .upsert(
           {
@@ -920,15 +931,33 @@ function Swipe() {
             year: current.year ?? null,
             poster_url: current.poster_url ?? null,
           },
-          { onConflict: 'tmdb_id' }
+          {
+            onConflict: 'tmdb_id',
+            ignoreDuplicates: true,
+          },
         )
         .select('id')
-        .single()
+        .maybeSingle()
 
       if (movieErr) throw movieErr
-      const movieId = Number(upserted?.id)
-      if (!movieId) throw new Error('Falha ao obter movie.id')
 
+      let movieId = Number(insertedMovie?.id)
+
+      if (!movieId) {
+        const { data: existingMovie, error: existingMovieError } = await supabase
+          .from('movies')
+          .select('id')
+          .eq('tmdb_id', current.tmdb_id)
+          .maybeSingle()
+
+        if (existingMovieError) throw existingMovieError
+
+        movieId = Number(existingMovie?.id)
+      }
+
+      if (!movieId) {
+        throw new Error('Falha ao obter movie.id')
+      }
       const { error: rxErr } = await supabase
         .from('reactions')
         .upsert(
@@ -1044,7 +1073,7 @@ const confirmAdult = async (birthdateISO?: string) => {
       return
     }
 
-    // 3) Marca como adulto (com data)
+    // 3) Registra somente o status de maioridade
     try {
       if (userId) {
         await supabase

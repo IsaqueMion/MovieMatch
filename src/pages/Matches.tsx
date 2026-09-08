@@ -54,17 +54,46 @@ export default function Matches() {
   function closeDetails() { setModal(null) }
 
   // Carregar sessão + primeira lista
+  // Carregar sessão + primeira lista
   useEffect(() => {
     (async () => {
       setLoading(true)
 
-      const { data: sess } = await supabase
-        .from('sessions')
-        .select('id, code')
-        .eq('code', code.toUpperCase())
-        .maybeSingle()
+      const normalizedCode = code.trim().toUpperCase()
 
-      if (!sess) {
+      if (!normalizedCode) {
+        setSessionId(null)
+        setItems([])
+        setLoading(false)
+        return
+      }
+
+      // Garante uma identidade anônima antes de entrar na sessão.
+      const { data: userData } = await supabase.auth.getUser()
+
+      if (!userData.user) {
+        const { error: authError } = await supabase.auth.signInAnonymously()
+
+        if (authError) {
+          console.error('anonymous auth failed:', authError)
+          setSessionId(null)
+          setItems([])
+          setLoading(false)
+          return
+        }
+      }
+
+      const { data: sessionRows, error: sessionError } = await supabase.rpc(
+        'join_session',
+        {
+          p_code: normalizedCode,
+        },
+      )
+
+      const sess = Array.isArray(sessionRows) ? sessionRows[0] : null
+
+      if (sessionError || !sess?.id) {
+        console.error('join_session failed:', sessionError)
         setSessionId(null)
         setItems([])
         setLoading(false)
@@ -80,7 +109,10 @@ export default function Matches() {
           .select('watch_region')
           .eq('session_id', sess.id)
           .maybeSingle()
-        if (sf?.watch_region) setWatchRegion(String(sf.watch_region))
+
+        if (sf?.watch_region) {
+          setWatchRegion(String(sf.watch_region))
+        }
       } catch {
         // Falha ao recuperar a região não impede o carregamento da sessão.
       }

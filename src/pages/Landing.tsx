@@ -17,10 +17,6 @@ type CarouselItem = {
   poster_url: string
 }
 
-function genCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase()
-}
-
 export default function Landing() {
   const [code, setCode] = useState('')
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -52,18 +48,16 @@ export default function Landing() {
     if (!userId) { alert('Conectando... tente novamente em alguns segundos.'); return }
 
     setStatus('Procurando sessão...')
-    const { data: sessao, error } = await supabase
-      .from('sessions').select('id, code').eq('code', c).single()
 
-    if (error || !sessao) { setStatus('Sessão não encontrada.'); return }
+    const { data, error } = await supabase.rpc('join_session', {
+      p_code: c,
+    })
 
-    const { error: errM } = await supabase
-      .from('session_members')
-      .insert({ session_id: sessao.id, user_id: userId })
-      .select().single()
+    const sessao = Array.isArray(data) ? data[0] : null
 
-    if (errM && !String(errM.message).includes('duplicate')) {
-      setStatus('Erro ao entrar na sessão.'); return
+    if (error || !sessao) {
+      setStatus('Sessão não encontrada.')
+      return
     }
 
     setStatus(`Entrou na sessão ${sessao.code} ✅`)
@@ -74,21 +68,15 @@ export default function Landing() {
   async function handleCreate() {
     if (!userId) { alert('Conectando...'); return }
     setStatus('Criando sessão...')
-    const newCode = genCode()
 
-    const { data: sessao, error } = await supabase
-      .from('sessions')
-      .insert({ code: newCode })
-      .select()
-      .single()
+    const { data, error } = await supabase.rpc('create_session')
 
-    if (error) { setStatus('Erro ao criar sessão.'); return }
+    const sessao = Array.isArray(data) ? data[0] : null
 
-    const { error: errM } = await supabase
-      .from('session_members')
-      .insert({ session_id: sessao.id, user_id: userId })
-
-    if (errM) { setStatus('Sessão criada, mas falhou ao entrar.'); return }
+    if (error || !sessao) {
+      setStatus('Erro ao criar sessão.')
+      return
+    }
 
     setStatus(`Sessão ${sessao.code} criada! ✅`)
     navigate(`/s/${sessao.code}`)
