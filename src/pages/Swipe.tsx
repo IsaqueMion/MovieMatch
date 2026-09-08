@@ -1,4 +1,4 @@
-// src/pages/Swipe.tsx
+﻿// src/pages/Swipe.tsx
 import {
   Component,
   type ErrorInfo,
@@ -35,6 +35,12 @@ import SwipeCard, {
   type SwipeMovie,
 } from '../components/swipe/SwipeCard'
 import AdSwipeCard from '../components/swipe/AdSwipeCard'
+import {
+  clearProgress,
+  filtersSig,
+  loadProgress,
+  saveProgress,
+} from '../lib/swipeProgress'
 
 type Movie = SwipeMovie
 
@@ -1899,51 +1905,6 @@ function calcAge(birthdateISO: string): number {
   const m = today.getMonth() - dob.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
   return age
-}
-
-/* ========= Persistência de progresso ========= */
-function filtersSig(f: DiscoverFilters) {
-  return [(f.genres ?? []).join(','), f.yearMin ?? '', f.yearMax ?? '', f.ratingMin ?? '', f.language ?? '', f.sortBy ?? ''].join('|')
-}
-function progressKey(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
-  return sessionId && userId ? `mm_prog:v2:${sessionId}:${userId}:${filtersSig(f)}` : ''
-}
-function saveProgress(
-  sessionId: string | null,
-  userId: string | null,
-  f: DiscoverFilters,
-  idx: number,
-) {
-  try {
-    const key = progressKey(sessionId, userId, f)
-    if (!key) return
-
-    localStorage.setItem(
-      key,
-      JSON.stringify({ i: idx }),
-    )
-  } catch (error) {
-    console.error('failed to save swipe progress:', error)
-  }
-}
-function loadProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters): number {
-  try {
-    const k = progressKey(sessionId, userId, f); if (!k) return 0
-    const raw = localStorage.getItem(k); if (!raw) return 0
-    const obj = JSON.parse(raw); return Number.isFinite(obj?.i) ? obj.i : 0
-  } catch { return 0 }
-}
-function clearProgress(
-  sessionId: string | null,
-  userId: string | null,
-  f: DiscoverFilters,
-) {
-  try {
-    const key = progressKey(sessionId, userId, f)
-    if (key) localStorage.removeItem(key)
-  } catch (error) {
-    console.error('failed to clear swipe progress:', error)
-  }
 }
 
 // === ErrorBoundary local p/ esta página ===
