@@ -91,10 +91,10 @@ export default function MovieCarousel({
           <FadeSlide visible={slideKey === 'trailer'}>
             {youtubeEmbed ? (
               <div
-                className="w-full h-full flex items-center justify-center bg-black pb-24"
-                data-interactive="true"   // 👈 impede drag aqui
+                className="relative w-full h-full bg-black overflow-hidden"
+                data-interactive="true"
               >
-                <div className="relative h-full aspect-[9/16] max-h-full z-10">
+                <div className="absolute inset-x-3 sm:inset-x-4 top-1/2 -translate-y-1/2 aspect-video overflow-hidden rounded-xl">
                   <iframe
                     className="absolute inset-0 w-full h-full"
                     src={youtubeEmbed}
@@ -193,7 +193,7 @@ function Skeleton({ children }: { children?: React.ReactNode }) {
 }
 
 function PosterResponsive({
-  title, year, poster_url, fullHeight,
+  title, year, poster_url,
 }: { title: string; year: number | null; poster_url: string; fullHeight?: boolean }) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
@@ -208,21 +208,38 @@ function PosterResponsive({
       )}
 
       {!error ? (
-        <img
-          src={src || poster_url}
-          srcSet={srcSet}
-          sizes={sizes}
-          alt={alt}
-          className={`w-full h-full ${fullHeight ? 'object-cover' : 'object-contain'} rounded-2xl transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          // visível: carregue rápido; próximas telas usarão lazy naturalmente
-          loading="eager"
-          fetchPriority="high"
-          decoding="async"
-          draggable={false}
-          style={{ pointerEvents: 'none' }}
-          onLoad={() => setLoaded(true)}
-          onError={() => setError(true)}
-        />
+        <div className="absolute inset-0 overflow-hidden rounded-2xl bg-black">
+          {/* Fundo preenchendo todo o card */}
+          <img
+            src={src || poster_url}
+            srcSet={srcSet}
+            sizes={sizes}
+            alt=""
+            aria-hidden="true"
+            className={`absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-35 transition-opacity duration-300 ${
+              loaded ? 'opacity-35' : 'opacity-0'
+            }`}
+            draggable={false}
+          />
+
+          {/* Pôster principal sem cortes */}
+          <img
+            src={src || poster_url}
+            srcSet={srcSet}
+            sizes={sizes}
+            alt={alt}
+            className={`relative z-10 w-full h-full object-contain transition-opacity duration-300 ${
+              loaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            draggable={false}
+            style={{ pointerEvents: 'none' }}
+            onLoad={() => setLoaded(true)}
+            onError={() => setError(true)}
+          />
+        </div>
       ) : (
         // fallback elegante quando falhar
         <div className="w-full h-full rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] ring-1 ring-white/10 grid place-items-center text-center p-4">

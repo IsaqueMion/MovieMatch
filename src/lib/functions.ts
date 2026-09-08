@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { ensureAnonymousUser } from './auth'
 
 export type MonetizationType = 'flatrate' | 'free' | 'ads' | 'rent' | 'buy'
 
@@ -103,6 +104,7 @@ const MD_CACHE_PREFIX = 'mm:md:v3:'
 const MD_TTL = 1000 * 60 * 60 * 3 // 3 horas
 
 export async function getMovieDetails(tmdb_id: number, opts?: { region?: string }): Promise<MovieDetails> {
+  
   const region = (opts?.region || 'BR').toUpperCase()
   const key = `${MD_CACHE_PREFIX}${tmdb_id}:${region}`
   try {
@@ -117,15 +119,36 @@ export async function getMovieDetails(tmdb_id: number, opts?: { region?: string 
     // Cache indisponível ou inválido: continua buscando os dados normalmente.
   }
 
+  await ensureAnonymousUser()
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    throw sessionError
+  }
+
+  if (!session?.access_token) {
+    throw new Error('Sessão Supabase indisponível.')
+  }
+
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}&region=${region}`
-  const res = await fetchWithRetry(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+
+  const res = await fetchWithRetry(
+    url,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
     },
-  }, 3)
+    3,
+  )
 
   if (!res.ok) throw new Error(`movie_details ${res.status}`)
+    
   const data = await res.json()
 
   try {
