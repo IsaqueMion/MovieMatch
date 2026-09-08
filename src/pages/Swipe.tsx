@@ -24,7 +24,6 @@ import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucid
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { Toaster, toast } from 'sonner'
-import Select from '../components/Select'
 import AgeGateModal from '../components/AgeGateModal'
 import AdSlot from '../components/AdSlot'
 import AdblockWall from '../components/AdblockWall'
@@ -41,24 +40,13 @@ import {
   loadProgress,
   saveProgress,
 } from '../lib/swipeProgress'
-import {
-  FilterChip,
-  NumberField,
-} from '../components/swipe/FilterControls'
-
-import {
-  GENRES,
-  LANGUAGES,
-  MONETIZATION_OPTIONS,
-  PROVIDERS_BR,
-  REGIONS,
-  SORT_OPTIONS,
-} from '../components/swipe/filterOptions'
 
 import {
   hash32,
   shuffleWithinWindows,
 } from '../lib/swipeShuffle'
+
+import FilterModal from '../components/swipe/FilterModal'
 
 type Movie = SwipeMovie
 
@@ -223,94 +211,246 @@ function Swipe() {
   const adInterval = 8 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
   const adOffset = hash32(adSeed + ':o') % adInterval
 
-  const filtersCount =
-    (filters.genres?.length ?? 0) +
-    (filters.excludeGenres?.length ?? 0) +
-    (filters.yearMin ? 1 : 0) +
-    (filters.yearMax ? 1 : 0) +
-    ((filters.ratingMin ?? 0) > 0 ? 1 : 0) +
-    (filters.language && filters.language !== '' ? 1 : 0) +
-    (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0) +
-    (filters.watchRegion ? 1 : 0) +
-    ((filters.providers?.length ?? 0) > 0 ? 1 : 0) +
-    ((filters.monetization?.length ?? 0) > 0 ? 1 : 0)
+  const filtersCount = [
+    (filters.genres?.length ?? 0) > 0,
 
-  const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
-    try {
-      const data = await discoverMovies({ page: pageToLoad, filters: f })
-      if (pageToLoad === 1) {
-        setDiscoverHint(data?.hint ?? null)
-      }
+    (filters.excludeGenres?.length ?? 0) > 0,
 
-      const baseSeed = `${sessionId ?? 'nosess'}:${userIdRef.current ?? 'nouser'}`
+    filters.yearMin !==
+      DEFAULT_FILTERS.yearMin,
 
-      const filtered = (data?.results ?? []).filter((m: Movie) => {
-        const tmdb = Number(m.tmdb_id)
-        return !seenRef.current.has(m.movie_id) && !reactedTmdbRef.current.has(tmdb)
-      })
+    filters.yearMax !==
+      DEFAULT_FILTERS.yearMax,
 
-      const unique = shuffleWithinWindows(filtered, baseSeed)
+    filters.ratingMin !==
+      DEFAULT_FILTERS.ratingMin,
 
-      unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
-      if (unique.length > 0) {
-        setMovies(prev => [...prev, ...unique])
-        setPage(pageToLoad)
-      }
-      return unique.length
-    } catch (error: unknown) {
-      console.error('discoverMovies error:', error)
-      toast.error(`Falha ao buscar filmes: ${getErrorMessage(error)}`)
-      return 0
+    filters.voteCountMin !==
+      DEFAULT_FILTERS.voteCountMin,
+
+    filters.runtimeMin !==
+      DEFAULT_FILTERS.runtimeMin,
+
+    filters.runtimeMax !==
+      DEFAULT_FILTERS.runtimeMax,
+
+    filters.language !==
+      DEFAULT_FILTERS.language,
+
+    filters.sortBy !==
+      DEFAULT_FILTERS.sortBy,
+
+    filters.includeAdult !==
+      DEFAULT_FILTERS.includeAdult,
+
+    (filters.providers?.length ?? 0) > 0,
+
+    filters.watchRegion !==
+      DEFAULT_FILTERS.watchRegion,
+
+    [...(filters.monetization ?? [])]
+      .sort()
+      .join(',') !==
+      [...(DEFAULT_FILTERS.monetization ?? [])]
+        .sort()
+        .join(','),
+  ].filter(Boolean).length
+
+    type LoadPageResult = {
+      added: number
+      hasMore: boolean
     }
-  }, [filters, sessionId])
 
-  const resetAndLoad = useCallback(async (resume = false, f?: DiscoverFilters, sessionRef?: string | null) => {
-    const effective = f ?? filters
-    const sid = sessionRef ?? sessionId
-    const myVersion = bootVersionRef.current
-    setLoading(true)
-    adsShown.current = 0
-    setNoResults(false)
-    setDiscoverHint(null)
-    setMovies([]); setI(0); setPage(1)
-    seenRef.current.clear()
-    try {
-      const target = resume ? loadProgress(sid, userIdRef.current, effective) : 0
-      let acc = 0
-      let pageToLoad = 1
-      let anyAdded = false
+  const loadPage = useCallback(
+    async (
+      pageToLoad: number,
+      f: DiscoverFilters = filters,
+    ): Promise<LoadPageResult> => {
+      try {
+        const data = await discoverMovies({
+          page: pageToLoad,
+          filters: f,
+        })
 
-      while (acc <= target) {
-        if (bootVersionRef.current !== myVersion) return
-        const added = await loadPage(pageToLoad, effective)
-        if (bootVersionRef.current !== myVersion) return
-        if (added > 0) {
-          anyAdded = true
-          acc += added
-          pageToLoad++
-        } else {
-          // se a página não trouxe nadinha, para o loop
-          break
+        if (pageToLoad === 1) {
+          setDiscoverHint(data?.hint ?? null)
         }
-        if (pageToLoad > 30) break
-      }
 
-      if (!anyAdded) {
-        setNoResults(true)
-        setI(0)
-      } else {
-        // índice seguro: se não alcançou o target, fica no último disponível
-        const safeMax = Math.max(0, acc - 1)
-        const resolved = resume ? Math.min(target, safeMax) : 0
-        setI(resolved)
+        const sourceResults = data?.results ?? []
+
+        const baseSeed =
+          `${sessionId ?? 'nosess'}:` +
+          `${userIdRef.current ?? 'nouser'}`
+
+        const filtered = sourceResults.filter(
+          (movie: Movie) => {
+            const tmdbId = Number(movie.tmdb_id)
+
+            return (
+              !seenRef.current.has(movie.movie_id) &&
+              !reactedTmdbRef.current.has(tmdbId)
+            )
+          },
+        )
+
+        const unique = shuffleWithinWindows(
+          filtered,
+          baseSeed,
+        )
+
+        unique.forEach((movie: Movie) => {
+          seenRef.current.add(movie.movie_id)
+        })
+
+        if (unique.length > 0) {
+          setMovies((previous) => [
+            ...previous,
+            ...unique,
+          ])
+
+          setPage(pageToLoad)
+        }
+
+        const totalPages = Number(
+          data?.total_pages,
+        )
+
+        const hasMore =
+          sourceResults.length > 0 &&
+          (
+            !Number.isFinite(totalPages) ||
+            pageToLoad < totalPages
+          )
+
+        return {
+          added: unique.length,
+          hasMore,
+        }
+      } catch (error: unknown) {
+        console.error(
+          'discoverMovies error:',
+          error,
+        )
+
+        toast.error(
+          `Falha ao buscar filmes: ${getErrorMessage(error)}`,
+        )
+
+        return {
+          added: 0,
+          hasMore: false,
+        }
       }
-    } catch (error: unknown) {
-      console.error(error)
-      toast.error(`Erro ao carregar filmes: ${getErrorMessage(error)}`)
-    } finally {
-      if (bootVersionRef.current === myVersion) setLoading(false)
-    }
-  }, [filters, sessionId, loadPage])
+    },
+    [filters, sessionId],
+  )
+
+  const resetAndLoad = useCallback(
+    async (
+      resume = false,
+      f?: DiscoverFilters,
+      sessionRef?: string | null,
+    ) => {
+      const effective = f ?? filters
+      const sid = sessionRef ?? sessionId
+      const myVersion =
+        bootVersionRef.current
+
+      setLoading(true)
+      adsShown.current = 0
+      setNoResults(false)
+      setDiscoverHint(null)
+
+      setMovies([])
+      setI(0)
+      setPage(1)
+
+      seenRef.current.clear()
+
+      try {
+        const target = resume
+          ? loadProgress(
+              sid,
+              userIdRef.current,
+              effective,
+            )
+          : 0
+
+        let accumulated = 0
+        let pageToLoad = 1
+        let anyAdded = false
+
+        while (
+          accumulated <= target &&
+          pageToLoad <= 30
+        ) {
+          if (
+            bootVersionRef.current !==
+            myVersion
+          ) {
+            return
+          }
+
+          const result = await loadPage(
+            pageToLoad,
+            effective,
+          )
+
+          if (
+            bootVersionRef.current !==
+            myVersion
+          ) {
+            return
+          }
+
+          if (result.added > 0) {
+            anyAdded = true
+            accumulated += result.added
+          }
+
+          // A API realmente não tem mais páginas.
+          if (!result.hasMore) {
+            break
+          }
+
+          // Mesmo que esta página tenha trazido
+          // zero filmes NOVOS, tenta a próxima.
+          pageToLoad += 1
+        }
+
+        if (!anyAdded) {
+          setNoResults(true)
+          setI(0)
+          return
+        }
+
+        const safeMax = Math.max(
+          0,
+          accumulated - 1,
+        )
+
+        const resolved = resume
+          ? Math.min(target, safeMax)
+          : 0
+
+        setI(resolved)
+      } catch (error: unknown) {
+        console.error(error)
+
+        toast.error(
+          `Erro ao carregar filmes: ${getErrorMessage(error)}`,
+        )
+      } finally {
+        if (
+          bootVersionRef.current ===
+          myVersion
+        ) {
+          setLoading(false)
+        }
+      }
+    },
+    [filters, sessionId, loadPage],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -724,8 +864,17 @@ function Swipe() {
           }
 
           setFilters(f)
-          clearProgress(sessionId, userIdRef.current, f)
-          resetAndLoad(false, f, sessionId)
+          setDetailsCache({})
+          clearProgress(
+            sessionId,
+            userIdRef.current,
+            f,
+          )
+          void resetAndLoad(
+            false,
+            f,
+            sessionId,
+          )
         } catch (e) {
           console.error('erro ao aplicar filtros via broadcast:', e)
         }
@@ -753,30 +902,74 @@ function Swipe() {
 
   // ===== animação imperativa p/ botões/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
-  const goNextRef = useRef<() => Promise<void>>(async () => {})
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
     const nextIndex = i + 1
+
     if (nextIndex < movies.length) {
       setI(nextIndex)
-      saveProgress(sessionId, userIdRef.current, filters, nextIndex)
+
+      saveProgress(
+        sessionId,
+        userIdRef.current,
+        filters,
+        nextIndex,
+      )
+
       return
     }
+
     if (loadingMore) return
+
     setLoadingMore(true)
+
     try {
-      let added = await loadPage(page + 1)
-      let tries = 0
-      while (added === 0 && tries < 2) { tries++; added = await loadPage(page + 1 + tries) }
-      if (added > 0) {
-        const newIndex = movies.length
-        setI(newIndex)
-        saveProgress(sessionId, userIdRef.current, filters, newIndex)
+      let nextPage = page + 1
+
+      let result = await loadPage(
+        nextPage,
+      )
+
+      let attempts = 0
+
+      while (
+        result.added === 0 &&
+        result.hasMore &&
+        attempts < 10
+      ) {
+        attempts += 1
+        nextPage += 1
+
+        result = await loadPage(
+          nextPage,
+        )
       }
-    } finally { setLoadingMore(false) }
-  }, [i, movies.length, sessionId, filters, loadingMore, loadPage, page])
-  useEffect(() => { goNextRef.current = goNext }, [goNext])
+
+      if (result.added > 0) {
+        const newIndex = movies.length
+
+        setI(newIndex)
+
+        saveProgress(
+          sessionId,
+          userIdRef.current,
+          filters,
+          newIndex,
+        )
+      }
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [
+    i,
+    movies.length,
+    sessionId,
+    filters,
+    loadingMore,
+    loadPage,
+    page,
+  ])
 
   const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
     if (!sessionId || !userId || !current) return
@@ -1009,6 +1202,120 @@ const confirmAdult = async (birthdateISO?: string) => {
     setFilters(f => ({ ...f, includeAdult: false }))
   }
 
+  async function applyFilters(
+    filterSnapshot: DiscoverFilters,
+  ) {
+    const nextFilters: DiscoverFilters = {
+      ...filterSnapshot,
+      genres: [...(filterSnapshot.genres ?? [])],
+      excludeGenres: [
+        ...(filterSnapshot.excludeGenres ?? []),
+      ],
+      providers: [
+        ...(filterSnapshot.providers ?? []),
+      ],
+      monetization: [
+        ...(filterSnapshot.monetization ?? []),
+      ],
+    }
+
+    // Atualiza imediatamente o estado da página.
+    setOpenFilters(false)
+    setFilters(nextFilters)
+
+    // Alguns detalhes dependem da região/catálogo.
+    // Não devemos reaproveitar cache de filtros antigos.
+    setDetailsCache({})
+
+    if (sessionId && userId) {
+      try {
+        const { error: filtersError } = await supabase
+          .from('session_filters')
+          .upsert(
+            {
+              session_id: sessionId,
+              genres: nextFilters.genres ?? [],
+              exclude_genres:
+                nextFilters.excludeGenres ?? [],
+              year_min:
+                nextFilters.yearMin ?? 1990,
+              year_max:
+                nextFilters.yearMax ?? currentYear,
+              rating_min:
+                nextFilters.ratingMin ?? 0,
+              vote_count_min:
+                nextFilters.voteCountMin ?? 0,
+              runtime_min:
+                nextFilters.runtimeMin ?? 60,
+              runtime_max:
+                nextFilters.runtimeMax ?? 220,
+              language:
+                nextFilters.language ?? '',
+              sort_by:
+                nextFilters.sortBy ??
+                'popularity.desc',
+              include_adult:
+                !!nextFilters.includeAdult,
+              updated_by: userId,
+              providers:
+                nextFilters.providers ?? [],
+              watch_region:
+                nextFilters.watchRegion ?? 'BR',
+              monetization:
+                nextFilters.monetization ??
+                ['flatrate'],
+            },
+            {
+              onConflict: 'session_id',
+            },
+          )
+
+        if (filtersError) {
+          throw filtersError
+        }
+
+        try {
+          await filtersBusRef.current?.send({
+            type: 'broadcast',
+            event: 'filters_update',
+            payload: {
+              ...nextFilters,
+              updated_by: userId,
+            },
+          })
+        } catch (error) {
+          console.warn(
+            'broadcast filtros falhou',
+            error,
+          )
+        }
+      } catch (error) {
+        console.error(
+          'failed to save session filters:',
+          error,
+        )
+
+        toast.error(
+          `Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`,
+        )
+      }
+    }
+
+    clearProgress(
+      sessionId,
+      userIdRef.current,
+      nextFilters,
+    )
+
+    // Recarrega imediatamente usando os NOVOS filtros,
+    // sem depender do próximo render do React.
+    await resetAndLoad(
+      false,
+      nextFilters,
+      sessionId,
+    )
+  }
+
   // —— estados de carregamento / erro —— 
   if (loading) {
     return (
@@ -1040,71 +1347,84 @@ const confirmAdult = async (birthdateISO?: string) => {
   }
 
   const det = current ? detailsCache[current.tmdb_id] : undefined
-  const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
-  const runtimeMinLocal = filters.runtimeMin ?? 60
-  const runtimeMaxLocal = filters.runtimeMax ?? 220
-  const voteCountMinLocal = filters.voteCountMin ?? 0
-  const ratingMinLocal = filters.ratingMin ?? 0
-
-  const yearPresets = [
-    { label: 'Clássicos', range: [1950, 1979] },
-    { label: 'Anos 90', range: [1990, 1999] },
-    { label: '2000+', range: [2000, currentYear] },
-    { label: 'Últimos 5 anos', range: [Math.max(1900, currentYear - 5), currentYear] },
-  ]
-
-  const runtimePresets = [
-    { label: '≤ 100 min', range: [40, 100] },
-    { label: '100–140 min', range: [100, 140] },
-    { label: '≥ 140 min', range: [140, 300] },
-  ]
-
-  const voteCountPresets = [0, 50, 100, 250, 500, 1000]
-  const ratingPresets = [0, 6, 7, 8]
 
   return (
-    <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-      {/* Top bar (compacta) */}
-      <div className="shrink-0 px-3 pt-2">
-        <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
-          <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
-            <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
-              Sessão <span className="font-semibold">{code}</span>
+    <main className="h-dvh max-h-dvh flex flex-col overflow-hidden overscroll-none bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800">
+      {/* Top bar */}
+      <div className="relative z-20 shrink-0 px-3 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-2 rounded-xl bg-white/5 px-2.5 py-1.5 ring-1 ring-white/10 backdrop-blur">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs text-white/80">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-white">
+              <span className="hidden sm:inline">
+                Sessão
+              </span>
+
+              <span className="font-semibold tracking-wide">
+                {code}
+              </span>
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               {online.length} online
             </span>
-            {filtersCount > 0 && (
-              <button onClick={() => setOpenFilters(true)} className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] hover:bg-white/15" title="Editar filtros">
+
+            {filtersCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setOpenFilters(true)}
+                className="min-w-0 truncate rounded-full bg-white/10 px-2 py-1 text-[11px] transition hover:bg-white/15"
+                title="Editar filtros"
+              >
                 {filtersCount} filtros
               </button>
-            )}
+            ) : null}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => setOpenFilters(true)} title="Filtros" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-              <SlidersHorizontal className="w-4 h-4" />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setOpenFilters(true)}
+              title="Filtros"
+              className="rounded-md bg-white/10 p-1.5 text-white transition hover:bg-white/15"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
             </button>
-            <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-              <Share2 className="w-4 h-4" />
+
+            <button
+              type="button"
+              onClick={shareInvite}
+              title="Compartilhar link"
+              className="rounded-md bg-white/10 p-1.5 text-white transition hover:bg-white/15"
+            >
+              <Share2 className="h-4 w-4" />
             </button>
+
             <Link
               to={`/s/${code}/matches`}
-              onClick={() => { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) }}
-              data-new-match={hasNewMatch ? '1' : undefined}
+              onClick={() => {
+                if (LS_KEY) {
+                  localStorage.setItem(
+                    LS_KEY,
+                    String(Date.now()),
+                  )
+                }
+              }}
+              data-new-match={
+                hasNewMatch ? '1' : undefined
+              }
               title="Ver matches"
-              className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+              className="relative rounded-md bg-emerald-500 p-1.5 text-white transition hover:bg-emerald-600"
             >
-              <Star className="w-4 h-4" />
+              <Star className="h-4 w-4" />
             </Link>
           </div>
         </div>
       </div>
 
       {/* centro */}
-      <div className="flex-1 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+168px)] sm:pb-28 overflow-hidden">
-        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
+      <div className="relative z-0 flex-1 min-h-0 overflow-hidden px-3 sm:px-4">
+        <div className="mx-auto h-full min-h-0 w-full max-w-md">
           <div className="h-full flex flex-col">
             <div className="flex-1 min-h-0">
               <AnimatePresence mode="wait" initial={false}>
@@ -1199,8 +1519,8 @@ const confirmAdult = async (birthdateISO?: string) => {
       ) : null}
 
       {/* Ações */}
-      <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
-        <div className="flex items-center justify-center gap-4 sm:gap-5">
+      <div className="relative z-30 shrink-0 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+10px)]">
+        <div className="mx-auto flex max-w-md items-center justify-center gap-4 sm:gap-5">
           <motion.button
             onClick={() => react(-1)}
             disabled={busy || dragging || !current}
@@ -1249,437 +1569,18 @@ const confirmAdult = async (birthdateISO?: string) => {
         )}
       </AnimatePresence>
 
-      {/* Modal Filtros */}
-      <AnimatePresence>
-        {openFilters && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          >
-            <div className="absolute inset-0 bg-black/60" onClick={() => setOpenFilters(false)} />
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-              className="relative z-10 w-[min(92vw,44rem)] max-h-[92dvh] overflow-auto rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-5 text-white"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold">Filtros</h3>
-                  <p className="text-white/70 text-sm">Refine as recomendações com mais controle.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="text-sm px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-                    onClick={() => setFilters({ ...DEFAULT_FILTERS })}
-                    title="Limpar todos os filtros"
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    className="text-sm px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-                    onClick={() => setOpenFilters(false)}
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
-
-              {/* Grid de seções */}
-              <div className="space-y-4">
-                {/* Gêneros incluir/excluir */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Gêneros</h4>
-                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {/* Incluir */}
-                    <div>
-                      <div className="text-xs text-white/70 mb-1">Incluir</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {GENRES.map(g => {
-                          const checked = filters.genres?.includes(g.id) ?? false
-                          return (
-                            <button
-                              key={`inc-${g.id}`}
-                              onClick={() => {
-                                setFilters(f => {
-                                  const s = new Set<number>(f.genres ?? [])
-                                  if (checked) s.delete(g.id); else s.add(g.id)
-                                  return { ...f, genres: Array.from(s) }
-                                })
-                              }}
-                              className={`px-2.5 py-1 rounded-full border text-xs ${checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                              type="button"
-                            >
-                              {g.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    {/* Excluir */}
-                    <div>
-                      <div className="text-xs text-white/70 mb-1">Excluir</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {GENRES.map(g => {
-                          const checked = filters.excludeGenres?.includes(g.id) ?? false
-                          return (
-                            <button
-                              key={`exc-${g.id}`}
-                              onClick={() => {
-                                setFilters(f => {
-                                  const s = new Set<number>(f.excludeGenres ?? [])
-                                  if (checked) s.delete(g.id); else s.add(g.id)
-                                  return { ...f, excludeGenres: Array.from(s) }
-                                })
-                              }}
-                              className={`px-2.5 py-1 rounded-full border text-xs ${checked ? 'bg-rose-600/30 border-rose-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                              type="button"
-                            >
-                              {g.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Catálogos de streaming */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Catálogos de streaming</h4>
-
-                  {/* Provedores */}
-                  <div className="mt-3">
-                    <div className="text-xs text-white/70 mb-1">Provedores (OR)</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PROVIDERS_BR.map(p => {
-                        const checked = (filters.providers ?? []).includes(p.id)
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => {
-                              setFilters(f => {
-                                const s = new Set<number>(f.providers ?? [])
-                                if (checked) s.delete(p.id); else s.add(p.id)
-                                return { ...f, providers: Array.from(s) }
-                              })
-                            }}
-                            className={`px-2.5 py-1 rounded-full border text-xs ${
-                              checked ? 'bg-sky-600/30 border-sky-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                            }`}
-                          >
-                            {p.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className="text-xs text-white/60 mt-1">
-                      Dica: seleção é combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
-                    </div>
-                  </div>
-
-                  {/* Monetização */}
-                  <div className="mt-4">
-                    <div className="text-xs text-white/70 mb-1">Tipo de oferta</div>
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      {MONETIZATION_OPTIONS.map(({ k, label }) => {
-                        const checked = (filters.monetization ?? []).includes(k)
-                        return (
-                          <label key={k} className={`px-2 py-1 rounded-md border cursor-pointer ${
-                            checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                          }`}>
-                            <input
-                              type="checkbox"
-                              className="accent-emerald-500 mr-1"
-                              checked={checked}
-                              onChange={(e) => {
-                                setFilters(f => {
-                                  const s = new Set<MonetizationType>(f.monetization ?? [])
-
-                                  if (e.target.checked) {
-                                    s.add(k)
-                                  } else {
-                                    s.delete(k)
-                                  }
-
-                                  return {
-                                    ...f,
-                                    monetization: Array.from(s),
-                                  }
-                                })
-                              }}
-                            />
-                            {label}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Região */}
-                  <div className="mt-4">
-                    <label className="block text-sm mb-1">Região do catálogo</label>
-                    <Select
-                      value={filters.watchRegion ?? 'BR'}
-                      onChange={(v: string) => setFilters(f => ({ ...f, watchRegion: v }))}
-                      options={REGIONS}
-                    />
-                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por país (ex.: BR para Brasil).</div>
-                  </div>
-                </section>
-
-                {/* Ano + Duração + Popularidade + Adulto */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Período, duração e relevância</h4>
-
-                  {/* Ano */}
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Ano (intervalo)</span>
-                      <span className="text-xs text-white/70">{yearMinLocal} - {yearMaxLocal}</span>
-                    </div>
-                    {/* chips de atalho */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {yearPresets.map(({ label, range }) => (
-                        <FilterChip
-                          key={label}
-                          active={(filters.yearMin ?? 1990) === range[0] && (filters.yearMax ?? currentYear) === range[1]}
-                          onClick={() => setFilters(f => ({ ...f, yearMin: range[0], yearMax: range[1] }))}
-                        >
-                          {label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <NumberField
-                        label="De"
-                        value={yearMinLocal}
-                        min={1900}
-                        max={yearMaxLocal}
-                        step={1}
-                        onChange={(value) => setFilters(f => ({ ...f, yearMin: Math.min(value, f.yearMax ?? currentYear) }))}
-                      />
-                      <NumberField
-                        label="Até"
-                        value={yearMaxLocal}
-                        min={yearMinLocal}
-                        max={currentYear}
-                        step={1}
-                        onChange={(value) => setFilters(f => ({ ...f, yearMax: Math.max(value, f.yearMin ?? 1900) }))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Duração */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Duração (mín–máx, em min)</span>
-                      <span className="text-xs text-white/70">
-                        {runtimeMinLocal} - {runtimeMaxLocal} min
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {runtimePresets.map(({ label, range }) => (
-                        <FilterChip
-                          key={label}
-                          active={(filters.runtimeMin ?? 60) === range[0] && (filters.runtimeMax ?? 220) === range[1]}
-                          onClick={() => setFilters(f => ({ ...f, runtimeMin: range[0], runtimeMax: range[1] }))}
-                        >
-                          {label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <NumberField
-                        label="Mínimo"
-                        value={runtimeMinLocal}
-                        min={40}
-                        max={runtimeMaxLocal}
-                        step={5}
-                        suffix="min"
-                        onChange={(value) => setFilters(f => ({ ...f, runtimeMin: Math.min(value, f.runtimeMax ?? 300) }))}
-                      />
-                      <NumberField
-                        label="Máximo"
-                        value={runtimeMaxLocal}
-                        min={runtimeMinLocal}
-                        max={300}
-                        step={5}
-                        suffix="min"
-                        onChange={(value) => setFilters(f => ({ ...f, runtimeMax: Math.max(value, f.runtimeMin ?? 40) }))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Popularidade + Adulto */}
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
-                      <div className="flex flex-wrap gap-2">
-                        {voteCountPresets.map((value) => (
-                          <FilterChip
-                            key={value}
-                            active={voteCountMinLocal === value}
-                            onClick={() => setFilters(f => ({ ...f, voteCountMin: value }))}
-                          >
-                            {value === 0 ? 'Sem mínimo' : value + '+'}
-                          </FilterChip>
-                        ))}
-                      </div>
-                      <div className="mt-3">
-                        <NumberField
-                          label="Personalizado"
-                          value={voteCountMinLocal}
-                          min={0}
-                          max={5000}
-                          step={50}
-                          onChange={(value) => setFilters(f => ({ ...f, voteCountMin: value }))}
-                        />
-                      </div>
-                    </div>
-                    <label className="inline-flex items-center gap-2 text-sm" data-interactive="true">
-                      <input
-                        type="checkbox"
-                        className="accent-emerald-500"
-                        checked={!!filters.includeAdult}
-                        onChange={(e) => {
-                          const wantAdult = e.target.checked
-                          if (wantAdult) {
-                            if (!isAdult) {
-                              // NÃO deixa ativar antes de validar
-                              setFilters(f => ({ ...f, includeAdult: false }))
-                              setShowAgeGate(true)
-                              return
-                            }
-                            setFilters(f => ({ ...f, includeAdult: true }))
-                          } else {
-                            setFilters(f => ({ ...f, includeAdult: false }))
-                          }
-                        }}
-                      />
-                      Permitir conteúdo adulto
-                    </label>
-                  </div>
-                </section>
-
-                {/* Nota / Idioma / Ordenar */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Qualidade e idioma</h4>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm mb-1">Nota mínima</label>
-                      <div className="flex flex-wrap gap-2">
-                        {ratingPresets.map((value) => (
-                          <FilterChip
-                            key={value}
-                            active={Math.abs(ratingMinLocal - value) < 0.01}
-                            onClick={() => setFilters(f => ({ ...f, ratingMin: value }))}
-                          >
-                            {value === 0 ? 'Sem mínimo' : value.toString().replace('.', ',') + '+'}
-                          </FilterChip>
-                        ))}
-                      </div>
-                      <div className="mt-3">
-                        <NumberField
-                          label="Personalizado"
-                          value={ratingMinLocal}
-                          min={0}
-                          max={10}
-                          step={0.5}
-                          suffix="/10"
-                          onChange={(value) => setFilters(f => ({ ...f, ratingMin: value }))}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-1">Idioma original</label>
-                      <Select
-                        value={filters.language ?? ''}
-                        onChange={(v: string) => setFilters(f => ({ ...f, language: v }))}
-                        options={LANGUAGES}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm mb-1">Ordenar por</label>
-                      <Select
-                        value={filters.sortBy ?? 'popularity.desc'}
-                        onChange={(v: string) => setFilters(f => ({ ...f, sortBy: v }))}
-                        options={SORT_OPTIONS}
-                      />
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              {/* Footer fixo (Aplicar) */}
-              <div className="sticky bottom-0 -mx-5 mt-5 bg-neutral-900/80 backdrop-blur border-t border-white/10 px-5 py-3">
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-                    onClick={() => setOpenFilters(false)}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
-                    onClick={async () => {
-                      setOpenFilters(false)
-                      const fSnap = { ...filters }
-                      if (sessionId && userId) {
-                        try {
-                          const { error: filtersError } = await supabase
-                          .from('session_filters')
-                          .upsert({
-                            session_id: sessionId,
-                            genres: fSnap.genres ?? [],
-                            exclude_genres: fSnap.excludeGenres ?? [],
-                            year_min: fSnap.yearMin ?? 1990,
-                            year_max: fSnap.yearMax ?? currentYear,
-                            rating_min: fSnap.ratingMin ?? 0,
-                            vote_count_min: fSnap.voteCountMin ?? 0,
-                            runtime_min: fSnap.runtimeMin ?? 60,
-                            runtime_max: fSnap.runtimeMax ?? 220,
-                            language: fSnap.language ?? '',
-                            sort_by: fSnap.sortBy ?? 'popularity.desc',
-                            include_adult: !!fSnap.includeAdult,
-                            updated_by: userId,
-                            ...(fSnap.providers ? { providers: fSnap.providers } : {}),
-                            ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
-                            ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
-                          }, { onConflict: 'session_id' })
-
-                          if (filtersError) throw filtersError
-                          
-                          try {
-                            await filtersBusRef.current?.send({
-                              type: 'broadcast',
-                              event: 'filters_update',
-                              payload: { ...fSnap, updated_by: userId },
-                            })
-                          } catch (e) {
-                            console.warn('broadcast filtros falhou', e)
-                          }
-                        } catch (error) {
-                          console.error('failed to save session filters:', error)
-                          toast.error(`Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`)
-                        }
-                      }
-                      clearProgress(sessionId, userIdRef.current, fSnap)
-                      await resetAndLoad(false, fSnap, sessionId)
-                    }}
-                  >
-                    Aplicar filtros
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FilterModal
+        open={openFilters}
+        filters={filters}
+        defaultFilters={DEFAULT_FILTERS}
+        currentYear={currentYear}
+        isAdult={isAdult}
+        onRequestAdultVerification={() =>
+          setShowAgeGate(true)
+        }
+        onClose={() => setOpenFilters(false)}
+        onApply={applyFilters}
+      />
 
       {/* Modal Match */}
       <AnimatePresence>

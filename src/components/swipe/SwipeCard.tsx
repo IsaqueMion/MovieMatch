@@ -169,34 +169,14 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
 
         <div className="h-full grid grid-rows-[1fr_auto] gap-2">
           <div className="relative min-h-0 h-full">
-            {details ? (
-              <MovieCarousel
-                key={movie.tmdb_id}
-                title={movie.title}
-                year={movie.year}
-                poster_url={movie.poster_url || ''}
-                details={details}
-                fullHeight
-              />
-            ) : (
-              <div className="relative min-h-0 h-full">
-                <div className="w-full h-full grid place-items-center">
-                  {movie.poster_url ? (
-                    <img
-                      src={movie.poster_url}
-                      alt={movie.title}
-                      className="max-h-full w-auto object-contain rounded-lg ring-1 ring-white/10"
-                      loading="eager"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="text-white/70 text-sm">
-                      Carregando…
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            <MovieCarousel
+              key={movie.tmdb_id}
+              title={movie.title}
+              year={movie.year}
+              poster_url={movie.poster_url || ''}
+              details={details}
+              fullHeight
+            />
           </div>
 
           <div
@@ -223,18 +203,18 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               </div>
             </div>
 
-            {details?.genres?.length ? (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {details.genres.slice(0, 3).map((genre) => (
-                  <span
-                    key={genre.id}
-                    className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90"
-                  >
-                    {genre.name}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+            <div className="mt-1 flex min-h-[22px] flex-wrap items-start gap-1">
+              {details?.genres?.length
+                ? details.genres.slice(0, 3).map((genre) => (
+                    <span
+                      key={genre.id}
+                      className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/90"
+                    >
+                      {genre.name}
+                    </span>
+                  ))
+                : null}
+            </div>
 
             <div className="mt-1">
               <span className="text-[11px] text-white/70 mr-1.5">

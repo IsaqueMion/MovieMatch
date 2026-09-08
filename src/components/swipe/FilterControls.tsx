@@ -4,27 +4,34 @@ type FilterChipProps = {
   active: boolean
   children: ReactNode
   onClick: () => void
+  tone?: 'emerald' | 'rose' | 'sky'
 }
 
 export function FilterChip({
   active,
   children,
   onClick,
+  tone = 'emerald',
 }: FilterChipProps) {
-  const base =
-    'rounded-full px-3 py-1 text-xs font-medium transition'
-
-  const selected =
-    'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-
-  const idle =
-    'bg-white/10 text-white/80 hover:bg-white/15'
+  const activeClass = {
+    emerald:
+      'border-emerald-400/35 bg-emerald-400/15 text-emerald-100 shadow-[0_0_0_1px_rgba(52,211,153,0.04)]',
+    rose:
+      'border-rose-400/35 bg-rose-400/15 text-rose-100 shadow-[0_0_0_1px_rgba(251,113,133,0.04)]',
+    sky:
+      'border-sky-400/35 bg-sky-400/15 text-sky-100 shadow-[0_0_0_1px_rgba(56,189,248,0.04)]',
+  }[tone]
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${base} ${active ? selected : idle}`}
+      aria-pressed={active}
+      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+        active
+          ? activeClass
+          : 'border-white/10 bg-white/[0.045] text-white/65 hover:border-white/20 hover:bg-white/[0.075] hover:text-white/90'
+      }`}
     >
       {children}
     </button>
@@ -50,34 +57,32 @@ export function NumberField({
   suffix,
   onChange,
 }: NumberFieldProps) {
-  const clamp = (val: number) =>
-    Math.min(max, Math.max(min, val))
+  const clamp = (number: number) =>
+    Math.min(max, Math.max(min, number))
 
   const adjust = (delta: number) => {
-    const next = clamp(
-      Number((value + delta).toFixed(3)),
-    )
-
+    const next = clamp(Number((value + delta).toFixed(3)))
     onChange(next)
   }
 
-  const inputPadding = suffix ? 'pr-9' : 'pr-2'
-
   return (
-    <label className="flex flex-col gap-1 text-xs text-white/70">
-      <span>{label}</span>
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
+        {label}
+      </span>
 
-      <div className="flex items-center gap-1">
+      <div className="flex h-10 items-stretch overflow-hidden rounded-xl border border-white/10 bg-neutral-950/30 transition focus-within:border-emerald-400/35 focus-within:ring-2 focus-within:ring-emerald-400/10">
         <button
           type="button"
           onClick={() => adjust(-step)}
           disabled={value <= min}
-          className="h-8 w-8 rounded-md bg-white/10 text-white/80 transition hover:bg-white/15 disabled:opacity-40"
+          className="grid w-10 shrink-0 place-items-center border-r border-white/10 text-base text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+          aria-label={`Diminuir ${label}`}
         >
-          -
+          −
         </button>
 
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <input
             type="number"
             value={Number(value.toFixed(2))}
@@ -86,16 +91,16 @@ export function NumberField({
             step={step}
             onChange={(event) => {
               const raw = Number(event.target.value)
-
               if (Number.isNaN(raw)) return
-
               onChange(clamp(raw))
             }}
-            className={`w-full rounded-md bg-white/10 px-2 py-1 text-sm text-white outline-none focus:ring-2 focus:ring-emerald-500 ${inputPadding}`}
+            className={`h-full w-full bg-transparent px-2 text-center text-sm font-medium text-white outline-none ${
+              suffix ? 'pr-9' : ''
+            }`}
           />
 
           {suffix ? (
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-white/60">
+            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-white/35">
               {suffix}
             </span>
           ) : null}
@@ -105,7 +110,8 @@ export function NumberField({
           type="button"
           onClick={() => adjust(step)}
           disabled={value >= max}
-          className="h-8 w-8 rounded-md bg-white/10 text-white/80 transition hover:bg-white/15 disabled:opacity-40"
+          className="grid w-10 shrink-0 place-items-center border-l border-white/10 text-base text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+          aria-label={`Aumentar ${label}`}
         >
           +
         </button>

@@ -124,35 +124,31 @@ const AdSwipeCard = forwardRef<
         }
       }}
     >
-      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        <div className="relative min-h-0 h-full">
-          <div className="w-full h-full grid place-items-center">
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-700/20 to-cyan-600/20 ring-1 ring-white/10 p-5 text-white w-[min(92vw,22rem)]">
-              <div className="text-[11px] uppercase tracking-wide text-white/70 mb-1">
-                Publicidade
-              </div>
-
-              <div className="text-lg font-semibold">
-                Dica de hoje 🍿
-              </div>
-
-              <p className="text-sm text-white/80 mt-1">
-                Aproveite filmes sem anúncios futuramente
-                com o plano simbólico.
-              </p>
-
-              <div className="mt-3 text-xs text-white/60">
-                Deslize para continuar
-              </div>
-            </div>
+      <div className="grid h-full min-h-0 place-items-center px-1 py-2">
+        <div className="w-[min(92vw,22rem)] rounded-2xl bg-gradient-to-br from-emerald-700/20 to-cyan-600/20 p-5 text-white ring-1 ring-white/10">
+          <div className="mb-1 text-[11px] uppercase tracking-wide text-white/70">
+            Publicidade
           </div>
-        </div>
 
-        <div
-          className="text-white shrink-0 text-center text-xs opacity-70"
-          data-interactive="true"
-        >
-          Este card não conta como like/dislike
+          <div className="text-lg font-semibold">
+            Dica de hoje 🍿
+          </div>
+
+          <p className="mt-1 text-sm leading-relaxed text-white/80">
+            Aproveite filmes sem anúncios futuramente
+            com o plano simbólico.
+          </p>
+
+          <div className="mt-3 text-xs text-white/60">
+            Deslize para continuar
+          </div>
+
+          <div
+            className="mt-4 border-t border-white/10 pt-3 text-center text-[11px] text-white/45"
+            data-interactive="true"
+          >
+            Este card não conta como like/dislike
+          </div>
         </div>
       </div>
     </motion.div>
