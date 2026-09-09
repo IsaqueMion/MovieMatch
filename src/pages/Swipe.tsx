@@ -128,6 +128,7 @@ type OnlineUser = { id: string; name: string }
 function Swipe() {
   const { code } = useParams()
   const bootVersionRef = useRef(0)
+  const loadVersionRef = useRef(0)
 
   // estado
   const [movies, setMovies] = useState<Movie[]>([])
@@ -282,12 +283,25 @@ function Swipe() {
     async (
       pageToLoad: number,
       f: DiscoverFilters = filters,
+      requestVersion = loadVersionRef.current,
     ): Promise<LoadPageResult> => {
       try {
         const data = await discoverMovies({
           page: pageToLoad,
           filters: f,
         })
+        // Se os filtros/sessão mudaram enquanto
+        // a requisição estava em andamento, ignora
+        // completamente o resultado antigo.
+        if (
+          requestVersion !==
+          loadVersionRef.current
+        ) {
+          return {
+            added: 0,
+            hasMore: false,
+          }
+        }
 
         if (pageToLoad === 1) {
           setDiscoverHint(data?.hint ?? null)
@@ -344,6 +358,19 @@ function Swipe() {
           hasMore,
         }
       } catch (error: unknown) {
+        // Se esta busca já foi substituída por
+        // outra geração, o erro também é antigo
+        // e não deve interferir na interface atual.
+        if (
+          requestVersion !==
+          loadVersionRef.current
+        ) {
+          return {
+            added: 0,
+            hasMore: false,
+          }
+        }
+
         console.error(
           'discoverMovies error:',
           error,
@@ -370,8 +397,18 @@ function Swipe() {
     ) => {
       const effective = f ?? filters
       const sid = sessionRef ?? sessionId
-      const myVersion =
+
+      const myBootVersion =
         bootVersionRef.current
+
+      const myLoadVersion =
+        ++loadVersionRef.current
+
+      const isCurrentLoad = () =>
+        bootVersionRef.current ===
+          myBootVersion &&
+        loadVersionRef.current ===
+          myLoadVersion
 
       setLoading(true)
 
@@ -405,22 +442,17 @@ function Swipe() {
           accumulated <= target &&
           pageToLoad <= 30
         ) {
-          if (
-            bootVersionRef.current !==
-            myVersion
-          ) {
+          if (!isCurrentLoad()) {
             return
           }
 
           const result = await loadPage(
             pageToLoad,
             effective,
+            myLoadVersion,
           )
 
-          if (
-            bootVersionRef.current !==
-            myVersion
-          ) {
+          if (!isCurrentLoad()) {
             return
           }
 
@@ -437,6 +469,10 @@ function Swipe() {
           // Mesmo que esta página tenha trazido
           // zero filmes NOVOS, tenta a próxima.
           pageToLoad += 1
+        }
+
+        if (!isCurrentLoad()) {
+          return
         }
 
         if (!anyAdded) {
@@ -462,10 +498,7 @@ function Swipe() {
           `Erro ao carregar filmes: ${getErrorMessage(error)}`,
         )
       } finally {
-        if (
-          bootVersionRef.current ===
-          myVersion
-        ) {
+        if (isCurrentLoad()) {
           setLoading(false)
         }
       }
@@ -475,7 +508,13 @@ function Swipe() {
 
   useEffect(() => {
     let cancelled = false
-    const myVersion = ++bootVersionRef.current
+
+    const myVersion =
+      ++bootVersionRef.current
+
+    // Cancela imediatamente qualquer busca
+    // pertencente à sessão anterior.
+    loadVersionRef.current += 1
 
     ;(async () => {
       try {
