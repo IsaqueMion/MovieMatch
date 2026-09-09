@@ -1706,18 +1706,20 @@ function Swipe() {
               type="button"
               onClick={() => setOpenFilters(true)}
               title="Filtros"
-              className="rounded-md bg-white/10 p-1.5 text-white transition hover:bg-white/15"
+              aria-label="Abrir filtros"
+              className="grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
             >
-              <SlidersHorizontal className="h-4 w-4" />
+              <SlidersHorizontal className="h-[18px] w-[18px]" />
             </button>
 
             <button
               type="button"
               onClick={shareInvite}
               title="Compartilhar link"
-              className="rounded-md bg-white/10 p-1.5 text-white transition hover:bg-white/15"
+              aria-label="Compartilhar sessão"
+              className="grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
             >
-              <Share2 className="h-4 w-4" />
+              <Share2 className="h-[18px] w-[18px]" />
             </button>
 
             <Link
@@ -1734,9 +1736,14 @@ function Swipe() {
                 hasNewMatch ? '1' : undefined
               }
               title="Ver matches"
-              className="relative rounded-md bg-emerald-500 p-1.5 text-white transition hover:bg-emerald-600"
+              aria-label={
+                hasNewMatch
+                  ? 'Ver matches, há novos matches'
+                  : 'Ver matches'
+              }
+              className="relative grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-emerald-500 text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
             >
-              <Star className="h-4 w-4" />
+              <Star className="h-[18px] w-[18px]" />
             </Link>
           </div>
         </div>
@@ -1837,12 +1844,12 @@ function Swipe() {
       ) : null}
 
       {/* Ações */}
-      <div className="relative z-30 shrink-0 px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+10px)]">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-4 sm:gap-5">
+      <div className="relative z-30 shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-2.5">
+        <div className="mx-auto flex max-w-md items-center justify-center gap-5 sm:gap-6">
           <motion.button
             onClick={() => react(-1)}
             disabled={busy || dragging || !current}
-            className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
+            className="grid h-14 w-14 touch-manipulation place-items-center rounded-full bg-red-500 text-white shadow-xl transition disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 sm:h-16 sm:w-16"
             aria-label="Deslike"
             whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }}
             transition={{ type: 'spring', stiffness: 300, damping: 18 }}
@@ -1853,8 +1860,7 @@ function Swipe() {
           <motion.button
             onClick={() => undo()}
             disabled={ busy || dragging || isAdStep || historyRef.current.length === 0}
-            
-            className="w-10 h-10 sm:w-12 sm:h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
+            className="grid h-11 w-11 touch-manipulation place-items-center rounded-full bg-white/10 text-white shadow-lg transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 sm:h-12 sm:w-12"
             aria-label="Desfazer"
             whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -1866,7 +1872,7 @@ function Swipe() {
           <motion.button
             onClick={() => react(1)}
             disabled={busy || dragging || !current}
-            className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
+            className="grid h-14 w-14 touch-manipulation place-items-center rounded-full bg-emerald-500 text-white shadow-xl transition disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 sm:h-16 sm:w-16"
             aria-label="Like"
             whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }}
             transition={{ type: 'spring', stiffness: 320, damping: 18 }}
