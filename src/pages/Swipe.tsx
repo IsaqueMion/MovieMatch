@@ -1012,136 +1012,254 @@ function Swipe() {
     page,
   ])
 
-  const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
-    if (!sessionId || !userId || !current) return
-    if (isAdStep) {
-      if (!options?.skipAnimation) { cardRef.current?.swipe(value) }
+  const react = useCallback(
+    async (
+      value: 1 | -1,
+      options?: { skipAnimation?: boolean },
+    ) => {
+      if (!sessionId || !userId || !current) return
+
+      // ===== CARD DE ANÚNCIO =====
+      if (isAdStep) {
+        if (!options?.skipAnimation) {
+          cardRef.current?.swipe(value)
+        }
+
+        clickGuardRef.current = true
+        setBusy(true)
+
+        const releaseDelay = options?.skipAnimation
+          ? 360
+          : EXIT_DURATION_MS
+
+        try {
+          // Anúncio não gera reação no banco.
+        } finally {
+          await new Promise((res) =>
+            setTimeout(res, 16),
+          )
+
+          consumedAdStepsRef.current.add(
+            totalSteps,
+          )
+
+          adsShown.current += 1
+
+          setTimeout(() => {
+            clickGuardRef.current = false
+            setBusy(false)
+          }, releaseDelay + 60)
+        }
+
+        return
+      }
+
+      // ===== CARD DE FILME =====
+      if (clickGuardRef.current || busy) return
+
+      if (!options?.skipAnimation) {
+        cardRef.current?.swipe(value)
+      }
+
       clickGuardRef.current = true
       setBusy(true)
-      const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
+
+      const releaseDelay = options?.skipAnimation
+        ? 360
+        : EXIT_DURATION_MS
+
+      // Só vamos avançar para o próximo filme
+      // se a reação realmente for salva.
+      let reactionSaved = false
+
       try {
-        // nada de DB aqui — anúncio não vira reação
-      } finally {
-        await new Promise(res => setTimeout(res, 16))
-        // marca o anúncio como “consumido” e mantém o índice do filme
-        consumedAdStepsRef.current.add(
-          totalSteps,
-        )
-
-        adsShown.current += 1
-        setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
-      }
-      return
-    }
-    if (clickGuardRef.current || busy) return
-
-    if (!options?.skipAnimation) {
-      // anima o card saindo devagar (mesma animação do drag)
-      cardRef.current?.swipe(value)
-    }
-
-    clickGuardRef.current = true
-    setBusy(true)
-    const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
-
-    try {
-      const { data: insertedMovie, error: movieErr } = await supabase
-        .from('movies')
-        .upsert(
-          {
-            tmdb_id: current.tmdb_id,
-            title: current.title,
-            year: current.year ?? null,
-            poster_url: current.poster_url ?? null,
-          },
-          {
-            onConflict: 'tmdb_id',
-            ignoreDuplicates: true,
-          },
-        )
-        .select('id')
-        .maybeSingle()
-
-      if (movieErr) throw movieErr
-
-      let movieId = Number(insertedMovie?.id)
-
-      if (!movieId) {
-        const { data: existingMovie, error: existingMovieError } = await supabase
+        const {
+          data: insertedMovie,
+          error: movieErr,
+        } = await supabase
           .from('movies')
+          .upsert(
+            {
+              tmdb_id: current.tmdb_id,
+              title: current.title,
+              year: current.year ?? null,
+              poster_url:
+                current.poster_url ?? null,
+            },
+            {
+              onConflict: 'tmdb_id',
+              ignoreDuplicates: true,
+            },
+          )
           .select('id')
-          .eq('tmdb_id', current.tmdb_id)
           .maybeSingle()
 
-        if (existingMovieError) throw existingMovieError
+        if (movieErr) throw movieErr
 
-        movieId = Number(existingMovie?.id)
-      }
-
-      if (!movieId) {
-        throw new Error('Falha ao obter movie.id')
-      }
-      const { error: rxErr } = await supabase
-        .from('reactions')
-        .upsert(
-          { session_id: sessionId, user_id: userId, movie_id: movieId, value },
-          { onConflict: 'session_id,user_id,movie_id' }
+        let movieId = Number(
+          insertedMovie?.id,
         )
-      if (rxErr) throw rxErr
 
-      if (value === 1) {
-        await checkMatch(movieId)
+        // Se o filme já existia, o upsert com
+        // ignoreDuplicates pode não retornar o ID.
+        if (!movieId) {
+          const {
+            data: existingMovie,
+            error: existingMovieError,
+          } = await supabase
+            .from('movies')
+            .select('id')
+            .eq(
+              'tmdb_id',
+              current.tmdb_id,
+            )
+            .maybeSingle()
+
+          if (existingMovieError) {
+            throw existingMovieError
+          }
+
+          movieId = Number(
+            existingMovie?.id,
+          )
+        }
+
+        if (!movieId) {
+          throw new Error(
+            'Falha ao obter movie.id',
+          )
+        }
+
+        const { error: rxErr } =
+          await supabase
+            .from('reactions')
+            .upsert(
+              {
+                session_id: sessionId,
+                user_id: userId,
+                movie_id: movieId,
+                value,
+              },
+              {
+                onConflict:
+                  'session_id,user_id,movie_id',
+              },
+            )
+
+        if (rxErr) throw rxErr
+
+        // A partir daqui sabemos que a reação
+        // realmente foi gravada no banco.
+        reactionSaved = true
+
+        if (value === 1) {
+          await checkMatch(movieId)
+        }
+
+        historyRef.current.push(movieId)
+
+        reactedTmdbRef.current.add(
+          Number(current.tmdb_id),
+        )
+      } catch (error: unknown) {
+        console.error(
+          'reactions upsert error:',
+          error,
+        )
+
+        toast.error(
+          `Erro ao salvar reação: ${getErrorMessage(error)}`,
+        )
+
+        // Se a reação não foi salva, traz o
+        // card de volta para o centro.
+        cardRef.current?.reset()
+      } finally {
+        if (reactionSaved) {
+          // Se este filme veio de um Undo,
+          // a supressão de anúncio termina
+          // somente após a reação ser salva.
+          if (
+            suppressAdForMovieIndexRef.current ===
+            i
+          ) {
+            suppressAdForMovieIndexRef.current =
+              null
+          }
+
+          await new Promise((res) =>
+            setTimeout(res, 16),
+          )
+
+          await goNext()
+        }
+
+        setTimeout(() => {
+          clickGuardRef.current = false
+          setBusy(false)
+        }, releaseDelay + 60)
       }
-
-      historyRef.current.push(movieId)
-      reactedTmdbRef.current.add(Number(current.tmdb_id))
-
-    } catch (error: unknown) {
-      console.error('reactions upsert error:', error)
-      toast.error(`Erro ao salvar reação: ${getErrorMessage(error)}`)
-    } finally {
-      // Se este filme veio de um Undo, a supressão vale só enquanto
-      // ele estiver novamente na tela. Ao avançar, os anúncios voltam
-      // a seguir a programação normal.
-      if (suppressAdForMovieIndexRef.current === i) {
-        suppressAdForMovieIndexRef.current = null
-      }
-
-      // deixa 1 frame pra animação de exit engatar
-      await new Promise(res => setTimeout(res, 16))
-      await goNext()
-      setTimeout(() => {
-        clickGuardRef.current = false
-        setBusy(false)
-      }, releaseDelay + 60)
-    }
-  }, [
-    sessionId,
-    userId,
-    current,
-    busy,
-    goNext,
-    i,
-    isAdStep,
-    totalSteps,
-    checkMatch,
-  ])
+    },
+    [
+      sessionId,
+      userId,
+      current,
+      busy,
+      goNext,
+      i,
+      isAdStep,
+      totalSteps,
+      checkMatch,
+    ],
+  )
 
   const undo = useCallback(async () => {
-    if (!sessionId || !userId || busy || isAdStep) return
+    if (
+      !sessionId ||
+      !userId ||
+      busy ||
+      isAdStep
+    ) {
+      return
+    }
 
-    const last = historyRef.current.pop()
+    // IMPORTANTE:
+    // aqui NÃO usamos pop() ainda.
+    // Primeiro verificamos qual foi a última
+    // reação.
+    const last =
+      historyRef.current[
+        historyRef.current.length - 1
+      ]
+
     if (!last) return
 
     setBusy(true)
 
     try {
-      setI((index) => {
-        const previousIndex = Math.max(0, index - 1)
+      // Primeiro apagamos a reação do banco.
+      const { error } = await supabase
+        .from('reactions')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', userId)
+        .eq('movie_id', last)
 
-        // O Undo deve restaurar o último FILME, nunca um anúncio.
-        // A supressão é temporária e vale apenas para esse índice.
-        suppressAdForMovieIndexRef.current = previousIndex
+      if (error) throw error
+
+      // Somente depois de confirmar que o
+      // banco apagou a reação retiramos do
+      // histórico local.
+      historyRef.current.pop()
+
+      setI((index) => {
+        const previousIndex =
+          Math.max(0, index - 1)
+
+        // Garante que o filme restaurado
+        // pelo Undo não vire um anúncio.
+        suppressAdForMovieIndexRef.current =
+          previousIndex
 
         saveProgress(
           sessionId,
@@ -1153,21 +1271,13 @@ function Swipe() {
         return previousIndex
       })
 
-      const { error } = await supabase
-        .from('reactions')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('user_id', userId)
-        .eq('movie_id', last)
-
-      if (error) throw error
-
       try {
-        const { data: mv } = await supabase
-          .from('movies')
-          .select('tmdb_id')
-          .eq('id', last)
-          .maybeSingle()
+        const { data: mv } =
+          await supabase
+            .from('movies')
+            .select('tmdb_id')
+            .eq('id', last)
+            .maybeSingle()
 
         if (mv?.tmdb_id != null) {
           reactedTmdbRef.current.delete(
@@ -1181,10 +1291,17 @@ function Swipe() {
         )
       }
 
-      setUndoMsg('Último swipe desfeito')
-      setTimeout(() => setUndoMsg(null), 1800)
+      setUndoMsg(
+        'Último swipe desfeito',
+      )
+
+      setTimeout(
+        () => setUndoMsg(null),
+        1800,
+      )
     } catch (error: unknown) {
       console.error(error)
+
       toast.error(
         `Não foi possível desfazer: ${getErrorMessage(error)}`,
       )

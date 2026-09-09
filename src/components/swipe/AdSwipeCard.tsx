@@ -66,12 +66,24 @@ const AdSwipeCard = forwardRef<
     () => ({
       swipe: (value: 1 | -1) => {
         const direction = value === 1 ? 1 : -1
-        const endX = direction * (window.innerWidth + 180)
+        const endX =
+          direction * (window.innerWidth + 180)
 
         vibrate(6)
 
-        const controls = animate(x, endX, TWEEN_SWIPE)
-        controls.then(() => onDecision(value))
+        const controls = animate(
+          x,
+          endX,
+          TWEEN_SWIPE,
+        )
+
+        controls.then(() =>
+          onDecision(value),
+        )
+      },
+
+      reset: () => {
+        animate(x, 0, TWEEN_SNAP)
       },
     }),
     [onDecision, x],

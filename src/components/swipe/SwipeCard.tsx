@@ -35,6 +35,7 @@ export type SwipeMovie = {
 
 export type SwipeCardHandle = {
   swipe: (value: 1 | -1) => void
+  reset: () => void
 }
 
 type SwipeCardProps = {
@@ -93,12 +94,22 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
       () => ({
         swipe: (value: 1 | -1) => {
           const direction = value === 1 ? 1 : -1
-          const endX = direction * (window.innerWidth + 180)
+          const endX =
+            direction * (window.innerWidth + 180)
 
           vibrate(10)
 
-          const controls = animate(x, endX, TWEEN_SWIPE)
+          const controls = animate(
+            x,
+            endX,
+            TWEEN_SWIPE,
+          )
+
           controls.then(() => onDecision(value))
+        },
+
+        reset: () => {
+          animate(x, 0, TWEEN_SNAP)
         },
       }),
       [onDecision, x],
