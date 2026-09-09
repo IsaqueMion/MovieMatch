@@ -77,8 +77,15 @@ function getErrorMessage(error: unknown): string {
 }
 
 function toNumber(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim().length > 0
+        ? Number(value)
+        : Number.NaN
+
+  return Number.isFinite(parsed)
+    ? parsed
     : fallback
 }
 
@@ -120,10 +127,80 @@ function toMonetizationTypes(
   )
 }
 
+function sessionFiltersFromRow(
+  row: Record<string, unknown>,
+): DiscoverFilters {
+  return {
+    genres: toNumberArray(
+      row.genres,
+    ),
+
+    excludeGenres: toNumberArray(
+      row.exclude_genres,
+    ),
+
+    yearMin: toNumber(
+      row.year_min,
+      1990,
+    ),
+
+    yearMax: toNumber(
+      row.year_max,
+      new Date().getFullYear(),
+    ),
+
+    ratingMin: toNumber(
+      row.rating_min,
+      0,
+    ),
+
+    voteCountMin: toNumber(
+      row.vote_count_min,
+      0,
+    ),
+
+    runtimeMin: toNumber(
+      row.runtime_min,
+      60,
+    ),
+
+    runtimeMax: toNumber(
+      row.runtime_max,
+      220,
+    ),
+
+    language: toString(
+      row.language,
+      '',
+    ),
+
+    sortBy: toString(
+      row.sort_by,
+      'popularity.desc',
+    ),
+
+    includeAdult: Boolean(
+      row.include_adult,
+    ),
+
+    providers: toNumberArray(
+      row.providers,
+    ),
+
+    watchRegion: toString(
+      row.watch_region,
+      'BR',
+    ),
+
+    monetization:
+      toMonetizationTypes(
+        row.monetization,
+      ),
+  }
+}
+
 // tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
-
-type OnlineUser = { id: string; name: string }
 
 function Swipe() {
   const { code } = useParams()
@@ -141,6 +218,7 @@ function Swipe() {
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [fatalError, setFatalError] = useState<string | null>(null)
+  const [sessionReady, setSessionReady] = useState(false)
 
   // sessão/usuário
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -159,6 +237,7 @@ function Swipe() {
   const suppressAdForMovieIndexRef = useRef<number | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
   const matchChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const matchPollInitializedRef = useRef(false)
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
@@ -173,7 +252,8 @@ function Swipe() {
   const clickGuardRef = useRef(false)
 
   // presença
-  const [online, setOnline] = useState<OnlineUser[]>([])
+  const [onlineCount, setOnlineCount] =
+    useState(0)
 
   // filtros
   const currentYear = new Date().getFullYear()
@@ -195,6 +275,12 @@ function Swipe() {
   }
 
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
+  const filtersRef =
+    useRef<DiscoverFilters>(filters)
+
+  useEffect(() => {
+    filtersRef.current = filters
+  }, [filters])
   const [openFilters, setOpenFilters] = useState(false)
 
   // verificação de idade
@@ -395,7 +481,7 @@ function Swipe() {
       f?: DiscoverFilters,
       sessionRef?: string | null,
     ) => {
-      const effective = f ?? filters
+      const effective = f ?? filtersRef.current
       const sid = sessionRef ?? sessionId
 
       const myBootVersion =
@@ -503,11 +589,68 @@ function Swipe() {
         }
       }
     },
-    [filters, sessionId, loadPage],
+    [sessionId, loadPage],
+  )
+
+  const applySharedFilters = useCallback(
+    async (
+      nextFilters: DiscoverFilters,
+    ) => {
+      const currentSignature =
+        filtersSig(
+          filtersRef.current,
+        )
+
+      const nextSignature =
+        filtersSig(
+          nextFilters,
+        )
+
+      if (
+        currentSignature ===
+        nextSignature
+      ) {
+        return
+      }
+
+      // Atualiza a ref antes do estado.
+      // Isso evita que Realtime e polling
+      // apliquem a mesma alteração duas vezes.
+      filtersRef.current =
+        nextFilters
+
+      setFilters(nextFilters)
+
+      setDetailsCache({})
+
+      clearProgress(
+        sessionId,
+        userIdRef.current,
+        nextFilters,
+      )
+
+      await resetAndLoad(
+        false,
+        nextFilters,
+        sessionId,
+      )
+    },
+    [
+      sessionId,
+      resetAndLoad,
+    ],
   )
 
   useEffect(() => {
     let cancelled = false
+
+    setLoading(true)
+    setFatalError(null)
+    setSessionReady(false)
+    setOnlineCount(0)
+    setSessionId(null)
+    setMatchModal(null)
+    setLatestMatchAt(0)
 
     const myVersion =
       ++bootVersionRef.current
@@ -569,6 +712,12 @@ function Swipe() {
 
         setSessionId(sess.id)
 
+        // Limpa referências pertencentes à sessão anterior.
+        matchedRef.current.clear()
+        matchPollInitializedRef.current = false
+        historyRef.current = []
+        reactedTmdbRef.current = new Set()
+
         // Carrega filmes já avaliados pelo usuário nesta sessão
         // para evitar que apareçam novamente.
         try {
@@ -598,41 +747,49 @@ function Swipe() {
           console.warn('falha ao carregar reações antigas:', error)
         }
 
-        // filtros salvos
+        // Filtros persistidos da sessão.
         let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
+
         try {
-          const { data: sf } = await supabase
+          const {
+            data: savedFilters,
+            error: savedFiltersError,
+          } = await supabase
             .from('session_filters')
             .select('*')
             .eq('session_id', sess.id)
             .maybeSingle()
-          if (sf) {
-            effectiveFilters = {
-              genres: sf.genres ?? [],
-              excludeGenres: sf.exclude_genres ?? [],
-              yearMin: sf.year_min ?? 1990,
-              yearMax: sf.year_max ?? currentYear,
-              ratingMin: typeof sf.rating_min === 'number' ? Number(sf.rating_min) : 0,
-              voteCountMin: typeof sf.vote_count_min === 'number' ? Number(sf.vote_count_min) : 0,
-              runtimeMin: typeof sf.runtime_min === 'number' ? Number(sf.runtime_min) : 60,
-              runtimeMax: typeof sf.runtime_max === 'number' ? Number(sf.runtime_max) : 220,
-              language: sf.language ?? '',
-              sortBy: sf.sort_by ?? 'popularity.desc',
-              includeAdult: !!sf.include_adult,
-              providers: Array.isArray(sf.providers) ? sf.providers : [],
-              watchRegion: sf.watch_region ?? 'BR',
-              monetization: Array.isArray(sf.monetization) ? sf.monetization : ['flatrate'],
-            }
+
+          if (savedFiltersError) {
+            throw savedFiltersError
           }
-        } catch {
-          // Se os filtros salvos não puderem ser lidos, mantém os filtros padrão.
+
+          if (savedFilters && isRecord(savedFilters)) {
+            effectiveFilters =
+              sessionFiltersFromRow(savedFilters)
+          }
+        } catch (error) {
+          console.warn(
+            'falha ao carregar filtros salvos:',
+            error,
+          )
         }
 
         if (bootVersionRef.current !== myVersion || cancelled) return
+
+        filtersRef.current = effectiveFilters
         setFilters(effectiveFilters)
 
-        // retomar progresso de forma segura
-        await resetAndLoad(true, effectiveFilters, sess.id)
+        // Retoma o progresso somente depois de sessão,
+        // reações e filtros estarem consistentes.
+        await resetAndLoad(
+          true,
+          effectiveFilters,
+          sess.id,
+        )
+
+        if (bootVersionRef.current !== myVersion || cancelled) return
+        setSessionReady(true)
       } catch (error: unknown) {
         console.error(error)
         const msg = getErrorMessage(error)
@@ -763,9 +920,11 @@ function Swipe() {
     [sessionId],
   )
 
-  // realtime de match
+  // Realtime continua como caminho rápido para matches.
+  // O polling abaixo funciona como fallback quando o WebSocket
+  // é suspenso ou bloqueado pelo navegador móvel.
   useEffect(() => {
-    if (!sessionId) return
+    if (!sessionId || !sessionReady) return
 
     const channel = supabase
       .channel(`sess-${sessionId}`)
@@ -813,6 +972,17 @@ function Swipe() {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           matchChannelRef.current = channel
+          return
+        }
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.warn(
+            'realtime de match indisponível:',
+            status,
+          )
         }
       })
 
@@ -823,47 +993,256 @@ function Swipe() {
 
       void supabase.removeChannel(channel)
     }
-  }, [sessionId, checkMatch])
+  }, [sessionId, sessionReady, checkMatch])
 
-  // presença
+  // Fallback de match pelo próprio banco.
+  //
+  // Na primeira consulta apenas registramos os matches que já
+  // existiam quando este cliente entrou. Nas consultas seguintes,
+  // qualquer novo match ainda não visto abre o mesmo modal usado
+  // pelo caminho Realtime.
   useEffect(() => {
-    if (!sessionId || !userId) return
-    const ch = supabase.channel(`presence-${sessionId}`, { config: { presence: { key: userId } } })
-    ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState() as Record<string, unknown[]>
-      const arr: OnlineUser[] = []
+    if (!sessionId || !sessionReady) {
+      matchPollInitializedRef.current = false
+      return
+    }
 
-      Object.values(state).forEach((metas) => {
-        metas.forEach((meta) => {
-          if (!isRecord(meta)) return
+    let cancelled = false
+    let running = false
 
-          arr.push({
-            id: String(meta.user_id ?? meta.key ?? ''),
-            name: String(meta.display_name ?? 'Guest'),
+    const syncMatchesFromDatabase = async () => {
+      if (running) return
+      running = true
+
+      try {
+        const { data, error } = await supabase.rpc(
+          'list_session_matches',
+          {
+            p_session_id: sessionId,
+          },
+        )
+
+        if (cancelled) return
+
+        if (error) {
+          console.error(
+            'match polling failed:',
+            error,
+          )
+          return
+        }
+
+        const rows = Array.isArray(data)
+          ? data.filter(isRecord)
+          : []
+
+        if (!matchPollInitializedRef.current) {
+          rows.forEach((row) => {
+            const movieId = Number(row.movie_id)
+            if (movieId) {
+              matchedRef.current.add(movieId)
+            }
           })
-        })
-      })
 
-      const dedup = Array.from(
-        new Map(arr.map((user) => [user.id, user])).values(),
+          matchPollInitializedRef.current = true
+          return
+        }
+
+        const freshRow = rows.find((row) => {
+          const movieId = Number(row.movie_id)
+
+          return (
+            movieId > 0 &&
+            !matchedRef.current.has(movieId)
+          )
+        })
+
+        // Marca todos os matches retornados como conhecidos.
+        // Assim, se vários surgirem enquanto o cliente estiver
+        // suspenso, exibimos somente o mais recente.
+        rows.forEach((row) => {
+          const movieId = Number(row.movie_id)
+          if (movieId) {
+            matchedRef.current.add(movieId)
+          }
+        })
+
+        if (!freshRow) return
+
+        const latestAt = Date.parse(
+          toString(freshRow.latest_at, ''),
+        )
+
+        setMatchModal({
+          title: toString(
+            freshRow.title,
+            `Filme #${Number(freshRow.movie_id)}`,
+          ),
+          poster_url:
+            typeof freshRow.poster_url === 'string'
+              ? freshRow.poster_url
+              : null,
+          year:
+            freshRow.year != null &&
+            Number.isFinite(Number(freshRow.year))
+              ? Number(freshRow.year)
+              : null,
+        })
+
+        setLatestMatchAt(
+          Number.isFinite(latestAt)
+            ? latestAt
+            : Date.now(),
+        )
+      } finally {
+        running = false
+      }
+    }
+
+    void syncMatchesFromDatabase()
+
+    const timer = window.setInterval(
+      () => {
+        void syncMatchesFromDatabase()
+      },
+      6_000,
+    )
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void syncMatchesFromDatabase()
+      }
+    }
+
+    const refreshOnFocus = () => {
+      void syncMatchesFromDatabase()
+    }
+
+    document.addEventListener(
+      'visibilitychange',
+      refreshWhenVisible,
+    )
+    window.addEventListener(
+      'focus',
+      refreshOnFocus,
+    )
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+
+      document.removeEventListener(
+        'visibilitychange',
+        refreshWhenVisible,
+      )
+      window.removeEventListener(
+        'focus',
+        refreshOnFocus,
+      )
+    }
+  }, [sessionId, sessionReady])
+
+  // Presença resiliente via banco.
+  //
+  // O cliente atualiza sua atividade periodicamente.
+  // A função do banco também
+  // devolve quantos participantes estiveram
+  // ativos nos últimos 90 segundos.
+  useEffect(() => {
+    if (!sessionId) {
+      setOnlineCount(0)
+      return
+    }
+
+    let cancelled = false
+    let running = false
+
+    const touchPresence = async () => {
+      if (running) return
+
+      running = true
+
+      try {
+        const {
+          data,
+          error,
+        } = await supabase.rpc(
+          'touch_session_presence',
+          {
+            p_session_id: sessionId,
+          },
+        )
+
+        if (cancelled) return
+
+        if (error) {
+          console.error(
+            'presence heartbeat failed:',
+            error,
+          )
+          return
+        }
+
+        const count = Number(data)
+
+        if (Number.isFinite(count)) {
+          setOnlineCount(
+            Math.max(0, count),
+          )
+        }
+      } finally {
+        running = false
+      }
+    }
+
+    void touchPresence()
+
+    const timer = window.setInterval(
+      () => {
+        void touchPresence()
+      },
+      15_000,
+    )
+
+    const handleFocus = () => {
+      void touchPresence()
+    }
+
+    const handleVisibility = () => {
+      if (
+        document.visibilityState ===
+        'visible'
+      ) {
+        void touchPresence()
+      }
+    }
+
+    window.addEventListener(
+      'focus',
+      handleFocus,
+    )
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibility,
+    )
+
+    return () => {
+      cancelled = true
+
+      window.clearInterval(timer)
+
+      window.removeEventListener(
+        'focus',
+        handleFocus,
       )
 
-      setOnline(dedup)
-    })
-
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        ch.track({ user_id: userId, display_name: displayName, joined_at: new Date().toISOString() })
-      }
-    })
-    return () => {
-      void ch.untrack().catch((error) => {
-        console.error('presence untrack failed:', error)
-      })
-
-      void supabase.removeChannel(ch)
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibility,
+      )
     }
-  }, [sessionId, userId, displayName])
+  }, [sessionId])
 
   // Sincronização dos filtros pelo próprio banco.
   //
@@ -872,7 +1251,7 @@ function Swipe() {
   // no PostgreSQL é também a fonte do evento enviado
   // aos outros participantes.
   useEffect(() => {
-    if (!sessionId) return
+    if (!sessionId || !sessionReady) return
 
     const channel = supabase
       .channel(`filters-${sessionId}`)
@@ -903,90 +1282,11 @@ function Swipe() {
               return
             }
 
-            const nextFilters: DiscoverFilters = {
-              genres: toNumberArray(
-                row.genres,
-              ),
+            const nextFilters =
+              sessionFiltersFromRow(row)
 
-              excludeGenres: toNumberArray(
-                row.exclude_genres,
-              ),
-
-              yearMin: toNumber(
-                row.year_min,
-                1990,
-              ),
-
-              yearMax: toNumber(
-                row.year_max,
-                new Date().getFullYear(),
-              ),
-
-              ratingMin: toNumber(
-                row.rating_min,
-                0,
-              ),
-
-              voteCountMin: toNumber(
-                row.vote_count_min,
-                0,
-              ),
-
-              runtimeMin: toNumber(
-                row.runtime_min,
-                60,
-              ),
-
-              runtimeMax: toNumber(
-                row.runtime_max,
-                220,
-              ),
-
-              language: toString(
-                row.language,
-                '',
-              ),
-
-              sortBy: toString(
-                row.sort_by,
-                'popularity.desc',
-              ),
-
-              includeAdult: Boolean(
-                row.include_adult,
-              ),
-
-              providers: toNumberArray(
-                row.providers,
-              ),
-
-              watchRegion: toString(
-                row.watch_region,
-                'BR',
-              ),
-
-              monetization:
-                toMonetizationTypes(
-                  row.monetization,
-                ),
-            }
-
-            setFilters(nextFilters)
-
-            // A região e os provedores podem alterar
-            // os detalhes disponíveis dos filmes.
-            setDetailsCache({})
-
-            clearProgress(
-              sessionId,
-              userIdRef.current,
+            void applySharedFilters(
               nextFilters,
-            )
-
-            void resetAndLoad(
-              false,
-              nextFilters,
-              sessionId,
             )
           } catch (error) {
             console.error(
@@ -997,9 +1297,13 @@ function Swipe() {
         },
       )
       .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error(
-            'falha no realtime de filtros',
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.warn(
+            'realtime de filtros indisponível:',
+            status,
           )
         }
       })
@@ -1009,8 +1313,108 @@ function Swipe() {
     }
   }, [
     sessionId,
+    sessionReady,
     userId,
-    resetAndLoad,
+    applySharedFilters,
+  ])
+
+  // Fallback de filtros via polling.
+  //
+  // Realtime continua sendo o caminho mais rápido, mas esta
+  // consulta garante sincronização mesmo quando o navegador
+  // móvel suspende ou perde o WebSocket.
+  useEffect(() => {
+    if (!sessionId || !sessionReady) return
+
+    let cancelled = false
+    let running = false
+
+    const syncFiltersFromDatabase = async () => {
+      if (running) return
+      running = true
+
+      try {
+        const { data, error } = await supabase
+          .from('session_filters')
+          .select('*')
+          .eq('session_id', sessionId)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        if (error) {
+          console.error(
+            'filter polling failed:',
+            error,
+          )
+          return
+        }
+
+        if (!data || !isRecord(data)) return
+
+        const nextFilters =
+          sessionFiltersFromRow(data)
+
+        if (
+          filtersSig(nextFilters) ===
+          filtersSig(filtersRef.current)
+        ) {
+          return
+        }
+
+        await applySharedFilters(
+          nextFilters,
+        )
+      } finally {
+        running = false
+      }
+    }
+
+    void syncFiltersFromDatabase()
+
+    const timer = window.setInterval(
+      () => {
+        void syncFiltersFromDatabase()
+      },
+      6_000,
+    )
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void syncFiltersFromDatabase()
+      }
+    }
+
+    const refreshOnFocus = () => {
+      void syncFiltersFromDatabase()
+    }
+
+    document.addEventListener(
+      'visibilitychange',
+      refreshWhenVisible,
+    )
+    window.addEventListener(
+      'focus',
+      refreshOnFocus,
+    )
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+
+      document.removeEventListener(
+        'visibilitychange',
+        refreshWhenVisible,
+      )
+      window.removeEventListener(
+        'focus',
+        refreshOnFocus,
+      )
+    }
+  }, [
+    sessionId,
+    sessionReady,
+    applySharedFilters,
   ])
 
   useEffect(() => {
@@ -1632,6 +2036,9 @@ function Swipe() {
 
       // Somente depois do sucesso no banco
       // alteramos o estado local.
+      // A ref é atualizada primeiro para impedir que o
+      // polling interprete esta mudança como remota.
+      filtersRef.current = nextFilters
       setFilters(nextFilters)
       setOpenFilters(false)
 
@@ -1719,7 +2126,7 @@ function Swipe() {
 
             <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {online.length} online
+              {onlineCount} online
             </span>
 
             {filtersCount > 0 ? (
