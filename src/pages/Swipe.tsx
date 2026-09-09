@@ -156,7 +156,6 @@ function Swipe() {
   const adsShown = useRef(0)
   const consumedAdStepsRef = useRef(new Set<number>())
   const suppressAdForMovieIndexRef = useRef<number | null>(null)
-  const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
   const matchChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
@@ -827,111 +826,153 @@ function Swipe() {
     }
   }, [sessionId, userId, displayName])
 
-  // broadcast de filtros — replica para todos, mesmo sem realtime na tabela
+  // Sincronização dos filtros pelo próprio banco.
+  //
+  // session_filters faz parte da publicação
+  // supabase_realtime. Assim, a alteração persistida
+  // no PostgreSQL é também a fonte do evento enviado
+  // aos outros participantes.
   useEffect(() => {
     if (!sessionId) return
-    const ch = supabase
-      .channel(`filtersbus-${sessionId}`)
-      .on('broadcast', { event: 'filters_update' }, (payload) => {
-        try {
-          const row =
-            isRecord(payload) && isRecord(payload.payload)
-              ? payload.payload
-              : {}
-          // se fui eu quem enviou, ignora (evita loop)
-          if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
 
-          const f: DiscoverFilters = {
-            genres: toNumberArray(row.genres),
-            excludeGenres: toNumberArray(
-              row.excludeGenres ??
+    const channel = supabase
+      .channel(`filters-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'session_filters',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          try {
+            if (!isRecord(payload.new)) return
+
+            const row = payload.new
+
+            // Quem fez a alteração já aplicará os
+            // filtros localmente após o upsert.
+            // Ignorar o próprio evento evita um
+            // segundo reset desnecessário.
+            if (
+              row.updated_by &&
+              userId &&
+              String(row.updated_by) ===
+                String(userId)
+            ) {
+              return
+            }
+
+            const nextFilters: DiscoverFilters = {
+              genres: toNumberArray(
+                row.genres,
+              ),
+
+              excludeGenres: toNumberArray(
                 row.exclude_genres,
-            ),
+              ),
 
-            yearMin: toNumber(
-              row.yearMin ?? row.year_min,
-              1990,
-            ),
+              yearMin: toNumber(
+                row.year_min,
+                1990,
+              ),
 
-            yearMax: toNumber(
-              row.yearMax ?? row.year_max,
-              new Date().getFullYear(),
-            ),
+              yearMax: toNumber(
+                row.year_max,
+                new Date().getFullYear(),
+              ),
 
-            ratingMin: toNumber(
-              row.ratingMin ?? row.rating_min,
-              0,
-            ),
+              ratingMin: toNumber(
+                row.rating_min,
+                0,
+              ),
 
-            voteCountMin: toNumber(
-              row.voteCountMin ?? row.vote_count_min,
-              0,
-            ),
+              voteCountMin: toNumber(
+                row.vote_count_min,
+                0,
+              ),
 
-            runtimeMin: toNumber(
-              row.runtimeMin ?? row.runtime_min,
-              60,
-            ),
+              runtimeMin: toNumber(
+                row.runtime_min,
+                60,
+              ),
 
-            runtimeMax: toNumber(
-              row.runtimeMax ?? row.runtime_max,
-              220,
-            ),
+              runtimeMax: toNumber(
+                row.runtime_max,
+                220,
+              ),
 
-            language: toString(
-              row.language,
-              '',
-            ),
+              language: toString(
+                row.language,
+                '',
+              ),
 
-            sortBy: toString(
-              row.sortBy ?? row.sort_by,
-              'popularity.desc',
-            ),
+              sortBy: toString(
+                row.sort_by,
+                'popularity.desc',
+              ),
 
-            includeAdult: Boolean(
-              row.includeAdult ?? row.include_adult,
-            ),
+              includeAdult: Boolean(
+                row.include_adult,
+              ),
 
-            providers: toNumberArray(row.providers),
+              providers: toNumberArray(
+                row.providers,
+              ),
 
-            watchRegion: toString(
-              row.watchRegion ?? row.watch_region,
-              'BR',
-            ),
+              watchRegion: toString(
+                row.watch_region,
+                'BR',
+              ),
 
-            monetization: toMonetizationTypes(
-              row.monetization,
-            ),
+              monetization:
+                toMonetizationTypes(
+                  row.monetization,
+                ),
+            }
+
+            setFilters(nextFilters)
+
+            // A região e os provedores podem alterar
+            // os detalhes disponíveis dos filmes.
+            setDetailsCache({})
+
+            clearProgress(
+              sessionId,
+              userIdRef.current,
+              nextFilters,
+            )
+
+            void resetAndLoad(
+              false,
+              nextFilters,
+              sessionId,
+            )
+          } catch (error) {
+            console.error(
+              'erro ao aplicar filtros via realtime:',
+              error,
+            )
           }
-
-          setFilters(f)
-          setDetailsCache({})
-          clearProgress(
-            sessionId,
-            userIdRef.current,
-            f,
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.error(
+            'falha no realtime de filtros',
           )
-          void resetAndLoad(
-            false,
-            f,
-            sessionId,
-          )
-        } catch (e) {
-          console.error('erro ao aplicar filtros via broadcast:', e)
         }
       })
 
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        filtersBusRef.current = ch
-      }
-    })
-
     return () => {
-      filtersBusRef.current = null
-      void supabase.removeChannel(ch)
+      void supabase.removeChannel(channel)
     }
-  }, [sessionId, userId, resetAndLoad])
+  }, [
+    sessionId,
+    userId,
+    resetAndLoad,
+  ])
 
   useEffect(() => {
     if (!matchModal) return
@@ -1515,39 +1556,6 @@ function Swipe() {
 
       if (filtersError) {
         throw filtersError
-      }
-
-      // O banco já confirmou os filtros.
-      // Agora tentamos avisar os outros
-      // participantes imediatamente.
-      try {
-        const broadcastStatus =
-          await filtersBusRef.current?.send({
-            type: 'broadcast',
-            event: 'filters_update',
-            payload: {
-              ...nextFilters,
-              updated_by: userId,
-            },
-          })
-
-        if (
-          broadcastStatus &&
-          broadcastStatus !== 'ok'
-        ) {
-          console.warn(
-            'broadcast filtros retornou:',
-            broadcastStatus,
-          )
-        }
-      } catch (error) {
-        // Broadcast é uma otimização de tempo real.
-        // Os filtros já foram persistidos no banco,
-        // portanto não desfazemos a alteração.
-        console.warn(
-          'broadcast filtros falhou:',
-          error,
-        )
       }
 
       // Somente depois do sucesso no banco
