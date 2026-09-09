@@ -1422,74 +1422,106 @@ function Swipe() {
   ) {
     const nextFilters: DiscoverFilters = {
       ...filterSnapshot,
-      genres: [...(filterSnapshot.genres ?? [])],
+
+      genres: [
+        ...(filterSnapshot.genres ?? []),
+      ],
+
       excludeGenres: [
         ...(filterSnapshot.excludeGenres ?? []),
       ],
+
       providers: [
         ...(filterSnapshot.providers ?? []),
       ],
+
       monetization: [
         ...(filterSnapshot.monetization ?? []),
       ],
     }
 
-    // Atualiza imediatamente o estado da página.
-    setOpenFilters(false)
-    setFilters(nextFilters)
+    // Em uma sessão ativa precisamos conseguir
+    // identificar tanto a sessão quanto o usuário
+    // antes de alterar os filtros compartilhados.
+    if (!sessionId || !userId) {
+      toast.error(
+        'Não foi possível identificar a sessão para salvar os filtros.',
+      )
+      return
+    }
 
-    // Alguns detalhes dependem da região/catálogo.
-    // Não devemos reaproveitar cache de filtros antigos.
-    setDetailsCache({})
-
-    if (sessionId && userId) {
-      try {
-        const { error: filtersError } = await supabase
+    try {
+      // Primeiro salva no banco.
+      //
+      // Somente depois de o Supabase confirmar
+      // a gravação vamos alterar a interface local.
+      const { error: filtersError } =
+        await supabase
           .from('session_filters')
           .upsert(
             {
               session_id: sessionId,
-              genres: nextFilters.genres ?? [],
+
+              genres:
+                nextFilters.genres ?? [],
+
               exclude_genres:
                 nextFilters.excludeGenres ?? [],
+
               year_min:
                 nextFilters.yearMin ?? 1990,
+
               year_max:
-                nextFilters.yearMax ?? currentYear,
+                nextFilters.yearMax ??
+                currentYear,
+
               rating_min:
                 nextFilters.ratingMin ?? 0,
+
               vote_count_min:
                 nextFilters.voteCountMin ?? 0,
+
               runtime_min:
                 nextFilters.runtimeMin ?? 60,
+
               runtime_max:
                 nextFilters.runtimeMax ?? 220,
+
               language:
                 nextFilters.language ?? '',
+
               sort_by:
                 nextFilters.sortBy ??
                 'popularity.desc',
+
               include_adult:
                 !!nextFilters.includeAdult,
+
               updated_by: userId,
+
               providers:
                 nextFilters.providers ?? [],
+
               watch_region:
                 nextFilters.watchRegion ?? 'BR',
+
               monetization:
-                nextFilters.monetization ??
-                ['flatrate'],
+                nextFilters.monetization ?? [],
             },
             {
               onConflict: 'session_id',
             },
           )
 
-        if (filtersError) {
-          throw filtersError
-        }
+      if (filtersError) {
+        throw filtersError
+      }
 
-        try {
+      // O banco já confirmou os filtros.
+      // Agora tentamos avisar os outros
+      // participantes imediatamente.
+      try {
+        const broadcastStatus =
           await filtersBusRef.current?.send({
             type: 'broadcast',
             event: 'filters_update',
@@ -1498,37 +1530,63 @@ function Swipe() {
               updated_by: userId,
             },
           })
-        } catch (error) {
+
+        if (
+          broadcastStatus &&
+          broadcastStatus !== 'ok'
+        ) {
           console.warn(
-            'broadcast filtros falhou',
-            error,
+            'broadcast filtros retornou:',
+            broadcastStatus,
           )
         }
       } catch (error) {
-        console.error(
-          'failed to save session filters:',
+        // Broadcast é uma otimização de tempo real.
+        // Os filtros já foram persistidos no banco,
+        // portanto não desfazemos a alteração.
+        console.warn(
+          'broadcast filtros falhou:',
           error,
         )
-
-        toast.error(
-          `Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`,
-        )
       }
+
+      // Somente depois do sucesso no banco
+      // alteramos o estado local.
+      setFilters(nextFilters)
+      setOpenFilters(false)
+
+      // Alguns detalhes dependem da região
+      // e do catálogo selecionado.
+      setDetailsCache({})
+
+      clearProgress(
+        sessionId,
+        userIdRef.current,
+        nextFilters,
+      )
+
+      // Recarrega usando exatamente os filtros
+      // que acabaram de ser persistidos.
+      await resetAndLoad(
+        false,
+        nextFilters,
+        sessionId,
+      )
+    } catch (error: unknown) {
+      console.error(
+        'failed to save session filters:',
+        error,
+      )
+
+      toast.error(
+        `Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`,
+      )
+
+      // IMPORTANTE:
+      // não fecha o modal,
+      // não troca os filtros locais
+      // e não recarrega a lista.
     }
-
-    clearProgress(
-      sessionId,
-      userIdRef.current,
-      nextFilters,
-    )
-
-    // Recarrega imediatamente usando os NOVOS filtros,
-    // sem depender do próximo render do React.
-    await resetAndLoad(
-      false,
-      nextFilters,
-      sessionId,
-    )
   }
 
   // —— estados de carregamento / erro —— 
