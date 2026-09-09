@@ -282,8 +282,8 @@ function Swipe() {
   const loadPage = useCallback(
     async (
       pageToLoad: number,
-      f: DiscoverFilters = filters,
-      requestVersion = loadVersionRef.current,
+      f: DiscoverFilters,
+      requestVersion: number,
     ): Promise<LoadPageResult> => {
       try {
         const data = await discoverMovies({
@@ -386,7 +386,7 @@ function Swipe() {
         }
       }
     },
-    [filters, sessionId],
+    [sessionId],
   )
 
   const resetAndLoad = useCallback(
@@ -1026,6 +1026,9 @@ function Swipe() {
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
+    const myLoadVersion =
+      loadVersionRef.current
+
     const nextIndex = i + 1
 
     if (nextIndex < movies.length) {
@@ -1050,7 +1053,16 @@ function Swipe() {
 
       let result = await loadPage(
         nextPage,
+        filters,
+        myLoadVersion,
       )
+
+      if (
+        loadVersionRef.current !==
+        myLoadVersion
+      ) {
+        return
+      }
 
       let attempts = 0
 
@@ -1064,7 +1076,16 @@ function Swipe() {
 
         result = await loadPage(
           nextPage,
+          filters,
+          myLoadVersion,
         )
+
+        if (
+          loadVersionRef.current !==
+          myLoadVersion
+        ) {
+          return
+        }
       }
 
       if (result.added > 0) {
@@ -1078,7 +1099,19 @@ function Swipe() {
           filters,
           newIndex,
         )
+
+        return
       }
+
+      // Nenhum filme novo foi encontrado.
+      //
+      // O card atual já saiu da tela pela animação,
+      // então precisamos avançar o índice para fora
+      // da lista atual. Isso faz a interface renderizar
+      // corretamente o estado de fim da lista em vez
+      // de deixar apenas o fundo vazio.
+      setI(movies.length)
+      setNoResults(false)
     } finally {
       setLoadingMore(false)
     }
