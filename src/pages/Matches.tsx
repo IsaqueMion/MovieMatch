@@ -339,20 +339,28 @@ export default function Matches() {
   }
 
   return (
-    <main className="min-h-dvh bg-neutral-900 text-white">
-      <div className="mx-auto max-w-5xl px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+    <main className="min-h-dvh bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-950 text-white">
+      <div className="mx-auto max-w-6xl px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-[calc(env(safe-area-inset-top,0px)+12px)] sm:px-4">
         {/* Header */}
-        <div className="sticky top-0 z-10 -mx-3 mb-3 border-b border-white/10 bg-neutral-900/90 px-3 py-2 backdrop-blur
+        <div className="sticky top-0 z-20 -mx-3 mb-3 border-b border-white/10 bg-neutral-900/90 px-3 py-2 backdrop-blur
                 sm:static sm:mb-4 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0
                 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold">Matches — {code.toUpperCase()}</h1>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-300/70">
+              Sessão {code.toUpperCase()}
+            </p>
+
+            <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">
+              Seus matches
+            </h1>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto">
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Buscar título..."
-                className="h-10 w-full sm:w-56 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm outline-none placeholder:text-white/40"
+                className="h-11 rounded-xl border border-white/10 bg-neutral-800 px-3 text-sm text-white outline-none focus:border-emerald-400/40"
               />
               <select
                 value={sort}
@@ -361,7 +369,7 @@ export default function Matches() {
                     e.target.value as SortKey,
                   )
                 }
-                className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
+                className="h-11 rounded-xl border border-white/10 bg-neutral-800 px-3 text-sm text-white outline-none focus:border-emerald-400/40"
                 title="Ordenar por"
               >
                 <option value="recent">
@@ -373,11 +381,18 @@ export default function Matches() {
                 </option>
               </select>
             </div>
-            <div className="flex items-center gap-2 mt-2 sm:mt-0">
-              <button onClick={copyList} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+              <button
+                type="button"
+                onClick={copyList}
+                className="h-11 touch-manipulation rounded-xl bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
+              >
                 Copiar lista
               </button>
-              <Link to={`/s/${code}`} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
+              <Link
+                to={`/s/${code}`}
+                className="inline-flex h-11 touch-manipulation items-center justify-center rounded-xl bg-emerald-500 px-4 text-sm font-medium text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+              >
                 Voltar ao swipe
               </Link>
             </div>
@@ -390,7 +405,7 @@ export default function Matches() {
             <p className="text-white/80">Nenhum resultado com os filtros atuais.</p>
           </div>
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {visible.map(m => (
               <li
                 key={m.movie_id}
@@ -398,7 +413,7 @@ export default function Matches() {
                 onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') ? openDetails(m) : undefined}
                 role="button"
                 tabIndex={0}
-                className="rounded-xl overflow-hidden bg-white/5 ring-1 ring-white/10 cursor-pointer hover:ring-white/20 transition-shadow"
+                className="group cursor-pointer touch-manipulation overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10 transition duration-200 hover:-translate-y-0.5 hover:bg-white/[0.07] hover:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
               >
                 <div className="relative aspect-[2/3] bg-black">
                   {m.poster_url
@@ -459,9 +474,10 @@ export default function Matches() {
                       </a>
                     )}
                     <button
+                      type="button"
                       onClick={closeDetails}
-                      className="rounded-md px-2 py-1 bg-white/10 hover:bg-white/15 ring-1 ring-white/10 text-base"
-                      aria-label="Fechar"
+                      className="grid h-10 w-10 touch-manipulation place-items-center rounded-xl bg-white/10 text-lg text-white ring-1 ring-white/10 transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
+                      aria-label="Fechar detalhes"
                     >
                       ✕
                     </button>
