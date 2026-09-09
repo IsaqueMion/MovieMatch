@@ -13,10 +13,11 @@ type MatchItem = {
   year: number | null
   poster_url: string | null
   likes: number
+  member_count: number
   latestAt: number
 }
 
-type SortKey = 'recent' | 'likes' | 'title'
+type SortKey = 'recent' | 'title'
 
 export default function Matches() {
   const { code = '' } = useParams()
@@ -25,9 +26,8 @@ export default function Matches() {
   const [loading, setLoading] = useState(true)
 
   // Controles da UI
-  const [q, setQ] = useState('')                     // busca por título
-  const [sort, setSort] = useState<SortKey>('recent') // ordenação
-  const [minLikes, setMinLikes] = useState(2)        // mínimo de likes
+  const [q, setQ] = useState('')
+  const [sort, setSort] = useState<SortKey>('recent')        
 
   // Região para provedores (lida na sessão; usamos no extractProviders)
   const [watchRegion, setWatchRegion] = useState<string>('BR')
@@ -133,92 +133,122 @@ export default function Matches() {
   }, [sessionId])
 
   async function loadMatches(sid: string) {
-    const { data, error } = await supabase
-      .from('reactions')
-      .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url,tmdb_id)')
-      .eq('session_id', sid)
-      .eq('value', 1)
+    const {
+      data,
+      error,
+    } = await supabase.rpc(
+      'list_session_matches',
+      {
+        p_session_id: sid,
+      },
+    )
 
     if (error) {
-      console.error(error)
+      console.error(
+        'list_session_matches failed:',
+        error,
+      )
+
       setItems([])
       return
     }
 
-    type MovieJoin = { title: string | null; year: number | null; poster_url: string | null; tmdb_id: number | null }
-    type Row = {
-      movie_id: number
-      value: 1 | -1
-      user_id: string | null
-      created_at: string | null
-      movies: MovieJoin | MovieJoin[] | null
+    type MatchRow = {
+      movie_id: number | string
+      tmdb_id: number | string | null
+      title: string | null
+      year: number | null
+      poster_url: string | null
+      likes: number | string
+      member_count: number | string
+      latest_at: string | null
     }
 
-    const rows = (data ?? []) as Row[]
+    const rows = (data ?? []) as MatchRow[]
 
-    const map = new Map<number, {
-      title: string; year: number | null; poster_url: string | null; tmdb_id: number | null;
-      users: Set<string>; latestAt: number
-    }>()
+    const list: MatchItem[] = rows.map(
+      (row) => ({
+        movie_id: Number(row.movie_id),
 
-    for (const r of rows) {
-      const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
-      const curr = map.get(r.movie_id) ?? {
-        title: mInfo?.title ?? '—',
-        year: mInfo?.year ?? null,
-        poster_url: mInfo?.poster_url ?? null,
         tmdb_id:
-          typeof mInfo?.tmdb_id === 'number'
-            ? mInfo.tmdb_id
+          row.tmdb_id != null
+            ? Number(row.tmdb_id)
             : null,
-        users: new Set<string>(),
-        latestAt: 0,
-      }
 
-      if (r.user_id) curr.users.add(String(r.user_id))
-      const ts = r.created_at ? new Date(r.created_at).getTime() : 0
-      if (ts > curr.latestAt) curr.latestAt = ts
+        title:
+          row.title?.trim() ||
+          'Filme sem título',
 
-      map.set(r.movie_id, curr)
-    }
+        year:
+          row.year != null
+            ? Number(row.year)
+            : null,
 
-    const list: MatchItem[] = []
-    for (const [movie_id, m] of map.entries()) {
-      const likes = m.users.size
-      list.push({
-        movie_id,
-        tmdb_id: m.tmdb_id ?? null,
-        title: m.title,
-        year: m.year,
-        poster_url: m.poster_url,
-        likes,
-        latestAt: m.latestAt,
-      })
-    }
+        poster_url:
+          row.poster_url ?? null,
 
-    // Ordenação padrão (pode ser alterada na UI)
-    list.sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
+        likes:
+          Number(row.likes) || 0,
+
+        member_count:
+          Number(row.member_count) || 0,
+
+        latestAt:
+          row.latest_at
+            ? new Date(
+                row.latest_at,
+              ).getTime()
+            : 0,
+      }),
+    )
+
     setItems(list)
   }
 
   // View filtrada/ordenada
   const visible = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    let arr = items.filter(i => i.likes >= minLikes && (term === '' || i.title.toLowerCase().includes(term)))
+    const term =
+      q.trim().toLowerCase()
+
+    let arr = items.filter(
+      (item) =>
+        term === '' ||
+        item.title
+          .toLowerCase()
+          .includes(term),
+    )
+
     if (sort === 'recent') {
-      arr = arr.slice().sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
-    } else if (sort === 'likes') {
-      arr = arr.slice().sort((a, b) => (b.likes - a.likes) || (b.latestAt - a.latestAt) || a.title.localeCompare(b.title))
+      arr = arr.slice().sort(
+        (a, b) =>
+          b.latestAt - a.latestAt ||
+          a.title.localeCompare(b.title),
+      )
     } else {
-      arr = arr.slice().sort((a, b) => a.title.localeCompare(b.title))
+      arr = arr.slice().sort(
+        (a, b) =>
+          a.title.localeCompare(b.title),
+      )
     }
+
     return arr
-  }, [items, q, sort, minLikes])
+  }, [items, q, sort])
 
   function copyList() {
-    const lines = visible.map(m => `${m.title}${m.year ? ` (${m.year})` : ''} — ${m.likes} likes`)
+    const lines = visible.map(
+      (movie) =>
+        `${movie.title}${
+          movie.year
+            ? ` (${movie.year})`
+            : ''
+        } — ${movie.likes}/${movie.member_count} curtiram`,
+    )
+
     try {
-      navigator.clipboard.writeText(lines.join('\n'))
+      navigator.clipboard.writeText(
+        lines.join('\n'),
+      )
+
       alert('Lista copiada!')
     } catch {
       alert(lines.join('\n'))
@@ -262,24 +292,21 @@ export default function Matches() {
               />
               <select
                 value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
+                onChange={(e) =>
+                  setSort(
+                    e.target.value as SortKey,
+                  )
+                }
                 className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
                 title="Ordenar por"
               >
-                <option value="recent">Mais recentes</option>
-                <option value="likes">Mais likes</option>
-                <option value="title">Título (A→Z)</option>
-              </select>
-              <select
-                value={String(minLikes)}
-                onChange={(e) => setMinLikes(Number(e.target.value) || 0)}
-                className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
-                title="Mínimo de likes"
-              >
-                <option value="2">2+ likes</option>
-                <option value="3">3+ likes</option>
-                <option value="4">4+ likes</option>
-                <option value="1">1+ like</option>
+                <option value="recent">
+                  Mais recentes
+                </option>
+
+                <option value="title">
+                  Título (A→Z)
+                </option>
               </select>
             </div>
             <div className="flex items-center gap-2 mt-2 sm:mt-0">
@@ -314,7 +341,7 @@ export default function Matches() {
                     ? <img src={m.poster_url} alt={m.title} className="h-full w-full object-contain" />
                     : <div className="absolute inset-0 grid place-items-center text-white/50">Sem pôster</div>}
                   <div className="absolute left-2 top-2 rounded-md bg-white/10 px-2 py-0.5 text-xs ring-1 ring-white/20">
-                    {m.likes} like{m.likes === 1 ? '' : 's'}
+                    {m.likes}/{m.member_count} curtiram
                   </div>
                 </div>
                 <div className="p-2.5 sm:p-3">
@@ -344,7 +371,7 @@ export default function Matches() {
                     </h3>
                     {/* chips (desktop) */}
                     <div className="mt-1 hidden md:flex flex-wrap items-center gap-2 text-sm text-white/70">
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
+                      <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes}/{modal.item.member_count} curtiram</span>
                       {modal.item.tmdb_id != null && (
                         <a
                           href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
@@ -405,7 +432,7 @@ export default function Matches() {
 
                 {/* Chips (mobile) */}
                 <div className="px-3 pt-3 md:hidden flex items-center gap-2 text-sm">
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
+                  <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes}/{modal.item.member_count} curtiram</span>
                 </div>
 
                 {/* Conteúdo */}
