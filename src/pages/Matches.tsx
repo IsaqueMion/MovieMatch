@@ -27,7 +27,7 @@ export default function Matches() {
 
   // Controles da UI
   const [q, setQ] = useState('')
-  const [sort, setSort] = useState<SortKey>('recent')        
+  const [sort, setSort] = useState<SortKey>('recent')
 
   // Região para provedores (lida na sessão; usamos no extractProviders)
   const [watchRegion, setWatchRegion] = useState<string>('BR')
@@ -54,7 +54,6 @@ export default function Matches() {
   }
   function closeDetails() { setModal(null) }
 
-  // Carregar sessão + primeira lista
   // Carregar sessão + primeira lista
   useEffect(() => {
     (async () => {
@@ -118,20 +117,85 @@ export default function Matches() {
     })()
   }, [code])
 
-  // Tempo real: qualquer mudança em reactions desta sessão => recarrega
+  // Mantém os matches sincronizados.
+  //
+  // Reações chegam em tempo real pelo Supabase.
+  // A atualização periódica também cobre mudanças
+  // na quantidade de integrantes da sessão.
   useEffect(() => {
     if (!sessionId) return
-    const ch = supabase
+
+    let disposed = false
+
+    const refresh = () => {
+      if (disposed) return
+
+      void loadMatches(sessionId)
+    }
+
+    const channel = supabase
       .channel(`matches-${sessionId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'reactions', filter: `session_id=eq.${sessionId}` },
-        () => loadMatches(sessionId)
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reactions',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        refresh,
       )
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [sessionId])
 
+    // Confere periodicamente se entrou ou saiu
+    // algum participante da sessão.
+    const intervalId = window.setInterval(
+      refresh,
+      5000,
+    )
+
+    // Ao voltar para a janela, atualiza imediatamente.
+    const handleFocus = () => {
+      refresh()
+    }
+
+    // Também atualiza ao voltar para esta aba.
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === 'visible'
+      ) {
+        refresh()
+      }
+    }
+
+    window.addEventListener(
+      'focus',
+      handleFocus,
+    )
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    )
+
+    return () => {
+      disposed = true
+
+      window.clearInterval(intervalId)
+
+      window.removeEventListener(
+        'focus',
+        handleFocus,
+      )
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      )
+
+      void supabase.removeChannel(channel)
+    }
+  }, [sessionId])
   async function loadMatches(sid: string) {
     const {
       data,
