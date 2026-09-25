@@ -118,8 +118,8 @@ export default function LandingSwipePreview() {
 
   return (
     <div className="mx-auto w-full max-w-[390px]">
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 p-3 shadow-2xl shadow-black/30">
-        <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-white/5 px-2.5 py-1.5 ring-1 ring-white/10">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 p-2.5 shadow-2xl shadow-black/30">
+        <div className="mb-2 flex h-10 items-center justify-between gap-2 rounded-xl bg-white/5 px-2.5 ring-1 ring-white/10">
           <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/80">
             <span className="rounded-md bg-white/10 px-2 py-1 font-semibold tracking-wide text-white">
               DEMO
@@ -143,7 +143,7 @@ export default function LandingSwipePreview() {
               <Share2 className="h-[18px] w-[18px]" />
             </PreviewIcon>
             <div
-              className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-500 text-white"
+              className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-500 text-white"
               aria-hidden
             >
               <Star className="h-[18px] w-[18px]" />
@@ -151,7 +151,7 @@ export default function LandingSwipePreview() {
           </div>
         </div>
 
-        <div className="h-[460px] min-h-0 overflow-hidden sm:h-[500px]">
+        <div className="h-[clamp(360px,52dvh,430px)] min-h-0 overflow-hidden">
           {movie ? (
             <div className="pointer-events-none h-full">
               <SwipeCard
@@ -172,14 +172,14 @@ export default function LandingSwipePreview() {
           )}
         </div>
 
-        <div className="pt-3">
+        <div className="pt-2">
           <SwipeActionButtons
             interactive={false}
           />
         </div>
       </div>
 
-      <p className="mt-3 text-center text-xs text-white/35">
+      <p className="mt-2 text-center text-xs text-white/35">
         Prévia da experiência de votação
       </p>
     </div>
@@ -195,7 +195,7 @@ function PreviewIcon({
 }) {
   return (
     <div
-      className="grid h-10 w-10 place-items-center rounded-lg bg-white/10 text-white"
+      className="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-white"
       aria-label={label}
       role="img"
     >
