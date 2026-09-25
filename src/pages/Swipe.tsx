@@ -645,7 +645,6 @@ function Swipe() {
     setLoading(true)
     setFatalError(null)
     setSessionReady(false)
-    setOnlineCount(0)
     setSessionId(null)
     setMatchModal(null)
     setLatestMatchAt(0)
