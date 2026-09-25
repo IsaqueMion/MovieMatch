@@ -1,6 +1,8 @@
 ﻿// src/pages/Swipe.tsx
 import {
   Component,
+  lazy,
+  Suspense,
   type ErrorInfo,
   type ReactNode,
 } from 'react'
@@ -46,7 +48,9 @@ import {
   shuffleWithinWindows,
 } from '../lib/swipeShuffle'
 
-import FilterModal from '../components/swipe/FilterModal'
+const FilterModal = lazy(
+  () => import('../components/swipe/FilterModal'),
+)
 import { useSessionPresence } from '../hooks/useSessionPresence'
 
 type Movie = SwipeMovie
@@ -2229,18 +2233,22 @@ function Swipe() {
         )}
       </AnimatePresence>
 
-      <FilterModal
-        open={openFilters}
-        filters={filters}
-        defaultFilters={DEFAULT_FILTERS}
-        currentYear={currentYear}
-        isAdult={isAdult}
-        onRequestAdultVerification={() =>
-          setShowAgeGate(true)
-        }
-        onClose={() => setOpenFilters(false)}
-        onApply={applyFilters}
-      />
+      {openFilters ? (
+        <Suspense fallback={null}>
+          <FilterModal
+            open
+            filters={filters}
+            defaultFilters={DEFAULT_FILTERS}
+            currentYear={currentYear}
+            isAdult={isAdult}
+            onRequestAdultVerification={() =>
+              setShowAgeGate(true)
+            }
+            onClose={() => setOpenFilters(false)}
+            onApply={applyFilters}
+          />
+        </Suspense>
+      ) : null}
 
       {/* Modal Match */}
       <AnimatePresence>
