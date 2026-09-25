@@ -148,6 +148,14 @@ Execute o ESLint:
 pnpm lint
 ```
 
+Execute os testes automatizados:
+
+```bash
+pnpm test
+```
+
+Os testes unitários usam o test runner nativo do Node.js e cobrem, inicialmente, a assinatura dos filtros, persistência do progresso de swipe e embaralhamento determinístico.
+
 ## Build de produção
 
 ```bash
