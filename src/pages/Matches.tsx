@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
 import { ensureAnonymousUser } from '../lib/auth'
+import { useSessionPresence } from '../hooks/useSessionPresence'
 
 
 type MatchItem = {
@@ -24,6 +25,7 @@ export default function Matches() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [items, setItems] = useState<MatchItem[]>([])
   const [loading, setLoading] = useState(true)
+  const onlineCount = useSessionPresence(sessionId)
 
   // Controles da UI
   const [q, setQ] = useState('')
@@ -347,7 +349,7 @@ export default function Matches() {
                 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-300/70">
-              Sessão {code.toUpperCase()}
+              Sessão {code.toUpperCase()} · {onlineCount} online
             </p>
 
             <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">

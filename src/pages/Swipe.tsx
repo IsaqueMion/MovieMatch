@@ -47,6 +47,7 @@ import {
 } from '../lib/swipeShuffle'
 
 import FilterModal from '../components/swipe/FilterModal'
+import { useSessionPresence } from '../hooks/useSessionPresence'
 
 type Movie = SwipeMovie
 
@@ -224,6 +225,7 @@ function Swipe() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [displayName] = useState('Guest')
+  const onlineCount = useSessionPresence(sessionId, sessionReady)
 
   // cache TMDB
   const [detailsCache, setDetailsCache] = useState<Record<number, MovieDetails>>({})
@@ -250,10 +252,6 @@ function Swipe() {
 
   // guard para clicks rápidos
   const clickGuardRef = useRef(false)
-
-  // presença
-  const [onlineCount, setOnlineCount] =
-    useState(0)
 
   // filtros
   const currentYear = new Date().getFullYear()
@@ -1141,108 +1139,6 @@ function Swipe() {
       )
     }
   }, [sessionId, sessionReady])
-
-  // Presença resiliente via banco.
-  //
-  // O cliente atualiza sua atividade periodicamente.
-  // A função do banco também
-  // devolve quantos participantes estiveram
-  // ativos nos últimos 90 segundos.
-  useEffect(() => {
-    if (!sessionId) {
-      setOnlineCount(0)
-      return
-    }
-
-    let cancelled = false
-    let running = false
-
-    const touchPresence = async () => {
-      if (running) return
-
-      running = true
-
-      try {
-        const {
-          data,
-          error,
-        } = await supabase.rpc(
-          'touch_session_presence',
-          {
-            p_session_id: sessionId,
-          },
-        )
-
-        if (cancelled) return
-
-        if (error) {
-          console.error(
-            'presence heartbeat failed:',
-            error,
-          )
-          return
-        }
-
-        const count = Number(data)
-
-        if (Number.isFinite(count)) {
-          setOnlineCount(
-            Math.max(0, count),
-          )
-        }
-      } finally {
-        running = false
-      }
-    }
-
-    void touchPresence()
-
-    const timer = window.setInterval(
-      () => {
-        void touchPresence()
-      },
-      15_000,
-    )
-
-    const handleFocus = () => {
-      void touchPresence()
-    }
-
-    const handleVisibility = () => {
-      if (
-        document.visibilityState ===
-        'visible'
-      ) {
-        void touchPresence()
-      }
-    }
-
-    window.addEventListener(
-      'focus',
-      handleFocus,
-    )
-
-    document.addEventListener(
-      'visibilitychange',
-      handleVisibility,
-    )
-
-    return () => {
-      cancelled = true
-
-      window.clearInterval(timer)
-
-      window.removeEventListener(
-        'focus',
-        handleFocus,
-      )
-
-      document.removeEventListener(
-        'visibilitychange',
-        handleVisibility,
-      )
-    }
-  }, [sessionId])
 
   // Sincronização dos filtros pelo próprio banco.
   //
