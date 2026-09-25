@@ -5,10 +5,6 @@ import {
   useState,
 } from 'react'
 import {
-  AnimatePresence,
-  motion,
-} from 'framer-motion'
-import {
   Film,
   Heart,
   Play,
@@ -121,7 +117,7 @@ export default function LandingCarousel() {
             (current + 1) %
             items.length,
         )
-      }, 3200)
+      }, 3600)
 
     return () => {
       window.clearInterval(timer)
@@ -129,13 +125,11 @@ export default function LandingCarousel() {
   }, [items])
 
   const current = items[index]
-  const hasCarousel =
-    Boolean(current)
 
   const dots = useMemo(() => {
     const max =
       Math.min(
-        6,
+        5,
         items.length,
       )
 
@@ -166,23 +160,9 @@ export default function LandingCarousel() {
   }, [items, index])
 
   return (
-    <motion.div
-      initial={{
-        opacity: 0,
-        y: 8,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.35,
-        ease: 'easeOut',
-      }}
-      className="relative"
-    >
+    <div className="mx-auto w-full max-w-[360px]">
       <div
-        className="relative mx-auto w-[min(28rem,92vw)] overflow-hidden rounded-3xl bg-neutral-900/60 ring-1 ring-white/10 shadow-xl"
+        className="overflow-hidden rounded-2xl border border-white/10 bg-neutral-900"
         onMouseEnter={() => {
           pausedRef.current = true
         }}
@@ -190,37 +170,24 @@ export default function LandingCarousel() {
           pausedRef.current = false
         }}
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-white/70">
-            <Users className="h-4 w-4 text-emerald-300" />
-            2 online
+        <div className="flex h-12 items-center justify-between border-b border-white/10 px-4">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/65">
+            <Users className="h-4 w-4 text-emerald-400" />
+            Sessão em andamento
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-md bg-white/5 px-2 py-1 text-xs ring-1 ring-white/10">
-            <Heart className="h-3.5 w-3.5 text-emerald-300" />
-            Match instantâneo
-          </div>
+          <span className="text-xs text-white/35">
+            2 online
+          </span>
         </div>
 
-        <div className="px-4 pb-4">
-          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-neutral-800 ring-1 ring-white/10">
-            <AnimatePresence
-              mode="wait"
-              initial={false}
-            >
-              {loading ? (
-                <motion.div
-                  key="skeleton"
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <SkeletonPoster />
-                </motion.div>
-              ) : hasCarousel &&
-                current ? (
-                <motion.img
+        <div className="p-3">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-neutral-800">
+            {loading ? (
+              <div className="absolute inset-0 animate-pulse bg-neutral-800" />
+            ) : current ? (
+              <>
+                <img
                   key={
                     current.poster_url
                   }
@@ -231,105 +198,35 @@ export default function LandingCarousel() {
                     current.title
                   }
                   className="absolute inset-0 h-full w-full object-cover"
-                  initial={{
-                    opacity: 0,
-                    scale: 1.02,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    scale: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    scale: 1.02,
-                  }}
-                  transition={{
-                    duration: 0.5,
-                    ease: 'easeOut',
-                  }}
                   loading="eager"
                   decoding="async"
                 />
-              ) : (
-                <motion.div
-                  key="fallback"
-                  className="absolute inset-0 grid place-items-center text-white/50"
-                  initial={{
-                    opacity: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                  }}
-                >
-                  <Film className="h-16 w-16" />
-                </motion.div>
-              )}
-            </AnimatePresence>
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-neutral-900/80 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/65 to-transparent px-4 pb-4 pt-16">
+                  <p className="truncate text-base font-semibold">
+                    {current.title}
+                  </p>
+                  <p className="mt-1 text-xs text-white/60">
+                    {current.year
+                      ? `${current.year} · sugerido para a sessão`
+                      : 'Sugerido para a sessão'}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="absolute inset-0 grid place-items-center text-white/35">
+                <Film className="h-12 w-12" />
+              </div>
+            )}
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <AnimatePresence
-                mode="wait"
-                initial={false}
-              >
-                <motion.h3
-                  key={
-                    current
-                      ? `${current.title}-${current.year ?? ''}`
-                      : 'placeholder-title'
-                  }
-                  className="truncate text-base font-semibold"
-                  initial={{
-                    opacity: 0,
-                    y: 6,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    y: -6,
-                  }}
-                  transition={{
-                    duration: 0.25,
-                  }}
-                >
-                  {current ? (
-                    <>
-                      {current.title}{' '}
-                      {current.year ? (
-                        <span className="text-white/60">
-                          (
-                          {current.year}
-                          )
-                        </span>
-                      ) : null}
-                    </>
-                  ) : (
-                    'Um Filme Qualquer (2024)'
-                  )}
-                </motion.h3>
-              </AnimatePresence>
-
-              <p className="mt-1 flex flex-wrap gap-1 text-xs text-white/70">
-                <span className="rounded-full bg-white/5 px-2 py-0.5 ring-1 ring-white/10">
-                  Sugerido
-                </span>
-                <span className="rounded-full bg-white/5 px-2 py-0.5 ring-1 ring-white/10">
-                  Aleatório
-                </span>
-              </p>
-            </div>
+          <div className="mt-3 flex min-h-5 items-center justify-between gap-3">
+            <p className="text-xs text-white/45">
+              Deslize para votar
+            </p>
 
             {dots ? (
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 {dots.visible.map(
                   (_, offset) => {
                     const realIndex =
@@ -351,8 +248,8 @@ export default function LandingCarousel() {
                         }}
                         className={
                           active
-                            ? 'h-2 w-4 rounded-full bg-white transition-all'
-                            : 'h-2 w-2 rounded-full bg-white/40 transition-all hover:bg-white/60'
+                            ? 'h-1.5 w-4 rounded-full bg-white'
+                            : 'h-1.5 w-1.5 rounded-full bg-white/25 transition hover:bg-white/45'
                         }
                         aria-label={`Ir ao slide ${realIndex + 1}`}
                       />
@@ -363,42 +260,59 @@ export default function LandingCarousel() {
             ) : null}
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-5 pb-2">
-            <button
-              type="button"
-              className="grid h-16 w-16 place-items-center rounded-full bg-red-500 text-white shadow-xl"
-              aria-label="Dislike"
-            >
-              <XIcon className="h-6 w-6" />
-            </button>
-
-            <button
-              type="button"
-              className="grid h-12 w-12 place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/10"
-              aria-label="Ver trailer"
-            >
-              <Play className="h-5 w-5" />
-            </button>
-
-            <button
-              type="button"
-              className="grid h-16 w-16 place-items-center rounded-full bg-emerald-500 text-white shadow-xl"
-              aria-label="Like"
-            >
-              <Heart className="h-6 w-6" />
-            </button>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <PreviewAction
+              icon={
+                <XIcon className="h-4 w-4" />
+              }
+              label="Passar"
+            />
+            <PreviewAction
+              icon={
+                <Play className="h-4 w-4" />
+              }
+              label="Trailer"
+            />
+            <PreviewAction
+              icon={
+                <Heart className="h-4 w-4" />
+              }
+              label="Curtir"
+              accent
+            />
           </div>
         </div>
       </div>
-    </motion.div>
+
+      <p className="mt-3 text-center text-xs text-white/30">
+        Exemplo da tela de votação
+      </p>
+    </div>
   )
 }
 
-function SkeletonPoster() {
+function PreviewAction({
+  icon,
+  label,
+  accent = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  accent?: boolean
+}) {
   return (
-    <div className="h-full w-full">
-      <div className="absolute inset-0 animate-pulse bg-neutral-800" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.06),transparent_60%)]" />
-    </div>
+    <button
+      type="button"
+      tabIndex={-1}
+      className={
+        accent
+          ? 'inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-emerald-500 text-xs font-medium text-neutral-950'
+          : 'inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-white/65'
+      }
+      aria-hidden
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
