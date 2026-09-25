@@ -22,7 +22,7 @@ import {
   type DiscoverFilters,
   type MonetizationType,
 } from '../lib/functions'
-import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
+import { Share2, Star, SlidersHorizontal } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { Toaster, toast } from 'sonner'
@@ -36,6 +36,7 @@ import SwipeCard, {
   type SwipeMovie,
 } from '../components/swipe/SwipeCard'
 import AdSwipeCard from '../components/swipe/AdSwipeCard'
+import SwipeActionButtons from '../components/swipe/SwipeActionButtons'
 import {
   clearProgress,
   filtersSig,
@@ -52,6 +53,7 @@ const FilterModal = lazy(
   () => import('../components/swipe/FilterModal'),
 )
 import { useSessionPresence } from '../hooks/useSessionPresence'
+import { usePageMeta } from '../hooks/usePageMeta'
 
 type Movie = SwipeMovie
 
@@ -209,6 +211,17 @@ const EXIT_DURATION_MS = 400
 
 function Swipe() {
   const { code } = useParams()
+
+  usePageMeta({
+    title: code
+      ? `Sessão ${code.toUpperCase()} — MovieMatch`
+      : 'Sessão — MovieMatch',
+    description:
+      'Vote em filmes com os participantes da sua sessão do MovieMatch.',
+    robots:
+      'noindex,nofollow,noarchive',
+  })
+
   const bootVersionRef = useRef(0)
   const loadVersionRef = useRef(0)
 
@@ -2184,41 +2197,27 @@ function Swipe() {
 
       {/* Ações */}
       <div className="relative z-30 shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-2.5">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-5 sm:gap-6">
-          <motion.button
-            onClick={() => react(-1)}
-            disabled={busy || dragging || !current}
-            className="grid h-14 w-14 touch-manipulation place-items-center rounded-full bg-red-500 text-white shadow-xl transition disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 sm:h-16 sm:w-16"
-            aria-label="Deslike"
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-          >
-            <XIcon className="w-7 h-7 sm:w-8 sm:h-8" />
-          </motion.button>
-
-          <motion.button
-            onClick={() => undo()}
-            disabled={ busy || dragging || isAdStep || historyRef.current.length === 0}
-            className="grid h-11 w-11 touch-manipulation place-items-center rounded-full bg-white/10 text-white shadow-lg transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 sm:h-12 sm:w-12"
-            aria-label="Desfazer"
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            title="Desfazer (Backspace)"
-          >
-            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6" />
-          </motion.button>
-
-          <motion.button
-            onClick={() => react(1)}
-            disabled={busy || dragging || !current}
-            className="grid h-14 w-14 touch-manipulation place-items-center rounded-full bg-emerald-500 text-white shadow-xl transition disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 sm:h-16 sm:w-16"
-            aria-label="Like"
-            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-          >
-            <Heart className="w-7 h-7 sm:w-8 sm:h-8" />
-          </motion.button>
-        </div>
+        <SwipeActionButtons
+          onDislike={() => react(-1)}
+          onUndo={() => undo()}
+          onLike={() => react(1)}
+          dislikeDisabled={
+            busy ||
+            dragging ||
+            !current
+          }
+          undoDisabled={
+            busy ||
+            dragging ||
+            isAdStep ||
+            historyRef.current.length === 0
+          }
+          likeDisabled={
+            busy ||
+            dragging ||
+            !current
+          }
+        />
       </div>
 
       {/* Banner UNDO */}

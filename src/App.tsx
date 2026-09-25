@@ -10,6 +10,7 @@ import {
 
 import JoinRedirect from './pages/JoinRedirect'
 import Landing from './pages/Landing'
+import NotFound from './pages/NotFound'
 
 const Swipe = lazy(
   () => import('./pages/Swipe'),
@@ -56,6 +57,10 @@ export default function App() {
           <Route
             path="/s/:code/matches"
             element={<Matches />}
+          />
+          <Route
+            path="*"
+            element={<NotFound />}
           />
         </Routes>
       </Suspense>

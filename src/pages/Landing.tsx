@@ -18,8 +18,13 @@ import {
   Users,
 } from 'lucide-react'
 
-const LandingCarousel = lazy(
-  () => import('../components/landing/LandingCarousel'),
+import { usePageMeta } from '../hooks/usePageMeta'
+
+const LandingSwipePreview = lazy(
+  () =>
+    import(
+      '../components/landing/LandingSwipePreview'
+    ),
 )
 
 async function getAuthenticatedClient() {
@@ -37,22 +42,42 @@ async function getAuthenticatedClient() {
 }
 
 export default function Landing() {
+  usePageMeta({
+    title:
+      'MovieMatch — encontre o filme em comum',
+    description:
+      'Crie uma sessão, vote em filmes com seus amigos e descubra os títulos que todo mundo quer assistir.',
+  })
+
   const [code, setCode] = useState('')
   const [status, setStatus] = useState('')
   const [busyAction, setBusyAction] = useState<
     'create' | 'join' | null
   >(null)
-  const [showCarousel, setShowCarousel] =
+  const [showPreview, setShowPreview] =
+    useState(false)
+  const [showMobileCta, setShowMobileCta] =
     useState(false)
 
   const inputRef =
     useRef<HTMLInputElement | null>(null)
+  const primaryActionsRef =
+    useRef<HTMLDivElement | null>(null)
 
   const navigate = useNavigate()
 
+  const codeComplete =
+    code.length === 6
+
+  const codeHint =
+    code.length > 0 &&
+    !codeComplete
+      ? `Faltam ${6 - code.length} ${6 - code.length === 1 ? 'caractere' : 'caracteres'}.`
+      : ''
+
   useEffect(() => {
     const timer = window.setTimeout(
-      () => setShowCarousel(true),
+      () => setShowPreview(true),
       250,
     )
 
@@ -61,14 +86,49 @@ export default function Landing() {
     }
   }, [])
 
+  useEffect(() => {
+    const target =
+      primaryActionsRef.current
+
+    if (
+      !target ||
+      typeof IntersectionObserver ===
+        'undefined'
+    ) {
+      return
+    }
+
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          setShowMobileCta(
+            !entry.isIntersecting,
+          )
+        },
+        {
+          threshold: 0.2,
+        },
+      )
+
+    observer.observe(target)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
   async function handleJoin() {
     if (busyAction) return
 
-    const normalizedCode = code
-      .trim()
-      .toUpperCase()
+    const normalizedCode =
+      code.trim().toUpperCase()
 
-    if (!normalizedCode) {
+    if (
+      normalizedCode.length !== 6
+    ) {
+      setStatus(
+        'Digite os 6 caracteres do código da sessão.',
+      )
       inputRef.current?.focus()
       return
     }
@@ -86,7 +146,8 @@ export default function Landing() {
         await supabase.rpc(
           'join_session',
           {
-            p_code: normalizedCode,
+            p_code:
+              normalizedCode,
           },
         )
 
@@ -95,7 +156,10 @@ export default function Landing() {
           ? data[0]
           : null
 
-      if (error || !session?.code) {
+      if (
+        error ||
+        !session?.code
+      ) {
         console.error(
           'join_session failed:',
           error,
@@ -143,7 +207,10 @@ export default function Landing() {
           ? data[0]
           : null
 
-      if (error || !session?.code) {
+      if (
+        error ||
+        !session?.code
+      ) {
         console.error(
           'create_session failed:',
           error,
@@ -171,16 +238,24 @@ export default function Landing() {
     }
   }
 
+  function focusJoin() {
+    inputRef.current?.focus()
+    inputRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }
+
   return (
-    <div className="min-h-dvh bg-neutral-950 text-white">
-      <header className="border-b border-white/10">
+    <div className="min-h-dvh bg-neutral-950 pb-20 text-white md:pb-0">
+      <header className="border-b border-white/10 bg-neutral-950/95 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
           <a
             href="/"
             className="flex items-center gap-2.5"
           >
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500">
-              <Clapperboard className="h-4.5 w-4.5 text-neutral-950" />
+              <Clapperboard className="h-[18px] w-[18px] text-neutral-950" />
             </div>
             <span className="text-base font-semibold tracking-tight">
               MovieMatch
@@ -207,7 +282,9 @@ export default function Landing() {
             onClick={() => {
               void handleCreate()
             }}
-            disabled={busyAction !== null}
+            disabled={
+              busyAction !== null
+            }
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3.5 text-sm font-medium text-neutral-950 transition hover:bg-white/90 disabled:cursor-wait disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
@@ -222,63 +299,48 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-16 lg:py-16">
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-10 lg:grid-cols-[minmax(0,1fr)_410px] lg:gap-14 lg:py-14">
           <div className="max-w-2xl">
-            <p className="mb-4 text-sm font-medium text-emerald-400">
-              Escolha em grupo, sem enrolação.
+            <p className="mb-3 text-sm font-medium text-emerald-400">
+              MovieMatch
             </p>
 
             <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">
-              Todo mundo escolhe.
-              <span className="block text-white/55">
-                O filme certo aparece.
-              </span>
+              Escolher o filme não precisa virar discussão.
             </h1>
 
-            <p className="mt-5 max-w-xl text-base leading-7 text-white/65 sm:text-lg">
-              Crie uma sessão, convide quem vai
-              assistir com você e vote nos filmes.
-              Quando todo mundo curtir o mesmo
-              título, ele entra nos matches.
+            <p className="mt-5 max-w-xl text-base leading-7 text-white/60 sm:text-lg">
+              Crie uma sessão, compartilhe o código
+              e vote nos filmes. Quando todo mundo
+              curtir o mesmo título, ele entra nos
+              matches.
             </p>
 
-            <div className="mt-8 max-w-xl rounded-2xl border border-white/10 bg-neutral-900 p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">
-                    Comece agora
-                  </p>
-                  <p className="mt-1 text-xs text-white/45">
-                    Sem cadastro e direto no navegador.
-                  </p>
-                </div>
-
-                <div className="hidden items-center gap-2 text-xs text-white/40 sm:flex">
-                  <Users className="h-4 w-4" />
-                  Sessões privadas por código
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <div
+              ref={primaryActionsRef}
+              className="mt-7 max-w-xl rounded-2xl border border-white/10 bg-neutral-900 p-4 sm:p-5"
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => {
                     void handleCreate()
                   }}
-                  disabled={busyAction !== null}
+                  disabled={
+                    busyAction !== null
+                  }
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-neutral-950 transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60"
                 >
                   <Plus className="h-4 w-4" />
-                  {busyAction === 'create'
+                  {busyAction ===
+                  'create'
                     ? 'Criando sessão…'
                     : 'Criar nova sessão'}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => {
-                    inputRef.current?.focus()
-                  }}
+                  onClick={focusJoin}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/10 px-4 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
                 >
                   <LogIn className="h-4 w-4" />
@@ -288,44 +350,69 @@ export default function Landing() {
 
               <div className="my-4 flex items-center gap-3">
                 <div className="h-px flex-1 bg-white/10" />
-                <span className="text-[11px] uppercase tracking-[0.16em] text-white/35">
+                <span className="text-[11px] uppercase tracking-[0.14em] text-white/30">
                   entrar em uma sessão
                 </span>
                 <div className="h-px flex-1 bg-white/10" />
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  ref={inputRef}
-                  value={code}
-                  onChange={(event) => {
-                    const next =
-                      event.target.value
-                        .toUpperCase()
-                        .replace(
-                          /[^A-Z0-9]/g,
-                          '',
-                        )
-                        .slice(0, 6)
+                <div className="min-w-0 flex-1">
+                  <input
+                    ref={inputRef}
+                    value={code}
+                    onChange={(event) => {
+                      const next =
+                        event.target.value
+                          .toUpperCase()
+                          .replace(
+                            /[^A-Z0-9]/g,
+                            '',
+                          )
+                          .slice(0, 6)
 
-                    setCode(next)
-                    if (status) {
+                      setCode(next)
                       setStatus('')
+                    }}
+                    onKeyDown={(
+                      event,
+                    ) => {
+                      if (
+                        event.key ===
+                        'Enter'
+                      ) {
+                        void handleJoin()
+                      }
+                    }}
+                    placeholder="EX.: 7F9XQ2"
+                    maxLength={6}
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Código da sessão"
+                    aria-invalid={
+                      code.length >
+                        0 &&
+                      !codeComplete
                     }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      void handleJoin()
+                    aria-describedby="session-code-hint"
+                    className="h-11 w-full rounded-lg border border-white/10 bg-neutral-950 px-3.5 font-mono text-sm uppercase tracking-[0.18em] text-white outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-white/30 focus:border-emerald-400/60 aria-[invalid=true]:border-red-400/70"
+                  />
+
+                  <p
+                    id="session-code-hint"
+                    className={
+                      codeHint
+                        ? 'mt-1.5 min-h-4 text-xs text-red-300'
+                        : 'mt-1.5 min-h-4 text-xs text-white/30'
                     }
-                  }}
-                  placeholder="EX.: 7F9XQ2"
-                  maxLength={6}
-                  autoCapitalize="characters"
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Código da sessão"
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-neutral-950 px-3.5 font-mono text-sm uppercase tracking-[0.18em] text-white outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-white/30 focus:border-emerald-400/60"
-                />
+                  >
+                    {codeHint ||
+                      (codeComplete
+                        ? 'Código completo.'
+                        : 'O código tem 6 caracteres.')}
+                  </p>
+                </div>
 
                 <button
                   type="button"
@@ -333,13 +420,15 @@ export default function Landing() {
                     void handleJoin()
                   }}
                   disabled={
-                    busyAction !== null ||
-                    code.length === 0
+                    busyAction !==
+                      null ||
+                    !codeComplete
                   }
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 sm:self-start"
                 >
                   <LogIn className="h-4 w-4" />
-                  {busyAction === 'join'
+                  {busyAction ===
+                  'join'
                     ? 'Entrando…'
                     : 'Entrar'}
                 </button>
@@ -347,7 +436,7 @@ export default function Landing() {
 
               {status ? (
                 <p
-                  className="mt-3 text-sm text-white/60"
+                  className="mt-2 text-sm text-white/60"
                   role="status"
                   aria-live="polite"
                 >
@@ -358,20 +447,20 @@ export default function Landing() {
 
             <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
               <span>Sem cadastro</span>
-              <span>Sincronização entre participantes</span>
-              <span>Funciona no celular e no PC</span>
+              <span>Tempo real</span>
+              <span>Celular e PC</span>
             </div>
           </div>
 
           <Suspense
             fallback={
-              <LandingCarouselSkeleton />
+              <LandingPreviewSkeleton />
             }
           >
-            {showCarousel ? (
-              <LandingCarousel />
+            {showPreview ? (
+              <LandingSwipePreview />
             ) : (
-              <LandingCarouselSkeleton />
+              <LandingPreviewSkeleton />
             )}
           </Suspense>
         </section>
@@ -386,7 +475,7 @@ export default function Landing() {
                 Como funciona
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Três passos e acabou a discussão.
+                Três passos para chegar no filme.
               </h2>
             </div>
 
@@ -405,7 +494,7 @@ export default function Landing() {
                   <Heart className="h-5 w-5" />
                 }
                 title="Vote nos filmes"
-                description="Cada pessoa dá like ou passa. Os filtros da sessão valem para todo mundo."
+                description="Cada participante curte ou passa. Os filtros ficam sincronizados para o grupo."
               />
               <Step
                 number="03"
@@ -413,7 +502,7 @@ export default function Landing() {
                   <Play className="h-5 w-5" />
                 }
                 title="Veja os matches"
-                description="Quando todos aprovarem o mesmo filme, ele aparece na lista do grupo."
+                description="Quando todos aprovarem o mesmo filme, ele aparece na lista da sessão."
               />
             </div>
           </div>
@@ -423,18 +512,14 @@ export default function Landing() {
           id="recursos"
           className="mx-auto w-full max-w-6xl px-5 py-12"
         >
-          <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-14">
+          <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-14">
             <div>
               <p className="text-sm font-medium text-emerald-400">
                 Recursos
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                Só o que ajuda a decidir.
+                O necessário para decidir em grupo.
               </h2>
-              <p className="mt-3 text-sm leading-6 text-white/50">
-                Sem feed infinito, cadastro obrigatório
-                ou configuração complicada.
-              </p>
             </div>
 
             <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
@@ -443,14 +528,14 @@ export default function Landing() {
                   <Users className="h-5 w-5" />
                 }
                 title="Sessão compartilhada"
-                description="Participantes, filtros e matches ficam sincronizados na mesma sessão."
+                description="Participantes, filtros e matches ficam sincronizados."
               />
               <Feature
                 icon={
                   <SlidersHorizontal className="h-5 w-5" />
                 }
                 title="Filtros úteis"
-                description="Refine por gênero, ano, nota, duração, idioma e serviços de streaming."
+                description="Gênero, ano, nota, duração, idioma e serviços de streaming."
               />
               <Feature
                 icon={
@@ -463,8 +548,8 @@ export default function Landing() {
                 icon={
                   <Play className="h-5 w-5" />
                 }
-                title="Detalhes sem sair da sessão"
-                description="Veja sinopse, trailer, avaliação e disponibilidade antes de decidir."
+                title="Detalhes do filme"
+                description="Sinopse, trailer, avaliação, classificação e disponibilidade."
               />
             </div>
           </div>
@@ -475,9 +560,7 @@ export default function Landing() {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-6 text-sm text-white/45 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Clapperboard className="h-4 w-4" />
-            <span>
-              MovieMatch
-            </span>
+            <span>MovieMatch</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -508,6 +591,35 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {showMobileCta ? (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-neutral-950/95 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 backdrop-blur md:hidden">
+          <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void handleCreate()
+              }}
+              disabled={
+                busyAction !== null
+              }
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-neutral-950 disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4" />
+              Criar sessão
+            </button>
+
+            <button
+              type="button"
+              onClick={focusJoin}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-medium text-white"
+            >
+              <LogIn className="h-4 w-4" />
+              Entrar
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -537,7 +649,6 @@ function Step({
       <h3 className="mt-5 text-base font-semibold">
         {title}
       </h3>
-
       <p className="mt-2 text-sm leading-6 text-white/50">
         {description}
       </p>
@@ -572,31 +683,19 @@ function Feature({
   )
 }
 
-function LandingCarouselSkeleton() {
+function LandingPreviewSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-[360px]"
+      className="mx-auto w-full max-w-[390px]"
       aria-hidden
     >
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-neutral-900">
-        <div className="flex h-12 items-center justify-between border-b border-white/10 px-4">
-          <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
-          <div className="h-3 w-16 animate-pulse rounded bg-white/10" />
-        </div>
-
-        <div className="p-3">
-          <div className="aspect-[4/5] animate-pulse rounded-xl bg-neutral-800" />
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="h-4 w-40 animate-pulse rounded bg-white/10" />
-            <div className="h-2.5 w-12 animate-pulse rounded bg-white/10" />
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <div className="h-10 rounded-lg bg-white/5" />
-            <div className="h-10 rounded-lg bg-white/5" />
-            <div className="h-10 rounded-lg bg-white/5" />
-          </div>
+      <div className="rounded-2xl border border-white/10 bg-neutral-900 p-3">
+        <div className="mb-3 h-12 rounded-xl bg-white/5" />
+        <div className="h-[460px] animate-pulse rounded-xl bg-white/5 sm:h-[500px]" />
+        <div className="mx-auto mt-3 flex max-w-md items-center justify-center gap-5">
+          <div className="h-14 w-14 rounded-full bg-red-500/25" />
+          <div className="h-11 w-11 rounded-full bg-white/10" />
+          <div className="h-14 w-14 rounded-full bg-emerald-500/25" />
         </div>
       </div>
     </div>

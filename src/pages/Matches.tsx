@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
 import { ensureAnonymousUser } from '../lib/auth'
 import { useSessionPresence } from '../hooks/useSessionPresence'
+import { usePageMeta } from '../hooks/usePageMeta'
 
 
 type MatchItem = {
@@ -22,6 +23,16 @@ type SortKey = 'recent' | 'title'
 
 export default function Matches() {
   const { code = '' } = useParams()
+
+  usePageMeta({
+    title: code
+      ? `Matches ${code.toUpperCase()} — MovieMatch`
+      : 'Matches — MovieMatch',
+    description:
+      'Veja os filmes aprovados pelos participantes da sua sessão do MovieMatch.',
+    robots:
+      'noindex,nofollow,noarchive',
+  })
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [items, setItems] = useState<MatchItem[]>([])
   const [loading, setLoading] = useState(true)
