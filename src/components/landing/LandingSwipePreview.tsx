@@ -117,7 +117,7 @@ export default function LandingSwipePreview() {
   }, [])
 
   return (
-    <div className="mx-auto w-full max-w-[390px]">
+    <div className="mx-auto w-full max-w-[360px] [@media(max-height:820px)]:max-w-[305px] [@media(max-height:720px)]:max-w-[270px]">
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 p-2.5 shadow-2xl shadow-black/30">
         <div className="mb-2 flex h-10 items-center justify-between gap-2 rounded-xl bg-white/5 px-2.5 ring-1 ring-white/10">
           <div className="flex min-w-0 items-center gap-1.5 text-xs text-white/80">
@@ -151,20 +151,22 @@ export default function LandingSwipePreview() {
           </div>
         </div>
 
-        <div className="h-[clamp(360px,52dvh,430px)] min-h-0 overflow-hidden">
+        <div className="overflow-hidden">
           {movie ? (
-            <div className="pointer-events-none h-full">
+            <div className="pointer-events-none">
               <SwipeCard
                 movie={movie}
                 details={details}
                 onDragState={() => {}}
                 onDecision={() => {}}
+                fitPoster
+                edgeToEdgePoster
               />
             </div>
           ) : (
-            <div className="grid h-full place-items-center overflow-hidden rounded-xl bg-neutral-900/70">
-              <div className="w-[78%]">
-                <div className="aspect-[2/3] animate-pulse rounded-xl bg-white/10" />
+            <div className="overflow-hidden bg-neutral-900/70">
+              <div className="w-full">
+                <div className="aspect-[2/3] animate-pulse bg-white/10" />
                 <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-white/10" />
                 <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/5" />
               </div>

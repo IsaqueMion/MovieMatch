@@ -43,6 +43,8 @@ type SwipeCardProps = {
   details?: MovieDetails
   onDragState: (dragging: boolean) => void
   onDecision: (value: 1 | -1) => void
+  fitPoster?: boolean
+  edgeToEdgePoster?: boolean
 }
 
 const INTERACTIVE_SELECTOR =
@@ -50,7 +52,14 @@ const INTERACTIVE_SELECTOR =
 
 const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
   function SwipeCard(
-    { movie, details, onDragState, onDecision },
+    {
+      movie,
+      details,
+      onDragState,
+      onDecision,
+      fitPoster = false,
+      edgeToEdgePoster = false,
+    },
     ref,
   ) {
     const x = useMotionValue(0)
@@ -178,8 +187,20 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           </motion.div>
         </div>
 
-        <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden">
-          <div className="relative min-h-0 overflow-hidden">
+        <div
+          className={
+            fitPoster
+              ? 'grid w-full grid-rows-[auto_auto] gap-2 overflow-hidden'
+              : 'grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden'
+          }
+        >
+          <div
+            className={
+              fitPoster
+                ? 'relative aspect-[2/3] overflow-hidden'
+                : 'relative min-h-0 overflow-hidden'
+            }
+          >
             <MovieCarousel
               key={movie.tmdb_id}
               title={movie.title}
@@ -187,6 +208,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               poster_url={movie.poster_url || ''}
               details={details}
               fullHeight
+              edgeToEdge={edgeToEdgePoster}
             />
           </div>
 

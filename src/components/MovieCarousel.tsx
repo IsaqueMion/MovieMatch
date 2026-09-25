@@ -9,6 +9,7 @@ type Props = {
   poster_url: string
   details?: MovieDetails
   fullHeight?: boolean
+  edgeToEdge?: boolean
 }
 
 // slides possíveis
@@ -38,6 +39,7 @@ export default function MovieCarousel({
   poster_url,
   details,
   fullHeight = true,
+  edgeToEdge = false,
 }: Props) {
   const trailerKey = getTrailerKey(details)
   const hasTrailer = !!details?.trailer?.key
@@ -74,7 +76,13 @@ export default function MovieCarousel({
 
   return (
     <div className="h-full min-h-0 w-full select-none">
-      <div className="relative h-full min-h-0 overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5">
+      <div
+        className={
+          edgeToEdge
+            ? 'relative h-full min-h-0 overflow-hidden'
+            : 'relative h-full min-h-0 overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5'
+        }
+      >
         {/* área do slide */}
         <div
           className={`relative h-full min-h-0 overflow-hidden ${
@@ -88,6 +96,7 @@ export default function MovieCarousel({
               year={year}
               poster_url={poster_url}
               fullHeight={fullHeight}
+              edgeToEdge={edgeToEdge}
             />
           </FadeSlide>
 
@@ -197,60 +206,105 @@ function Skeleton({ children }: { children?: React.ReactNode }) {
 }
 
 function PosterResponsive({
-  title, year, poster_url,
-}: { title: string; year: number | null; poster_url: string; fullHeight?: boolean }) {
+  title,
+  year,
+  poster_url,
+  edgeToEdge = false,
+}: {
+  title: string
+  year: number | null
+  poster_url: string
+  fullHeight?: boolean
+  edgeToEdge?: boolean
+}) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
   const { src, srcSet, sizes } = tmdbPosterSrcs(poster_url)
   const alt = `${title}${year ? ` (${year})` : ''}`
 
   return (
-    <div className="w-full h-full relative bg-black">
-      {/* skeleton suave enquanto carrega */}
-      {!loaded && !error && (
-        <div className="absolute inset-0 rounded-2xl bg-white/5 animate-pulse" />
-      )}
+    <div className="relative h-full w-full bg-black">
+      {!loaded && !error ? (
+        <div
+          className={
+            edgeToEdge
+              ? 'absolute inset-0 animate-pulse bg-white/5'
+              : 'absolute inset-0 animate-pulse rounded-2xl bg-white/5'
+          }
+        />
+      ) : null}
 
       {!error ? (
-        <div className="absolute inset-0 overflow-hidden rounded-2xl bg-black">
-          {/* Fundo preenchendo todo o card */}
-          <img
-            src={src || poster_url}
-            srcSet={srcSet}
-            sizes={sizes}
-            alt=""
-            aria-hidden="true"
-            className={`absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-35 transition-opacity duration-300 ${
-              loaded ? 'opacity-35' : 'opacity-0'
-            }`}
-            draggable={false}
-          />
+        <div
+          className={
+            edgeToEdge
+              ? 'absolute inset-0 overflow-hidden bg-black'
+              : 'absolute inset-0 overflow-hidden rounded-2xl bg-black'
+          }
+        >
+          {edgeToEdge ? null : (
+            <img
+              src={src || poster_url}
+              srcSet={srcSet}
+              sizes={sizes}
+              alt=""
+              aria-hidden="true"
+              className={`absolute inset-0 h-full w-full scale-110 object-cover blur-xl transition-opacity duration-300 ${
+                loaded
+                  ? 'opacity-35'
+                  : 'opacity-0'
+              }`}
+              draggable={false}
+            />
+          )}
 
-          {/* Pôster principal sem cortes */}
           <img
             src={src || poster_url}
             srcSet={srcSet}
             sizes={sizes}
             alt={alt}
-            className={`relative z-10 w-full h-full object-contain transition-opacity duration-300 ${
-              loaded ? 'opacity-100' : 'opacity-0'
+            className={`relative z-10 h-full w-full transition-opacity duration-300 ${
+              edgeToEdge
+                ? 'object-cover'
+                : 'object-contain'
+            } ${
+              loaded
+                ? 'opacity-100'
+                : 'opacity-0'
             }`}
             loading="eager"
             fetchPriority="high"
             decoding="async"
             draggable={false}
-            style={{ pointerEvents: 'none' }}
-            onLoad={() => setLoaded(true)}
-            onError={() => setError(true)}
+            style={{
+              pointerEvents: 'none',
+            }}
+            onLoad={() =>
+              setLoaded(true)
+            }
+            onError={() =>
+              setError(true)
+            }
           />
         </div>
       ) : (
-        // fallback elegante quando falhar
-        <div className="w-full h-full rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] ring-1 ring-white/10 grid place-items-center text-center p-4">
+        <div
+          className={
+            edgeToEdge
+              ? 'grid h-full w-full place-items-center bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4 text-center'
+              : 'grid h-full w-full place-items-center rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4 text-center ring-1 ring-white/10'
+          }
+        >
           <div>
-            <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-white/10 grid place-items-center text-white/80">🎬</div>
-            <p className="text-white/80 text-sm">Sem pôster disponível</p>
-            <p className="text-white/60 text-xs line-clamp-2 mt-1">{alt}</p>
+            <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/80">
+              🎬
+            </div>
+            <p className="text-sm text-white/80">
+              Sem pôster disponível
+            </p>
+            <p className="mt-1 line-clamp-2 text-xs text-white/60">
+              {alt}
+            </p>
           </div>
         </div>
       )}
