@@ -299,17 +299,17 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-10 lg:grid-cols-[minmax(0,1fr)_410px] lg:gap-14 lg:py-14">
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-8 px-5 py-8 lg:h-[calc(100dvh-4rem)] lg:min-h-[620px] lg:grid-cols-[minmax(0,1fr)_390px] lg:gap-12 lg:py-5">
           <div className="max-w-2xl">
-            <p className="mb-3 text-sm font-medium text-emerald-400">
+            <p className="mb-2 text-sm font-medium text-emerald-400">
               MovieMatch
             </p>
 
-            <h1 className="max-w-xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+            <h1 className="max-w-xl text-4xl font-semibold leading-[1.06] tracking-tight lg:text-[44px] xl:text-5xl">
               Escolher o filme não precisa virar discussão.
             </h1>
 
-            <p className="mt-5 max-w-xl text-base leading-7 text-white/60 sm:text-lg">
+            <p className="mt-4 max-w-xl text-base leading-6 text-white/60 lg:text-[17px]">
               Crie uma sessão, compartilhe o código
               e vote nos filmes. Quando todo mundo
               curtir o mesmo título, ele entra nos
@@ -318,7 +318,7 @@ export default function Landing() {
 
             <div
               ref={primaryActionsRef}
-              className="mt-7 max-w-xl rounded-2xl border border-white/10 bg-neutral-900 p-4 sm:p-5"
+              className="mt-5 max-w-xl rounded-2xl border border-white/10 bg-neutral-900 p-4"
             >
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
@@ -348,7 +348,7 @@ export default function Landing() {
                 </button>
               </div>
 
-              <div className="my-4 flex items-center gap-3">
+              <div className="my-3 flex items-center gap-3">
                 <div className="h-px flex-1 bg-white/10" />
                 <span className="text-[11px] uppercase tracking-[0.14em] text-white/30">
                   entrar em uma sessão
@@ -445,7 +445,7 @@ export default function Landing() {
               ) : null}
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
               <span>Sem cadastro</span>
               <span>Tempo real</span>
               <span>Celular e PC</span>
@@ -691,7 +691,7 @@ function LandingPreviewSkeleton() {
     >
       <div className="rounded-2xl border border-white/10 bg-neutral-900 p-3">
         <div className="mb-3 h-12 rounded-xl bg-white/5" />
-        <div className="h-[460px] animate-pulse rounded-xl bg-white/5 sm:h-[500px]" />
+        <div className="h-[clamp(360px,52dvh,430px)] animate-pulse rounded-xl bg-white/5" />
         <div className="mx-auto mt-3 flex max-w-md items-center justify-center gap-5">
           <div className="h-14 w-14 rounded-full bg-red-500/25" />
           <div className="h-11 w-11 rounded-full bg-white/10" />
