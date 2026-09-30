@@ -10,8 +10,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "refresh:landing-catalog": "node scripts/refresh-landing-catalog.mjs",
     "test:browser": "node --test tests/landing.browser.mjs",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/swipeShuffle.test.ts tests/swipeProgress.test.ts"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/swipeShuffle.test.ts tests/swipeProgress.test.ts tests/landingSelection.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",

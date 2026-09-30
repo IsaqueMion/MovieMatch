@@ -1,6 +1,6 @@
 # Local landing-page demonstration
 
-The home uses these local posters rather than creating an anonymous account or calling Supabase/TMDB on load. The example session and its three approvals are fictional.
+These assets are retained as browser-test fixtures. The home now draws unique posters from the qualified catalogue in src/data/landingMovies.json and loads images directly from the TMDB image CDN. Updating that catalogue uses the existing discover function without signing in a visitor. The example session and its three approvals remain fictional.
 
 Source: TMDB image CDN, w500. Posters remain the property of their respective rights holders. The home includes the TMDB attribution.
 

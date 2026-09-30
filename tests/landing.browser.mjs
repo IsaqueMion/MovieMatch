@@ -6,6 +6,10 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
+import { readFile } from 'node:fs/promises'
+
+const posterFixture = await readFile(new URL('../public/demo/interstellar.jpg', import.meta.url))
+const catalogue = JSON.parse(await readFile(new URL('../src/data/landingMovies.json', import.meta.url), 'utf8'))
 
 const baseUrl = process.env.TEST_BASE_URL || 'http://127.0.0.1:4178'
 let server
@@ -57,13 +61,14 @@ async function context(options = {}) {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) })
   })
   await ctx.route(/googlesyndication|fundingchoicesmessages/, route => route.abort())
+  await ctx.route(/https:\/\/image\.tmdb\.org\//, route => route.fulfill({ contentType: 'image/jpeg', body: posterFixture }))
   const page = await ctx.newPage()
   await page.routeWebSocket(/supabase\.co/, socket => socket.close())
   return { ctx, page, state }
 }
 
 for (const width of [390, 768, 1440]) {
-  test('home em ' + width + 'px: layout, fontes e assets locais, sem autenticação', async () => {
+  test('home em ' + width + 'px: layout, fontes locais e pôsteres distintos, sem autenticação', async () => {
     const { ctx, page, state } = await context({ viewport: { width, height: 1000 } })
     try {
       const errors = []
@@ -75,6 +80,9 @@ for (const width of [390, 768, 1440]) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       assert.equal(await page.evaluate(() => document.fonts.check('600 40px "Bricolage Grotesque"') && document.fonts.check('400 14px Manrope')), true)
       await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card img')].every(image => image.complete && image.naturalWidth > 0))
+      const sources = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src))
+      assert.equal(sources.length, 18)
+      assert.equal(new Set(sources).size, 18)
       assert.equal(state.requests.length, 0)
       assert.deepEqual(errors, [])
       await page.keyboard.press('Tab')
@@ -96,6 +104,7 @@ test('a animação pode ser pausada e respeita movimento reduzido', async () => 
   const { ctx, page } = await context()
   try {
     await page.goto(baseUrl)
+    assert.equal(await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).innerText(), '')
     await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).click()
     const transform = await page.locator('.image-stream-card').first().evaluate(element => getComputedStyle(element).transform)
     await delay(150)
@@ -104,6 +113,43 @@ test('a animação pode ser pausada e respeita movimento reduzido', async () => 
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card')].every(element => getComputedStyle(element).animationPlayState === 'paused'))
     assert.equal(await page.getByRole('button', { name: /preferência de movimento reduzido/ }).isDisabled(), true)
+  } finally { await ctx.close() }
+})
+
+test('a visita seguinte muda os filmes e mantém título, ano e pôster sincronizados', async () => {
+  const { ctx, page } = await context()
+  try {
+    await page.goto(baseUrl)
+    await page.locator('#recursos').scrollIntoViewIfNeeded()
+    const img = page.locator('.cinema-match-example > img')
+    await img.waitFor()
+    const source = await img.getAttribute('src')
+    const film = catalogue.movies.find(movie => movie.poster === source)
+    assert.ok(film)
+    assert.equal(await img.getAttribute('alt'), 'Pôster de ' + film.title)
+    assert.equal(await page.locator('.cinema-example-film').innerText(), film.title + ' · ' + film.year)
+    const rails = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src))
+    assert.equal(rails.includes(source), false)
+    await page.locator('#session-code').fill('AB')
+    assert.deepEqual(await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src)), rails)
+    await page.reload()
+    await page.locator('#recursos').scrollIntoViewIfNeeded()
+    assert.notEqual(await page.locator('.cinema-match-example > img').getAttribute('src'), source)
+    assert.notDeepEqual(await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src)), rails)
+  } finally { await ctx.close() }
+})
+
+test('falha do pôster mostra indisponibilidade e preserva o nome do filme', async () => {
+  const { ctx, page } = await context()
+  await ctx.route(/https:\/\/image\.tmdb\.org\//, route => route.abort())
+  try {
+    await page.goto(baseUrl)
+    await page.locator('#recursos').scrollIntoViewIfNeeded()
+    const fallback = page.locator('.cinema-poster-unavailable')
+    await fallback.waitFor()
+    const title = await fallback.locator('span').innerText()
+    assert.equal(await fallback.getAttribute('aria-label'), 'Pôster indisponível de ' + title)
+    assert.match(await page.locator('.cinema-example-film').innerText(), new RegExp('^' + title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   } finally { await ctx.close() }
 })
 

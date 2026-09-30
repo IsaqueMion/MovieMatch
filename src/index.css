@@ -76,7 +76,8 @@ html, body, #root { height: 100%; }
 .cinema-button-secondary:hover { background: var(--cinema-surface); }
 .cinema-button-light { background: var(--cinema-ink); color: var(--cinema-bg); border: 1px solid var(--cinema-ink); }
 .cinema-hero-note { color: var(--cinema-muted); font-size: 11px; margin-top: 18px; }
-.cinema-motion-toggle { position: absolute; bottom: 44px; right: 48px; z-index: 3; display: flex; align-items: center; gap: 7px; padding: 10px; min-height: 40px; font-size: 10px; color: var(--cinema-muted); background: #101313cc; border: 1px solid var(--cinema-line); border-radius: 5px; }
+.cinema-motion-toggle { position: absolute; bottom: 36px; right: 40px; z-index: 3; display: grid; place-items: center; width: 44px; height: 44px; color: var(--cinema-muted); opacity: .55; border-radius: 50%; transition: opacity .2s, background .2s; }
+.cinema-motion-toggle:hover, .cinema-motion-toggle:focus-visible { opacity: 1; background: #ffffff08; }
 .cinema-join { position: relative; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 24px 72px; padding-block: 42px; border-block: 1px solid var(--cinema-line); }
 .cinema-join h2 { margin-top: 8px; font-size: 28px; line-height: 1.2; letter-spacing: -.8px; }
 .cinema-join-form { width: 100%; max-width: 440px; justify-self: end; }
@@ -112,6 +113,8 @@ html, body, #root { height: 100%; }
 .cinema-features p { font-size: 12px; line-height: 1.8; color: var(--cinema-muted); margin-top: 5px; max-width: 365px; }
 .cinema-match-example { position: relative; justify-self: center; width: min(100%, 320px); padding-bottom: 92px; }
 .cinema-match-example > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 5px; }
+.cinema-poster-unavailable { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; width: 100%; aspect-ratio: 2 / 3; padding: 28px; text-align: center; border: 1px solid var(--cinema-line); border-radius: 5px; background: var(--cinema-surface); font: 500 28px/1.2 var(--cinema-display); }
+.cinema-poster-unavailable small { color: var(--cinema-muted); font: 400 12px/1.6 var(--cinema-body); }
 .cinema-match-example figcaption { position: absolute; left: -40px; bottom: 0; width: calc(100% + 65px); background: #202925; border: 1px solid #526159; border-radius: 7px; padding: 23px 25px; box-shadow: 0 12px 50px #0004; }
 .cinema-match-example .cinema-eyebrow { font-size: 9px; color: #b4c1b7; letter-spacing: 1.2px; }
 .cinema-example-members { display: flex; margin-block: 16px; }
@@ -175,7 +178,7 @@ html, body, #root { height: 100%; }
   .cinema-hero-actions { gap: 8px; }
   .cinema-button { min-height: 50px; padding: 12px 15px; font-size: 12px; gap: 12px; }
   .cinema-hero-note { margin-top: 15px; font-size: 10px; }
-  .cinema-motion-toggle { bottom: 9px; right: 20px; min-height: 32px; font-size: 9px; padding: 5px 8px; }
+  .cinema-motion-toggle { bottom: 2px; right: 12px; }
   .cinema-join { grid-template-columns: 1fr; gap: 24px; padding-block: 30px; }
   .cinema-join h2 { font-size: 25px; }
   .cinema-join-form { max-width: none; }

@@ -54,7 +54,8 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
   const left = `ish-l-${id}`
   const cardClass = `ish-c-${id}`
   const geometry = useMemo(() => ({ ...DEFAULT_PATH, ...path }), [path])
-  const count = Math.max(1, Math.min(24, Math.floor(cards)))
+  const uniqueImages = useMemo(() => [...new Map(images.map(image => [image.src, image])).values()], [images])
+  const count = Math.max(0, Math.min(24, Math.floor(cards), Math.floor(uniqueImages.length / 2)))
   const duration = Math.max(1, speed)
   const css = useMemo(() => `${keyframes(1, right, geometry)}${keyframes(-1, left, geometry)}@media(prefers-reduced-motion:reduce){.${cardClass}{animation-play-state:paused!important}}`, [right, left, cardClass, geometry])
 
@@ -78,8 +79,8 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
       <style>{css}</style>
       <div aria-hidden="true" className="image-stream-corridor" style={{ perspective: `${geometry.perspective}cqw`, perspectiveOrigin: `50% ${axis}%` }}>
         <div className="image-stream-rails">
-          {[right, left].map((name) => Array.from({ length: count }, (_, index) => {
-            const image = images[index % Math.max(images.length, 1)]
+          {[right, left].map((name, railIndex) => Array.from({ length: count }, (_, index) => {
+            const image = uniqueImages[railIndex * count + index]
             return (
               <div key={`${name}-${index}`} className={`image-stream-card ${cardClass}`} style={{
                 left: '50%', top: `${axis}%`, width: `${geometry.cardWidth}cqw`, height: `${geometry.cardHeight}cqw`,
@@ -88,7 +89,7 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
                 animationDelay: `${-(index * duration) / count}s`, animationPlayState: paused || !visible || !pageVisible ? 'paused' : 'running',
                 backfaceVisibility: 'hidden',
               }}>
-                {image ? <img src={image.src} alt="" width={500} height={750} decoding="async" draggable={false} /> : null}
+                {image ? <img src={image.src} alt="" width={500} height={750} decoding="async" draggable={false} onError={event => { event.currentTarget.style.visibility = 'hidden' }} /> : null}
               </div>
             )
           }))}

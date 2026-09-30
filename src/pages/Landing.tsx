@@ -1,18 +1,19 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowDown, ArrowRight, ArrowUpRight, Clapperboard, Heart, Pause, Play, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
 import { ImageStreamHero, type StreamImage } from '../components/ui/image-stream-hero'
 import LandingSwipePreview from '../components/landing/LandingSwipePreview'
+import catalogue from '../data/landingMovies.json'
+import { selectLandingMovies } from '../lib/landingSelection'
 
-const POSTERS: StreamImage[] = [
-  { src: '/demo/interstellar.jpg' },
-  { src: '/demo/amelie.jpg' },
-  { src: '/demo/grand-budapest.jpg' },
-  { src: '/demo/spirited-away.jpg' },
-  { src: '/demo/la-la-land.jpg' },
-  { src: '/demo/arrival.jpg' },
-]
+const FEATURED_KEY = 'mm:landing-featured:v1'
+
+function drawMovies() {
+  let previous: number | undefined
+  try { previous = Number(localStorage.getItem(FEATURED_KEY)) || undefined } catch { /* Storage is optional. */ }
+  return selectLandingMovies(catalogue.movies, previous)
+}
 const STEPS = [
   { number: '01', title: 'Junte o elenco.', description: 'Crie uma sessão e compartilhe o link ou o código com quem vai assistir.' },
   { number: '02', title: 'Cada um dá seu voto.', description: 'Escolham os filtros do grupo. Depois, cada pessoa curte os filmes que quer ver.' },
@@ -34,6 +35,8 @@ export default function Landing() {
     description: 'Crie uma sessão, convide seu grupo e encontre um filme que todos querem assistir. Sem cadastro, no celular ou no computador.',
   })
   const navigate = useNavigate()
+  const [selection] = useState(drawMovies)
+  const posterImages: StreamImage[] = useMemo(() => selection.posters.map(movie => ({ src: movie.poster })), [selection.posters])
   const [code, setCode] = useState('')
   const [status, setStatus] = useState('')
   const [failed, setFailed] = useState(false)
@@ -46,6 +49,10 @@ export default function Landing() {
   const hint = code.length > 0 && !complete
     ? 'Faltam ' + (6 - code.length) + (code.length === 5 ? ' caractere.' : ' caracteres.')
     : 'O código tem 6 letras ou números.'
+
+  useEffect(() => {
+    try { localStorage.setItem(FEATURED_KEY, String(selection.featured.id)) } catch { /* Random selection still works. */ }
+  }, [selection.featured.id])
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -137,7 +144,7 @@ export default function Landing() {
       </header>
 
       <main id="conteudo">
-        <ImageStreamHero images={POSTERS} paused={paused || reducedMotion} className="cinema-stream">
+        <ImageStreamHero images={posterImages} paused={paused || reducedMotion} className="cinema-stream">
           <div className="cinema-stream-shade" aria-hidden="true" />
           <div className="cinema-stream-content">
             <div className="cinema-hero-copy">
@@ -158,7 +165,6 @@ export default function Landing() {
           </div>
           <button className="cinema-motion-toggle" onClick={() => setPaused(value => !value)} disabled={reducedMotion} aria-pressed={paused || reducedMotion} aria-label={reducedMotion ? 'Animação pausada pela preferência de movimento reduzido' : paused ? 'Retomar animação dos pôsteres' : 'Pausar animação dos pôsteres'}>
             {paused || reducedMotion ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
-            <span>{reducedMotion ? 'Movimento reduzido' : paused ? 'Retomar' : 'Pausar'}</span>
           </button>
         </ImageStreamHero>
 
@@ -189,7 +195,7 @@ export default function Landing() {
                 <li><Heart size={20} aria-hidden="true" /><div><h3>O match é do grupo</h3><p>Todos os participantes atuais precisam curtir. Quem fecha a aba ainda faz parte da sessão.</p></div></li>
               </ul>
             </div>
-            <LandingSwipePreview />
+            <LandingSwipePreview movie={selection.featured} />
           </div>
         </section>
 

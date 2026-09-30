@@ -226,6 +226,19 @@ revival/2026-09
 
 ## Dados de filmes
 
+### Filmes da página inicial
+
+A home sorteia 18 pôsteres distintos e outro filme para o exemplo de match, usando `src/data/landingMovies.json`. O catálogo é obtido da função `discover` já publicada, com nota mínima 7,5, pelo menos 3.000 votos, ordenação por popularidade e conteúdo adulto desativado. Os pôsteres carregam diretamente do CDN do TMDB; título, ano e imagem são selecionados como um único objeto. O filme de exemplo não repete a visita anterior quando o armazenamento local está disponível.
+
+O sorteio acontece uma vez por abertura. Digitar um código ou pausar a animação não troca os filmes. O catálogo acompanha o deploy, mantendo a home sem autenticação nem consultas ao Supabase antes de uma ação do visitante. Para renovar os títulos e depois publicar um novo preview:
+
+```bash
+pnpm refresh:landing-catalog
+pnpm build
+```
+
+O comando usa somente a URL e a chave pública anon da configuração local; não cria usuários nem grava dados no banco. A chave do TMDB permanece na Edge Function. Os testes de navegador simulam o CDN; a verificação visual final também confere o carregamento real das imagens.
+
 ### Analytics opcional
 
 O script de Web Analytics só é carregado quando `VITE_ENABLE_ANALYTICS=true`. Ative primeiro Web Analytics no projeto da Vercel e depois configure essa variável e faça um novo deploy. Isso evita tentar executar a página HTML de fallback quando o endpoint de Analytics não está disponível. [Configuração oficial](https://vercel.com/docs/analytics/quickstart).
