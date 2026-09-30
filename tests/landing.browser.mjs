@@ -12,6 +12,8 @@ const posterFixture = await readFile(new URL('../public/demo/interstellar.jpg', 
 const catalogue = JSON.parse(await readFile(new URL('../src/data/landingMovies.json', import.meta.url), 'utf8'))
 
 const baseUrl = process.env.TEST_BASE_URL || 'http://127.0.0.1:4178'
+const sessionUrl = new URL(baseUrl)
+sessionUrl.pathname = '/s/DEMO01'
 let server
 let browser
 
@@ -363,7 +365,7 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
     const gate = new Promise(resolve => { release = resolve })
     await ctx.route(/supabase\.co\/auth\//, async route => { await gate; await route.fallback() })
     try {
-      await page.goto(new URL('/s/DEMO01', baseUrl).href)
+      await page.goto(sessionUrl.href)
       const loader = page.locator('.cinema-session-loader')
       await loader.waitFor()
       assert.equal(await loader.locator('.cinema-wave').count(), 4)
@@ -391,7 +393,7 @@ for (const width of [390, 768, 1440]) {
       Object.defineProperty(navigator, 'share', { configurable: true, value: async payload => { window.sharePayload = payload; throw new DOMException('Cancelled', 'AbortError') } })
     })
     try {
-      await page.goto(new URL('/s/DEMO01', baseUrl).href)
+      await page.goto(sessionUrl.href)
       const trigger = page.getByRole('button', { name: 'Compartilhar sessão' })
       await trigger.click()
       const panel = page.getByRole('dialog', { name: 'Convidar para a sessão' })
