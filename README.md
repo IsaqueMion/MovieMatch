@@ -234,12 +234,17 @@ O sorteio acontece uma vez por abertura. Digitar um código ou pausar a animaç�
 
 ```bash
 pnpm refresh:landing-catalog
+python scripts/refresh-landing-previews.py
 pnpm build
 ```
 
 O comando usa somente a URL e a chave pública anon da configuração local; não cria usuários nem grava dados no banco. A chave do TMDB permanece na Edge Function. Os testes de navegador simulam o CDN; a verificação visual final também confere o carregamento real das imagens.
 
+O gerador de miniaturas requer Python 3 e Pillow, usados somente na manutenção do catálogo. Ele embute uma prévia JPEG de 24×36 de cada filme, sem uma requisição extra na abertura. A imagem do CDN aparece em transição suave depois de decodificada; se falhar, a prévia permanece. Os quatro pôsteres maiores da posição inicial têm prioridade de rede. O exemplo de match carrega sua imagem completa apenas ao se aproximar da tela.
+
 O corredor desenha a camada de cada pôster em tamanho suficiente para sua maior projeção visível, evitando ampliar uma textura pequena na aproximação. Em celulares usa w500, nas demais telas w780 e em desktops de alta densidade a imagem original. Os botões da home usam um componente reutilizável inspirado no círculo expansível da referência enviada, com setas que se movem para cima e à direita, para baixo ou para a direita. Movimento reduzido desativa as animações, preservando foco e identificação das ações.
+
+Os controles de votação mantêm os mesmos callbacks e bloqueios. O coração verde alterna contorno e preenchimento, com pulsação ao passar o mouse; recusar usa coral e um balanço breve, e desfazer usa uma rotação para trás. Animações contínuas ficam restritas ao hover de dispositivos com mouse, e a preferência por movimento reduzido desativa os efeitos.
 
 ### Analytics opcional
 

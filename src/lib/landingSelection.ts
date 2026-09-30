@@ -1,4 +1,4 @@
-export type LandingMovie = { id: number; title: string; year: number; poster: string }
+export type LandingMovie = { id: number; title: string; year: number; poster: string; preview?: string }
 export type LandingSelection = { posters: LandingMovie[]; featured: LandingMovie }
 
 /** Draw once per visit; the featured film and the two rails never share a poster. */

@@ -121,7 +121,7 @@ test('a visita seguinte muda os filmes e mantém título, ano e pôster sincroni
   try {
     await page.goto(baseUrl)
     await page.locator('#recursos').scrollIntoViewIfNeeded()
-    const img = page.locator('.cinema-match-example > img')
+    const img = page.locator('.cinema-match-example .cinema-poster img')
     await img.waitFor()
     const source = await img.getAttribute('src')
     const film = catalogue.movies.find(movie => movie.poster === source)
@@ -134,7 +134,7 @@ test('a visita seguinte muda os filmes e mantém título, ano e pôster sincroni
     assert.deepEqual(await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src)), rails)
     await page.reload()
     await page.locator('#recursos').scrollIntoViewIfNeeded()
-    assert.notEqual(await page.locator('.cinema-match-example > img').getAttribute('src'), source)
+    assert.notEqual(await page.locator('.cinema-match-example .cinema-poster img').getAttribute('src'), source)
     assert.notDeepEqual(await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src)), rails)
   } finally { await ctx.close() }
 })
@@ -196,6 +196,100 @@ test('o corredor seleciona pôster original em desktop de alta densidade e desen
       return { base: element.offsetHeight, displayed: element.getBoundingClientRect().height }
     })
     assert.ok(raster.base >= raster.displayed, 'A textura não deve ser ampliada ao chegar à borda.')
+  } finally { await ctx.close() }
+})
+
+test('rede lenta e recarga mostram miniaturas locais antes da imagem nítida, sem autenticação', async () => {
+  const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 } })
+  let release
+  const network = new Promise(resolve => { release = resolve })
+  await ctx.route(/https:\/\/image\.tmdb\.org\//, async route => {
+    await network
+    await route.fulfill({ contentType: 'image/jpeg', body: posterFixture }).catch(() => {})
+  })
+  try {
+    for (let visit = 0; visit < 2; visit++) {
+      await page.goto(baseUrl, { waitUntil: 'domcontentloaded' })
+      await page.locator('h1').waitFor()
+      const previews = await page.locator('.image-stream-card .cinema-poster').evaluateAll(elements => elements.map(element => ({ background: getComputedStyle(element).backgroundImage, ready: element.classList.contains('is-ready') })))
+      assert.equal(previews.length, 18)
+      assert.ok(previews.every(preview => preview.background.includes('data:image/jpeg;base64,') && !preview.ready))
+      // The preview is embedded in the document bundle, not another slow network request.
+      const dimensions = await page.locator('.image-stream-card .cinema-poster').first().evaluate(async element => {
+        const thumbnail = new Image()
+        thumbnail.src = element.style.backgroundImage.slice(5, -2)
+        await thumbnail.decode()
+        return [thumbnail.naturalWidth, thumbnail.naturalHeight]
+      })
+      assert.deepEqual(dimensions, [24, 36])
+      assert.equal(await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).isEnabled(), true)
+      assert.equal(state.requests.length, 0)
+      if (process.env.VISUAL_CAPTURE_DIR && visit === 0) {
+        await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).click()
+        await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/cinema-loading-390.png' })
+      }
+    }
+    release()
+    await page.waitForFunction(() => document.querySelectorAll('.image-stream-card .cinema-poster.is-ready').length === 18)
+  } finally { release(); await ctx.close() }
+})
+
+test('pôsteres bloqueados mantêm a miniatura do filme no corredor', async () => {
+  const { ctx, page } = await context()
+  await ctx.route(/https:\/\/image\.tmdb\.org\//, route => route.abort())
+  try {
+    await page.goto(baseUrl)
+    const previews = await page.locator('.image-stream-card .cinema-poster').evaluateAll(elements => elements.map(element => getComputedStyle(element).backgroundImage))
+    assert.equal(previews.length, 18)
+    assert.ok(previews.every(preview => preview.includes('data:image/jpeg;base64,')))
+  } finally { await ctx.close() }
+})
+
+test('novos controles permitem curtir, desfazer e recusar; foco e movimento reduzido permanecem acessíveis', async () => {
+  const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 } })
+  try {
+    await page.goto(baseUrl)
+    await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
+    await page.waitForURL('**/s/DEMO01')
+    const like = page.getByRole('button', { name: 'Like', exact: true })
+    const undo = page.getByRole('button', { name: 'Desfazer', exact: true })
+    const dislike = page.getByRole('button', { name: 'Dislike', exact: true })
+    await like.waitFor()
+    await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-like').disabled)
+    assert.equal(await undo.isDisabled(), true)
+    await like.hover()
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.is-like .filled')).opacity === '1')
+    assert.equal(await like.locator('.filled').evaluate(element => getComputedStyle(element).animationName), 'cinema-heartbeat')
+    await like.click()
+    for (let attempt = 0; attempt < 50 && state.reactions.length < 1; attempt++) await delay(100)
+    assert.equal(state.reactions.length, 1)
+    assert.equal(state.reactions[0].value, 1)
+    await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-undo').disabled)
+    await undo.click()
+    for (let attempt = 0; attempt < 50 && !state.requests.some(request => request.path.includes('/reactions') && request.method === 'DELETE'); attempt++) await delay(100)
+    await page.waitForFunction(() => document.querySelector('.cinema-vote-button.is-undo').disabled && !document.querySelector('.cinema-vote-button.is-dislike').disabled)
+    assert.equal(state.requests.filter(request => request.path.includes('/reactions') && request.method === 'DELETE').length, 1)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await like.focus()
+    await page.keyboard.press('Shift+Tab')
+    assert.equal(await dislike.evaluate(element => element === document.activeElement), true)
+    assert.equal(await dislike.evaluate(element => getComputedStyle(element).outlineStyle), 'solid')
+    await dislike.hover()
+    assert.equal(await dislike.locator('.cinema-vote-icon').evaluate(element => getComputedStyle(element).animationName), 'none')
+    await dislike.click()
+    for (let attempt = 0; attempt < 50 && state.reactions.length < 2; attempt++) await delay(100)
+    assert.equal(state.reactions.length, 2)
+    assert.equal(state.reactions[1].value, -1)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+    if (process.env.VISUAL_CAPTURE_DIR) {
+      await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-like').disabled)
+      await delay(1900)
+      await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/cinema-vote-390.png' })
+      await page.setViewportSize({ width: 1440, height: 1000 })
+      await like.hover()
+      await delay(200)
+      await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/cinema-vote-1440.png' })
+    }
   } finally { await ctx.close() }
 })
 

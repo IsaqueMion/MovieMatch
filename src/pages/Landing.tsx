@@ -37,7 +37,7 @@ export default function Landing() {
   })
   const navigate = useNavigate()
   const [selection] = useState(drawMovies)
-  const posterImages: StreamImage[] = useMemo(() => selection.posters.map(movie => ({ src: movie.poster })), [selection.posters])
+  const posterImages: StreamImage[] = useMemo(() => selection.posters.map(movie => ({ src: movie.poster, preview: movie.preview })), [selection.posters])
   const [code, setCode] = useState('')
   const [status, setStatus] = useState('')
   const [failed, setFailed] = useState(false)

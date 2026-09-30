@@ -37,6 +37,48 @@ html, body, #root { height: 100%; }
 .image-stream-card { position: absolute; overflow: hidden; background: var(--cinema-surface); box-shadow: 0 0 0 1px #ffffff12, 0 10px 35px #0006; }
 .image-stream-card picture, .image-stream-card img { display: block; width: 100%; height: 100%; }
 .image-stream-card img { object-fit: cover; }
+.cinema-poster { position: relative; width: 100%; height: 100%; overflow: hidden; background-color: var(--cinema-surface); background-size: cover; background-position: center; }
+.cinema-poster picture, .cinema-poster img { display: block; width: 100%; height: 100%; }
+.cinema-poster img { object-fit: cover; opacity: 0; transition: opacity .25s ease; }
+.cinema-poster.is-ready img { opacity: 1; }
+.cinema-vote-actions { display: flex; align-items: center; justify-content: center; gap: 22px; max-width: 448px; margin-inline: auto; }
+.cinema-vote-actions.is-preview { pointer-events: none; }
+.cinema-vote-button { --vote-color: #75efb8; --vote-rim: #2b5140; --vote-hover-rim: #40725a; position: relative; display: grid; place-items: center; width: 68px; height: 68px; border: 7px solid var(--vote-rim); border-radius: 26px; background: #19241f; color: var(--vote-color); box-shadow: inset 0 -3px 8px #0006, 0 6px 18px #0003; touch-action: manipulation; transition: transform .4s cubic-bezier(.68, -.55, .27, 1.55), border-color .4s, background-color .4s; }
+.cinema-vote-button.is-dislike { --vote-color: #f4a495; --vote-rim: #513632; --vote-hover-rim: #795048; background: #2c211f; }
+.cinema-vote-button.is-undo { --vote-color: #dccda8; --vote-rim: #444237; --vote-hover-rim: #68614e; width: 54px; height: 54px; border-width: 6px; border-radius: 21px; background: #25251f; }
+.cinema-vote-icon { display: grid; place-items: center; width: 30px; height: 30px; }
+.cinema-vote-icon svg { grid-area: 1 / 1; width: 30px; height: 30px; stroke-width: 2; transition: opacity .15s; }
+.cinema-vote-button.is-undo svg { width: 23px; height: 23px; }
+.cinema-vote-button .filled { fill: currentColor; opacity: 0; }
+.cinema-vote-button:disabled { opacity: .38; cursor: not-allowed; }
+.cinema-vote-button:focus-visible { outline: 2px solid var(--vote-color); outline-offset: 5px; }
+.cinema-vote-button:active:not(:disabled) { transform: scale(.93); }
+.cinema-vote-button:focus-visible:not(:disabled) { border-color: var(--vote-hover-rim); }
+.cinema-vote-button:is(:hover, :focus-visible):not(:disabled) .empty { opacity: 0; }
+.cinema-vote-button:is(:hover, :focus-visible):not(:disabled) .filled { opacity: 1; }
+@media (hover: hover) {
+  .cinema-vote-button:hover:not(:disabled) { transform: scale(1.05); background-color: #25332c; animation: cinema-vote-border 3s ease-in-out infinite; }
+  .cinema-vote-button.is-dislike:hover:not(:disabled) { background-color: #382824; }
+  .cinema-vote-button.is-undo:hover:not(:disabled) { background-color: #302f27; }
+  .cinema-vote-button.is-like:hover:not(:disabled) .filled { animation: cinema-heartbeat 1.2s infinite; }
+  .cinema-vote-button.is-dislike:hover:not(:disabled) .cinema-vote-icon { animation: cinema-refuse .55s ease both; }
+  .cinema-vote-button.is-undo:hover:not(:disabled) .cinema-vote-icon { animation: cinema-undo .55s ease both; }
+  .cinema-vote-button:active:not(:disabled) { transform: scale(.93); }
+}
+@keyframes cinema-vote-border { 0%, 100% { border-color: var(--vote-rim); } 50% { border-color: var(--vote-hover-rim); } }
+@keyframes cinema-heartbeat { 0%, 30%, 60%, 100% { transform: scale(1); } 15%, 45% { transform: scale(1.15); } }
+@keyframes cinema-refuse { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(-12deg); } 70% { transform: rotate(8deg); } }
+@keyframes cinema-undo { 0% { transform: rotate(0); } 45% { transform: rotate(-35deg); } 100% { transform: rotate(0); } }
+@media (min-width: 640px) {
+  .cinema-vote-actions { gap: 26px; }
+  .cinema-vote-button { width: 76px; height: 76px; border-width: 8px; border-radius: 29px; }
+  .cinema-vote-button.is-undo { width: 60px; height: 60px; border-width: 6px; border-radius: 23px; }
+  .cinema-vote-icon, .cinema-vote-icon svg { width: 32px; height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cinema-poster img, .cinema-vote-button, .cinema-vote-icon svg { transition: none !important; }
+  .cinema-vote-button, .cinema-vote-button .cinema-vote-icon, .cinema-vote-button .filled { animation: none !important; transform: none !important; }
+}
 
 .cinema-page { background: var(--cinema-bg); color: var(--cinema-ink); font-family: var(--cinema-body); overflow-x: clip; }
 .cinema-page *, .mm-ad-notice * { box-sizing: border-box; }
@@ -126,9 +168,11 @@ html, body, #root { height: 100%; }
 .cinema-features h3 { font-family: var(--cinema-body); font-size: 13px; font-weight: 700; }
 .cinema-features p { font-size: 12px; line-height: 1.8; color: var(--cinema-muted); margin-top: 5px; max-width: 365px; }
 .cinema-match-example { position: relative; justify-self: center; width: min(100%, 320px); padding-bottom: 92px; }
-.cinema-match-example > img { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 5px; }
+.cinema-match-example > .cinema-poster { height: auto; aspect-ratio: 2 / 3; border-radius: 5px; }
+.cinema-match-example .cinema-poster picture { position: absolute; inset: 0; }
 .cinema-poster-unavailable { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; width: 100%; aspect-ratio: 2 / 3; padding: 28px; text-align: center; border: 1px solid var(--cinema-line); border-radius: 5px; background: var(--cinema-surface); font: 500 28px/1.2 var(--cinema-display); }
 .cinema-poster-unavailable small { color: var(--cinema-muted); font: 400 12px/1.6 var(--cinema-body); }
+.cinema-poster .cinema-poster-unavailable { position: absolute; inset: 0; height: 100%; background: #191e1dc9; }
 .cinema-match-example figcaption { position: absolute; left: -40px; bottom: 0; width: calc(100% + 65px); background: #202925; border: 1px solid #526159; border-radius: 7px; padding: 23px 25px; box-shadow: 0 12px 50px #0004; }
 .cinema-match-example .cinema-eyebrow { font-size: 9px; color: #b4c1b7; letter-spacing: 1.2px; }
 .cinema-example-members { display: flex; margin-block: 16px; }

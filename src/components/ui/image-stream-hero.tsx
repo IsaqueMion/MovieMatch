@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ComponentProps } from 'react'
+import { PosterImage } from './poster-image'
 
 export type CorridorPath = {
   perspective?: number
@@ -38,7 +39,7 @@ function keyframes(direction: 1 | -1, name: string, path: Required<CorridorPath>
   return `@keyframes ${name}{${steps.join('')}}`
 }
 
-export type StreamImage = { src: string; alt?: string }
+export type StreamImage = { src: string; alt?: string; preview?: string }
 export type ImageStreamHeroProps = ComponentProps<'div'> & {
   images: StreamImage[]
   cards?: number
@@ -95,13 +96,7 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
                 animationDelay: `${-(index * duration) / count}s`, animationPlayState: paused || !visible || !pageVisible ? 'paused' : 'running',
                 backfaceVisibility: 'hidden',
               }}>
-                {image ? <picture>
-                  {image.src.startsWith('https://image.tmdb.org/t/p/w500/') ? <>
-                    <source media="(min-width: 1024px) and (min-resolution: 1.5dppx)" srcSet={image.src.replace('/w500/', '/original/')} />
-                    <source media="(max-width: 639px) and (max-resolution: 2dppx)" srcSet={image.src} />
-                  </> : null}
-                  <img src={image.src.replace('https://image.tmdb.org/t/p/w500/', 'https://image.tmdb.org/t/p/w780/')} alt="" width={780} height={1170} decoding="async" draggable={false} onError={event => { event.currentTarget.style.visibility = 'hidden' }} />
-                </picture> : null}
+                {image ? <PosterImage key={image.src} src={image.src} preview={image.preview} alt="" corridor priority={index === count - 2 || index === count - 3} /> : null}
               </div>
             )
           }))}
