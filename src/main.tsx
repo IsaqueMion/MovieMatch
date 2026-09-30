@@ -8,7 +8,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 )
-if (import.meta.env.PROD) {
+// Enable only after Web Analytics is activated in the Vercel project.
+// Otherwise the SPA fallback can return HTML for the analytics script URL.
+if (import.meta.env.PROD && import.meta.env.VITE_ENABLE_ANALYTICS === 'true') {
   const analyticsWindow =
     window as Window & {
       va?: (...args: unknown[]) => void

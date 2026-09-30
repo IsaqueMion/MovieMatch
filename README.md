@@ -126,6 +126,7 @@ Crie um arquivo `.env` na raiz do projeto usando `.env.example` como referência
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-chave-anon-aqui
+VITE_ENABLE_ANALYTICS=false
 ```
 
 Nunca versione chaves ou credenciais privadas.
@@ -224,6 +225,10 @@ revival/2026-09
 ```
 
 ## Dados de filmes
+
+### Analytics opcional
+
+O script de Web Analytics só é carregado quando `VITE_ENABLE_ANALYTICS=true`. Ative primeiro Web Analytics no projeto da Vercel e depois configure essa variável e faça um novo deploy. Isso evita tentar executar a página HTML de fallback quando o endpoint de Analytics não está disponível. [Configuração oficial](https://vercel.com/docs/analytics/quickstart).
 
 ### Verificação do consenso no Supabase
 
