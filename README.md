@@ -157,7 +157,7 @@ pnpm test
 
 Os testes unitários usam o test runner nativo do Node.js e cobrem, inicialmente, a assinatura dos filtros, persistência do progresso de swipe e embaralhamento determinístico.
 
-Os testes de navegador cobrem a home em 390, 768 e 1440 pixels, fontes e pôsteres locais, ausência de autenticação ao abrir a página, movimento reduzido, entrada inválida/expirada, erros de conexão e votação com publicidade bloqueada. Todas as chamadas ao Supabase são simuladas nesta suíte.
+Os testes de navegador cobrem a home em 390, 768 e 1440 pixels, fontes locais, pôsteres distintos, ausência de autenticação ao abrir a página, movimento reduzido, botões com animação direcional, imagens em telas de alta densidade, entrada inválida/expirada, erros de conexão e votação com publicidade bloqueada. Todas as chamadas ao Supabase e ao CDN de imagens são simuladas nesta suíte.
 
 ```bash
 pnpm build
@@ -238,6 +238,8 @@ pnpm build
 ```
 
 O comando usa somente a URL e a chave pública anon da configuração local; não cria usuários nem grava dados no banco. A chave do TMDB permanece na Edge Function. Os testes de navegador simulam o CDN; a verificação visual final também confere o carregamento real das imagens.
+
+O corredor desenha a camada de cada pôster em tamanho suficiente para sua maior projeção visível, evitando ampliar uma textura pequena na aproximação. Em celulares usa w500, nas demais telas w780 e em desktops de alta densidade a imagem original. Os botões da home usam um componente reutilizável inspirado no círculo expansível da referência enviada, com setas que se movem para cima e à direita, para baixo ou para a direita. Movimento reduzido desativa as animações, preservando foco e identificação das ações.
 
 ### Analytics opcional
 

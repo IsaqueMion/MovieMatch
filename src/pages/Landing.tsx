@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDown, ArrowRight, ArrowUpRight, Clapperboard, Heart, Pause, Play, SlidersHorizontal, Users } from 'lucide-react'
+import { ArrowUpRight, Clapperboard, Heart, Pause, Play, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
 import { ImageStreamHero, type StreamImage } from '../components/ui/image-stream-hero'
 import LandingSwipePreview from '../components/landing/LandingSwipePreview'
 import catalogue from '../data/landingMovies.json'
 import { selectLandingMovies } from '../lib/landingSelection'
+import CinemaButton from '../components/ui/cinema-button'
 
 const FEATURED_KEY = 'mm:landing-featured:v1'
 
@@ -138,9 +139,9 @@ export default function Landing() {
           <a href="#como-funciona">Como funciona</a>
           <a href="#recursos">A experiência</a>
         </nav>
-        <button className="cinema-header-action" onClick={() => void handleCreate()} disabled={busyAction !== null}>
-          {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}<ArrowUpRight size={16} aria-hidden="true" />
-        </button>
+        <CinemaButton compact tone="secondary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
+          {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}
+        </CinemaButton>
       </header>
 
       <main id="conteudo">
@@ -155,10 +156,10 @@ export default function Landing() {
             <div className="cinema-hero-bottom">
               <p className="cinema-stream-caption">Uma prévia do catálogo. A sessão de verdade começa com você.</p>
               <div className="cinema-hero-actions">
-                <button className="cinema-button cinema-button-primary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
-                  {busyAction === 'create' ? 'Criando sessão…' : 'Criar uma sessão'}<ArrowUpRight size={20} aria-hidden="true" />
-                </button>
-                <button className="cinema-button cinema-button-secondary" onClick={focusJoin} disabled={busyAction !== null}>Tenho um código<ArrowDown size={18} aria-hidden="true" /></button>
+                <CinemaButton onClick={() => void handleCreate()} disabled={busyAction !== null}>
+                  {busyAction === 'create' ? 'Criando sessão…' : 'Criar uma sessão'}
+                </CinemaButton>
+                <CinemaButton tone="secondary" direction="down" onClick={focusJoin} disabled={busyAction !== null}>Tenho um código</CinemaButton>
               </div>
               <p className="cinema-hero-note">Sem cadastro. Sem baixar nada. Só escolher.</p>
             </div>
@@ -174,7 +175,7 @@ export default function Landing() {
             <label htmlFor="session-code">Código da sessão</label>
             <div className="cinema-join-controls">
               <input id="session-code" ref={inputRef} value={code} onChange={event => { setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)); setStatus(''); setFailed(false) }} placeholder="EX.: 7F9XQ2" maxLength={6} autoCapitalize="characters" autoComplete="off" spellCheck={false} disabled={busyAction !== null} aria-invalid={code.length > 0 && !complete} aria-describedby="session-code-hint session-status" />
-              <button type="submit" className="cinema-button cinema-button-light" disabled={!complete || busyAction !== null}>{busyAction === 'join' ? 'Entrando…' : 'Entrar'}<ArrowRight size={18} aria-hidden="true" /></button>
+              <CinemaButton type="submit" tone="light" direction="right" disabled={!complete || busyAction !== null}>{busyAction === 'join' ? 'Entrando…' : 'Entrar'}</CinemaButton>
             </div>
             <p className="cinema-input-hint" id="session-code-hint">{hint}</p>
           </form>
@@ -199,7 +200,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="cinema-final-cta cinema-container"><span className="cinema-eyebrow">LUZES BAIXAS. ESCOLHA FEITA.</span><h2>Hoje tem filme.</h2><button className="cinema-button cinema-button-primary" onClick={() => void handleCreate()} disabled={busyAction !== null}>{busyAction === 'create' ? 'Criando sessão…' : 'Começar uma sessão'}<ArrowUpRight size={20} aria-hidden="true" /></button></section>
+        <section className="cinema-final-cta cinema-container"><span className="cinema-eyebrow">LUZES BAIXAS. ESCOLHA FEITA.</span><h2>Hoje tem filme.</h2><CinemaButton onClick={() => void handleCreate()} disabled={busyAction !== null}>{busyAction === 'create' ? 'Criando sessão…' : 'Começar uma sessão'}</CinemaButton></section>
       </main>
 
       <footer className="cinema-footer cinema-container">

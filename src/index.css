@@ -35,7 +35,8 @@ html, body, #root { height: 100%; }
 .image-stream-corridor { position: absolute; inset: 0; pointer-events: none; }
 .image-stream-rails { position: absolute; inset: 0; transform-style: preserve-3d; }
 .image-stream-card { position: absolute; overflow: hidden; background: var(--cinema-surface); box-shadow: 0 0 0 1px #ffffff12, 0 10px 35px #0006; }
-.image-stream-card img { width: 100%; height: 100%; object-fit: cover; }
+.image-stream-card picture, .image-stream-card img { display: block; width: 100%; height: 100%; }
+.image-stream-card img { object-fit: cover; }
 
 .cinema-page { background: var(--cinema-bg); color: var(--cinema-ink); font-family: var(--cinema-body); overflow-x: clip; }
 .cinema-page *, .mm-ad-notice * { box-sizing: border-box; }
@@ -53,8 +54,6 @@ html, body, #root { height: 100%; }
 .cinema-brand-dot { color: var(--cinema-accent); margin-left: -7px; }
 .cinema-header nav { display: flex; gap: 32px; font-size: 13px; color: var(--cinema-muted); }
 .cinema-header nav a:hover, .cinema-footer a:hover { color: var(--cinema-ink); }
-.cinema-header-action { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; padding-inline: 16px; font-size: 13px; font-weight: 600; border: 1px solid var(--cinema-line); border-radius: 6px; transition: border-color .2s, background .2s; }
-.cinema-header-action:hover { background: var(--cinema-surface); border-color: var(--cinema-muted); }
 .cinema-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 700; line-height: 1.6; letter-spacing: 1.8px; text-transform: uppercase; color: var(--cinema-muted); }
 .cinema-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--cinema-accent); }
 .cinema-stream { min-height: 790px; }
@@ -68,13 +67,28 @@ html, body, #root { height: 100%; }
 .cinema-mobile-break { display: none; }
 .cinema-stream-caption { font-size: 11px; color: #c3cbc6; letter-spacing: .15px; margin-bottom: 17px; }
 .cinema-hero-actions { display: flex; justify-content: center; gap: 12px; }
-.cinema-button { display: inline-flex; align-items: center; justify-content: center; gap: 22px; min-height: 54px; padding: 13px 24px; border-radius: 6px; font-size: 14px; font-weight: 700; line-height: 1.5; transition: background .2s, border-color .2s, transform .2s; }
-.cinema-button:hover:not(:disabled) { transform: translateY(-2px); }
-.cinema-button-primary { background: var(--cinema-accent); color: #10261b; border: 1px solid var(--cinema-accent); }
-.cinema-button-primary:hover:not(:disabled) { background: #a2ffd0; border-color: #a2ffd0; }
-.cinema-button-secondary { background: #101313e6; border: 1px solid #56645d; color: var(--cinema-ink); }
-.cinema-button-secondary:hover { background: var(--cinema-surface); }
-.cinema-button-light { background: var(--cinema-ink); color: var(--cinema-bg); border: 1px solid var(--cinema-ink); }
+.cinema-button { --button-height: 54px; --button-circle: calc(var(--button-height) - 4px); --arrow-x: 24px; --arrow-y: -24px; position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; height: var(--button-height); padding: 0 68px 0 24px; border: 1px solid var(--button-line); border-radius: calc(var(--button-height) / 2); background: #101313e6; color: var(--cinema-ink); font-size: 14px; font-weight: 700; line-height: 1.5; isolation: isolate; transition: transform .2s; }
+.cinema-button-primary { --button-fill: var(--cinema-accent); --button-line: #75efb84d; --button-arrow: #10261b; --button-hover-ink: #10261b; --button-glow: #75efb826; }
+.cinema-button-secondary { --button-fill: #263c30; --button-line: #56645d; --button-arrow: var(--cinema-accent); --button-hover-ink: var(--cinema-ink); --button-glow: #75efb81a; }
+.cinema-button-light { --button-fill: var(--cinema-ink); --button-line: #f5f4ee55; --button-arrow: var(--cinema-bg); --button-hover-ink: var(--cinema-bg); --button-glow: #f5f4ee26; }
+.cinema-button-right { --arrow-x: 34px; --arrow-y: 0px; }
+.cinema-button-down { --arrow-x: 0px; --arrow-y: 34px; }
+.cinema-button-circle { position: absolute; top: 1px; right: 1px; width: var(--button-circle); height: var(--button-circle); border-radius: calc(var(--button-circle) / 2); background: var(--button-fill); z-index: -1; transition: width .45s cubic-bezier(.65, 0, .076, 1), box-shadow .45s; }
+.cinema-button-text { position: relative; white-space: nowrap; transition: color .45s, transform .45s cubic-bezier(.65, 0, .076, 1); }
+.cinema-button-arrow { position: absolute; top: 1px; right: 1px; display: grid; place-items: center; width: var(--button-circle); height: var(--button-circle); overflow: hidden; border-radius: 50%; color: var(--button-arrow); }
+.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-circle { width: calc(100% - 2px); box-shadow: 0 0 18px var(--button-glow); }
+.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-text { color: var(--button-hover-ink); transform: translateX(-3px); }
+.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-arrow svg { animation: cinema-arrow-travel .55s cubic-bezier(.4, 0, .2, 1) both; }
+.cinema-button:active:not(:disabled) { transform: scale(.97); }
+.cinema-button:disabled .cinema-button-arrow svg { animation: none; }
+.cinema-button.is-compact { --button-height: 44px; padding: 0 54px 0 16px; font-size: 13px; }
+.cinema-button.is-compact .cinema-button-arrow svg { width: 16px; height: 16px; }
+@keyframes cinema-arrow-travel {
+  0% { transform: translate(0, 0); opacity: 1; }
+  44% { transform: translate(var(--arrow-x), var(--arrow-y)); opacity: 0; }
+  45% { transform: translate(calc(-1 * var(--arrow-x)), calc(-1 * var(--arrow-y))); opacity: 0; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
 .cinema-hero-note { color: var(--cinema-muted); font-size: 11px; margin-top: 18px; }
 .cinema-motion-toggle { position: absolute; bottom: 36px; right: 40px; z-index: 3; display: grid; place-items: center; width: 44px; height: 44px; color: var(--cinema-muted); opacity: .55; border-radius: 50%; transition: opacity .2s, background .2s; }
 .cinema-motion-toggle:hover, .cinema-motion-toggle:focus-visible { opacity: 1; background: #ffffff08; }
@@ -165,7 +179,7 @@ html, body, #root { height: 100%; }
   .cinema-header { height: 74px; gap: 10px; }
   .cinema-brand { font-size: 21px; }
   .cinema-header nav { display: none; }
-  .cinema-header-action { padding-inline: 10px; font-size: 11px; gap: 6px; }
+  .cinema-header .cinema-button.is-compact { padding: 0 46px 0 12px; font-size: 11px; }
   .cinema-stream, .cinema-stream-content { min-height: 660px; }
   .cinema-stream-content { padding: 42px 20px 53px; }
   .cinema-hero-copy .cinema-eyebrow { font-size: 9px; letter-spacing: 1.3px; margin-bottom: 20px; }
@@ -176,14 +190,14 @@ html, body, #root { height: 100%; }
   .cinema-hero-bottom { width: 100%; }
   .cinema-stream-caption { max-width: 265px; margin: 0 auto 16px; font-size: 10px; line-height: 1.6; }
   .cinema-hero-actions { gap: 8px; }
-  .cinema-button { min-height: 50px; padding: 12px 15px; font-size: 12px; gap: 12px; }
+  .cinema-button { --button-height: 50px; padding: 0 58px 0 14px; font-size: 12px; }
+  .cinema-hero-actions .cinema-button { flex: 1; min-width: 0; }
   .cinema-hero-note { margin-top: 15px; font-size: 10px; }
   .cinema-motion-toggle { bottom: 2px; right: 12px; }
   .cinema-join { grid-template-columns: 1fr; gap: 24px; padding-block: 30px; }
   .cinema-join h2 { font-size: 25px; }
   .cinema-join-form { max-width: none; }
   .cinema-join-controls input { min-height: 50px; font-size: 16px; }
-  .cinema-join-controls .cinema-button { padding-inline: 20px; }
   .cinema-how { padding-block: 62px; }
   .cinema-section-heading { display: block; }
   .cinema-section-heading h2 { font-size: 36px; margin-top: 14px; letter-spacing: -1.4px; }
@@ -205,5 +219,10 @@ html, body, #root { height: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cinema-page *, .cinema-page *::before, .cinema-page *::after { scroll-behavior: auto !important; transition: none !important; }
-  .cinema-button:hover:not(:disabled) { transform: none; }
+  .cinema-button:active:not(:disabled), .cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-text { transform: none; }
+  .cinema-button .cinema-button-arrow svg { animation: none !important; }
+}
+@media (max-width: 359px) {
+  .cinema-hero-actions { flex-direction: column; align-items: center; }
+  .cinema-hero-actions .cinema-button { flex: none; width: min(100%, 230px); }
 }

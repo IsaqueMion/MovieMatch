@@ -129,7 +129,7 @@ test('a visita seguinte muda os filmes e mantém título, ano e pôster sincroni
     assert.equal(await img.getAttribute('alt'), 'Pôster de ' + film.title)
     assert.equal(await page.locator('.cinema-example-film').innerText(), film.title + ' · ' + film.year)
     const rails = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src))
-    assert.equal(rails.includes(source), false)
+    assert.equal(rails.some(url => new URL(url).pathname.split('/').pop() === new URL(source, baseUrl).pathname.split('/').pop()), false)
     await page.locator('#session-code').fill('AB')
     assert.deepEqual(await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src)), rails)
     await page.reload()
@@ -150,6 +150,52 @@ test('falha do pôster mostra indisponibilidade e preserva o nome do filme', asy
     const title = await fallback.locator('span').innerText()
     assert.equal(await fallback.getAttribute('aria-label'), 'Pôster indisponível de ' + title)
     assert.match(await page.locator('.cinema-example-film').innerText(), new RegExp('^' + title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  } finally { await ctx.close() }
+})
+
+test('botões expandem o círculo e animam cada seta na sua direção, respeitando movimento reduzido', async () => {
+  const { ctx, page } = await context()
+  try {
+    await page.goto(baseUrl)
+    await page.locator('#session-code').fill('DEMO01')
+    for (const [name, xSign, ySign] of [['Criar uma sessão', 1, -1], ['Tenho um código', 0, 1], ['Entrar', 1, 0]]) {
+      const button = page.getByRole('button', { name, exact: true })
+      await button.hover()
+      const arrow = button.locator('.cinema-button-arrow svg')
+      await arrow.evaluate(element => {
+        const animation = element.getAnimations().find(animation => animation instanceof CSSAnimation)
+        animation.pause()
+        animation.currentTime = 120
+      })
+      const movement = await arrow.evaluate(element => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform)
+        return [Math.sign(matrix.m41), Math.sign(matrix.m42)]
+      })
+      assert.deepEqual(movement, [xSign, ySign])
+      await page.waitForFunction(element => element.querySelector('.cinema-button-circle').getBoundingClientRect().width >= element.getBoundingClientRect().width - 5, await button.elementHandle())
+      assert.equal(await button.innerText(), name)
+    }
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const create = page.getByRole('button', { name: 'Criar uma sessão', exact: true })
+    await create.focus()
+    assert.equal(await create.locator('.cinema-button-arrow svg').evaluate(element => getComputedStyle(element).animationName), 'none')
+    assert.equal(await create.evaluate(element => getComputedStyle(element).outlineStyle), 'solid')
+  } finally { await ctx.close() }
+})
+
+test('o corredor seleciona pôster original em desktop de alta densidade e desenha uma camada maior', async () => {
+  const { ctx, page } = await context({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2 })
+  try {
+    await page.goto(baseUrl)
+    await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card img')].every(image => image.complete && image.naturalWidth > 0))
+    const sources = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.currentSrc))
+    assert.ok(sources.every(source => source.includes('/t/p/original/')))
+    await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).click()
+    const raster = await page.locator('.image-stream-card').last().evaluate(element => {
+      element.getAnimations().forEach(animation => { animation.currentTime = 24000 * .89; animation.pause() })
+      return { base: element.offsetHeight, displayed: element.getBoundingClientRect().height }
+    })
+    assert.ok(raster.base >= raster.displayed, 'A textura não deve ser ampliada ao chegar à borda.')
   } finally { await ctx.close() }
 })
 

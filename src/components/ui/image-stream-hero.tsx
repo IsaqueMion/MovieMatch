@@ -22,14 +22,18 @@ const DEFAULT_PATH: Required<CorridorPath> = {
 }
 
 function keyframes(direction: 1 | -1, name: string, path: Required<CorridorPath>) {
+  // Rasterize at the largest visible size, then project down. This avoids
+  // magnifying the browser's small composited texture as a card approaches.
+  const rasterHeight = Math.max(path.cardHeight, path.exitHeight) * 1.1
+  const rasterRatio = rasterHeight / path.cardHeight
   const steps: string[] = []
   for (let step = 0; step <= path.stops; step++) {
     const progress = step / path.stops
-    const scale = (path.birthHeight / path.cardHeight) * Math.pow(path.exitHeight / path.birthHeight, progress)
+    const scale = (path.birthHeight / rasterHeight) * Math.pow(path.exitHeight / path.birthHeight, progress)
     const depth = path.perspective * (1 - 1 / scale)
     const rail = path.railExit - (path.railExit - path.railBirth) * Math.pow(1 - progress, path.fan)
     const turn = path.turnBirth + (path.turnExit - path.turnBirth) * progress
-    steps.push(`${(progress * 100).toFixed(2)}%{transform:translate3d(${(direction * rail).toFixed(2)}cqw,0,${depth.toFixed(2)}cqw) rotateY(${(-direction * turn).toFixed(2)}deg)}`)
+    steps.push(`${(progress * 100).toFixed(2)}%{transform:translate3d(${(direction * rail * rasterRatio).toFixed(2)}cqw,0,${depth.toFixed(2)}cqw) rotateY(${(-direction * turn).toFixed(2)}deg)}`)
   }
   return `@keyframes ${name}{${steps.join('')}}`
 }
@@ -54,6 +58,8 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
   const left = `ish-l-${id}`
   const cardClass = `ish-c-${id}`
   const geometry = useMemo(() => ({ ...DEFAULT_PATH, ...path }), [path])
+  const rasterHeight = Math.max(geometry.cardHeight, geometry.exitHeight) * 1.1
+  const rasterWidth = rasterHeight * geometry.cardWidth / geometry.cardHeight
   const uniqueImages = useMemo(() => [...new Map(images.map(image => [image.src, image])).values()], [images])
   const count = Math.max(0, Math.min(24, Math.floor(cards), Math.floor(uniqueImages.length / 2)))
   const duration = Math.max(1, speed)
@@ -83,13 +89,19 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
             const image = uniqueImages[railIndex * count + index]
             return (
               <div key={`${name}-${index}`} className={`image-stream-card ${cardClass}`} style={{
-                left: '50%', top: `${axis}%`, width: `${geometry.cardWidth}cqw`, height: `${geometry.cardHeight}cqw`,
-                marginLeft: `${-geometry.cardWidth / 2}cqw`, marginTop: `${-geometry.cardHeight / 2}cqw`,
-                borderRadius: `${geometry.cardRadius}cqw`, animation: `${name} ${duration}s linear infinite`,
+                left: '50%', top: `${axis}%`, width: `${rasterWidth}cqw`, height: `${rasterHeight}cqw`,
+                marginLeft: `${-rasterWidth / 2}cqw`, marginTop: `${-rasterHeight / 2}cqw`,
+                borderRadius: `${geometry.cardRadius * rasterHeight / geometry.cardHeight}cqw`, animation: `${name} ${duration}s linear infinite`,
                 animationDelay: `${-(index * duration) / count}s`, animationPlayState: paused || !visible || !pageVisible ? 'paused' : 'running',
                 backfaceVisibility: 'hidden',
               }}>
-                {image ? <img src={image.src} alt="" width={500} height={750} decoding="async" draggable={false} onError={event => { event.currentTarget.style.visibility = 'hidden' }} /> : null}
+                {image ? <picture>
+                  {image.src.startsWith('https://image.tmdb.org/t/p/w500/') ? <>
+                    <source media="(min-width: 1024px) and (min-resolution: 1.5dppx)" srcSet={image.src.replace('/w500/', '/original/')} />
+                    <source media="(max-width: 639px) and (max-resolution: 2dppx)" srcSet={image.src} />
+                  </> : null}
+                  <img src={image.src.replace('https://image.tmdb.org/t/p/w500/', 'https://image.tmdb.org/t/p/w780/')} alt="" width={780} height={1170} decoding="async" draggable={false} onError={event => { event.currentTarget.style.visibility = 'hidden' }} />
+                </picture> : null}
               </div>
             )
           }))}
