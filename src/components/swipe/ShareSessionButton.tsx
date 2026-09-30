@@ -28,8 +28,19 @@ export default function ShareSessionButton({ code }: { code: string }) {
     const outside = (event: PointerEvent) => {
       if (!wrapper.current?.contains(event.target as Node)) setOpen(false)
     }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      setOpen(false)
+      trigger.current?.focus({ preventScroll: true })
+    }
     document.addEventListener('pointerdown', outside)
-    return () => document.removeEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape, true)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', escape, true)
+    }
   }, [open])
 
   async function copy() {
@@ -49,6 +60,8 @@ export default function ShareSessionButton({ code }: { code: string }) {
       close(true)
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) toast.error('Não foi possível compartilhar. Você pode copiar o link.')
+      // Some browsers move focus to the document while a share action is pending.
+      wrapper.current?.querySelector<HTMLElement>('[role="dialog"] button')?.focus({ preventScroll: true })
     } finally { setBusy(false) }
   }
 

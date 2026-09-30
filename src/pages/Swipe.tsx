@@ -1755,6 +1755,7 @@ function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging) return
+      if (document.querySelector('.cinema-share-panel')) return
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
       if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }

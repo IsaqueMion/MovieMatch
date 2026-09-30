@@ -443,6 +443,7 @@ test('retorno ao topo aparece após rolar, respeita movimento reduzido e devolve
     if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/back-to-top-390.png' })
     await top.click()
     await page.waitForFunction(() => window.scrollY === 0)
+    await top.waitFor({ state: 'detached' })
     assert.equal(await page.locator('main h1').evaluate(element => element === document.activeElement), true)
     assert.equal(await top.count(), 0)
     await page.goto(new URL('/s/DEMO01', baseUrl).href)
