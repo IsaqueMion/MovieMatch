@@ -106,6 +106,9 @@ test('a animação pode ser pausada e respeita movimento reduzido', async () => 
     await page.goto(baseUrl)
     assert.equal(await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).innerText(), '')
     await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).click()
+    await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card')].every(element => getComputedStyle(element).animationPlayState === 'paused'))
+    // Wait for the compositor to commit the paused frame before sampling its transform.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     const transform = await page.locator('.image-stream-card').first().evaluate(element => getComputedStyle(element).transform)
     await delay(150)
     assert.equal(await page.locator('.image-stream-card').first().evaluate(element => getComputedStyle(element).transform), transform)
