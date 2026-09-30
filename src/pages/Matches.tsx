@@ -1,6 +1,10 @@
 // src/pages/Matches.tsx
-import { useEffect, useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { ArrowUpRight, Check, ChevronDown, Clapperboard, Copy, Film, Heart, Search, Sparkles } from 'lucide-react'
+import CinemaButton from '../components/ui/cinema-button'
+import MatchPoster from '../components/matches/MatchPoster'
+import MatchDetailsDialog from '../components/matches/MatchDetailsDialog'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
 import { ensureAnonymousUser } from '../lib/auth'
@@ -23,6 +27,10 @@ type SortKey = 'recent' | 'title'
 
 export default function Matches() {
   const { code = '' } = useParams()
+  const navigate = useNavigate()
+  const [copyStatus, setCopyStatus] = useState('')
+  const [listError, setListError] = useState(false)
+  const detailsRequest = useRef(0)
 
   usePageMeta({
     title: code
@@ -50,22 +58,26 @@ export default function Matches() {
   const [loadingDetails, setLoadingDetails] = useState(false)
 
   async function openDetails(item: MatchItem) {
-    if (!item) return
+    const request = ++detailsRequest.current
+    setModal({ item, details: null })
     setLoadingDetails(true)
-    let det: MovieDetails | null = null
+    let details: MovieDetails | null = null
     try {
-      if (item.tmdb_id != null) {
-        // getMovieDetails já faz cache e busca da Edge Function
-        det = await getMovieDetails(item.tmdb_id, { region: watchRegion })
-      }
-    } catch (e) {
-      console.error('getMovieDetails failed:', e)
+      if (item.tmdb_id != null) details = await getMovieDetails(item.tmdb_id, { region: watchRegion })
+    } catch (error) {
+      console.error('getMovieDetails failed:', error)
     } finally {
-      setModal({ item, details: det })
-      setLoadingDetails(false)
+      if (request === detailsRequest.current) {
+        setModal({ item, details })
+        setLoadingDetails(false)
+      }
     }
   }
-  function closeDetails() { setModal(null) }
+  function closeDetails() {
+    detailsRequest.current++
+    setModal(null)
+    setLoadingDetails(false)
+  }
 
   // Carregar sessão + primeira lista
   useEffect(() => {
@@ -226,9 +238,10 @@ export default function Matches() {
         error,
       )
 
-      setItems([])
+      setListError(true)
       return
     }
+    setListError(false)
 
     type MatchRow = {
       movie_id: number | string
@@ -311,656 +324,56 @@ export default function Matches() {
     return arr
   }, [items, q, sort])
 
-  function copyList() {
-    const lines = visible.map(
-      (movie) =>
-        `${movie.title}${
-          movie.year
-            ? ` (${movie.year})`
-            : ''
-        } — ${movie.likes}/${movie.member_count} curtiram`,
-    )
-
+  async function copyList() {
+    const text = visible.map(movie => `${movie.title}${movie.year ? ` (${movie.year})` : ''} — ${movie.likes}/${movie.member_count} curtiram`).join('\n')
     try {
-      navigator.clipboard.writeText(
-        lines.join('\n'),
-      )
-
-      alert('Lista copiada!')
+      await navigator.clipboard.writeText(text)
+      setCopyStatus('Lista copiada. Pronta para compartilhar.')
     } catch {
-      alert(lines.join('\n'))
+      setCopyStatus('Não foi possível copiar. Permita o acesso à área de transferência e tente novamente.')
     }
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
-        Carregando matches…
-      </main>
-    )
-  }
-
-  if (!sessionId) {
-    return (
-      <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
-        <div className="text-center space-y-2">
-          <p>Sessão não encontrada.</p>
-          <Link to="/" className="underline text-emerald-300">Voltar</Link>
-        </div>
-      </main>
-    )
-  }
-
+  const featured = visible[0]
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-950 text-white">
-      <div className="mx-auto max-w-6xl px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] pt-[calc(env(safe-area-inset-top,0px)+12px)] sm:px-4">
-        {/* Header */}
-        <div className="sticky top-0 z-20 -mx-3 mb-3 border-b border-white/10 bg-neutral-900/90 px-3 py-2 backdrop-blur
-                sm:static sm:mb-4 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0
-                flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-300/70">
-              Sessão {code.toUpperCase()} · {onlineCount} online
-            </p>
-
-            <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">
-              Seus matches
-            </h1>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar título..."
-                className="h-11 rounded-xl border border-white/10 bg-neutral-800 px-3 text-sm text-white outline-none focus:border-emerald-400/40"
-              />
-              <select
-                value={sort}
-                onChange={(e) =>
-                  setSort(
-                    e.target.value as SortKey,
-                  )
-                }
-                className="h-11 rounded-xl border border-white/10 bg-neutral-800 px-3 text-sm text-white outline-none focus:border-emerald-400/40"
-                title="Ordenar por"
-              >
-                <option value="recent">
-                  Mais recentes
-                </option>
-
-                <option value="title">
-                  Título (A→Z)
-                </option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-              <button
-                type="button"
-                onClick={copyList}
-                className="h-11 touch-manipulation rounded-xl bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-              >
-                Copiar lista
-              </button>
-              <Link
-                to={`/s/${code}`}
-                className="inline-flex h-11 touch-manipulation items-center justify-center rounded-xl bg-emerald-500 px-4 text-sm font-medium text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-              >
-                Voltar ao swipe
-              </Link>
+    <main className="cinema-page matches-page" id="conteudo">
+      <a className="cinema-skip-link" href="#matches-selection">Pular para os filmes</a>
+      <header className="cinema-container matches-header">
+        <Link className="cinema-brand" to="/" aria-label="MovieMatch, página inicial"><span className="cinema-brand-mark"><Clapperboard size={23} aria-hidden="true" /></span>MovieMatch<span className="cinema-brand-dot">.</span></Link>
+        <div className="matches-session"><span>Sessão <strong>{code.toUpperCase()}</strong></span>{sessionId ? <span className="matches-online"><i aria-hidden="true" />{onlineCount} online</span> : null}</div>
+        <CinemaButton compact tone="secondary" direction="right" onClick={() => navigate(`/s/${code}`)}>Voltar a votar</CinemaButton>
+      </header>
+      <div className="cinema-container">
+        <section className="matches-hero" aria-labelledby="matches-title">
+          <div><p className="cinema-eyebrow"><Heart size={13} aria-hidden="true" />A escolha é de vocês</p><h1 id="matches-title">Gostos diferentes.<br /><span>O mesmo sim.</span></h1><p className="matches-intro">{items.length ? 'Todos curtiram. Agora, só falta escolher qual filme vai ganhar o play.' : 'Quando os gostos se encontram, os filmes aparecem aqui. A próxima escolha é de vocês.'}</p></div>
+          <div className="matches-total" aria-live="polite"><span>{loading ? '—' : String(items.length).padStart(2, '0')}</span><p>{items.length === 1 ? 'filme em comum' : 'filmes em comum'}<small>Aprovados por todos os<br />participantes atuais.</small></p></div>
+        </section>
+        <section id="matches-selection" className="matches-selection" aria-labelledby="matches-selection-title" aria-busy={loading}>
+          <div className="matches-toolbar">
+            <div><p className="cinema-eyebrow">Sua próxima sessão</p><h2 id="matches-selection-title">A seleção do grupo</h2></div>
+            <div className="matches-controls">
+              <label className="matches-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Buscar filme</span><input type="search" value={q} onChange={event => setQ(event.target.value)} placeholder="Buscar um filme" disabled={loading || !sessionId} /></label>
+              <label className="matches-sort"><span className="sr-only">Ordenar filmes</span><select value={sort} onChange={event => setSort(event.target.value as SortKey)} disabled={loading || !sessionId}><option value="recent">Mais recentes</option><option value="title">Título (A→Z)</option></select><ChevronDown size={14} aria-hidden="true" /></label>
+              <button className="matches-copy" onClick={copyList} disabled={!visible.length} title="Copiar lista"><Copy size={16} aria-hidden="true" /><span>Copiar lista</span></button>
             </div>
           </div>
-        </div>
-
-        {/* Lista */}
-        {visible.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-white/80">Nenhum resultado com os filtros atuais.</p>
-          </div>
-        ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-            {visible.map(m => (
-              <li
-                key={m.movie_id}
-                onClick={() => openDetails(m)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') ? openDetails(m) : undefined}
-                role="button"
-                tabIndex={0}
-                className="group cursor-pointer touch-manipulation overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10 transition duration-200 hover:-translate-y-0.5 hover:bg-white/[0.07] hover:ring-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-              >
-                <div className="relative aspect-[2/3] bg-black">
-                  {m.poster_url
-                    ? <img src={m.poster_url} alt={m.title} className="h-full w-full object-contain" />
-                    : <div className="absolute inset-0 grid place-items-center text-white/50">Sem pôster</div>}
-                  <div className="absolute left-2 top-2 rounded-md bg-white/10 px-2 py-0.5 text-xs ring-1 ring-white/20">
-                    {m.likes}/{m.member_count} curtiram
-                  </div>
-                </div>
-                <div className="p-2.5 sm:p-3">
-                  <h3 className="font-semibold leading-tight">
-                    {m.title} {m.year ? <span className="text-white/60">({m.year})</span> : null}
-                  </h3>
-                  <p className="mt-1 text-sm text-white/70">Mais recente: {m.latestAt ? new Date(m.latestAt).toLocaleDateString('pt-BR') : '—'}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Modal de Detalhes */}
-        {modal && (
-          <div className="fixed inset-0 z-[80]">
-            {/* backdrop */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDetails} />
-            {/* container */}
-            <div className="absolute inset-0 grid place-items-center p-0 md:p-4">
-              <div className="relative w-full h-[100dvh] md:h-auto md:max-h-[92dvh] md:w-[min(980px,96vw)] overflow-auto bg-neutral-900 ring-1 ring-white/10 rounded-none md:rounded-2xl text-white">
-                {/* Header (fixo no topo no mobile) */}
-                <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-neutral-900/85 backdrop-blur px-3 py-2 md:px-4 md:py-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base md:text-xl font-semibold leading-tight">
-                      {modal.item.title} {modal.item.year ? <span className="text-white/60">({modal.item.year})</span> : null}
-                    </h3>
-                    {/* chips (desktop) */}
-                    <div className="mt-1 hidden md:flex flex-wrap items-center gap-2 text-sm text-white/70">
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes}/{modal.item.member_count} curtiram</span>
-                      {modal.item.tmdb_id != null && (
-                        <a
-                          href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
-                          target="_blank" rel="noreferrer"
-                          className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10 hover:bg-white/15"
-                        >
-                          Ver no TMDB ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* link (mobile) */}
-                    {modal.item.tmdb_id != null && (
-                      <a
-                        href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
-                        target="_blank" rel="noreferrer"
-                        className="md:hidden rounded-md bg-white/10 px-2 py-1 text-sm ring-1 ring-white/10"
-                      >
-                        TMDB ↗
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={closeDetails}
-                      className="grid h-10 w-10 touch-manipulation place-items-center rounded-xl bg-white/10 text-lg text-white ring-1 ring-white/10 transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-                      aria-label="Fechar detalhes"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mídia (trailer/poster) — topo no mobile */}
-                <div className="w-full bg-black">
-                  {loadingDetails ? (
-                    <div className="w-full aspect-video grid place-items-center text-white/60">Carregando…</div>
-                  ) : (() => {
-                    const trailerKey = modal.details?.trailer?.key ?? undefined
-                    const youtubeEmbed = trailerKey ? `https://www.youtube.com/embed/${trailerKey}?playsinline=1&rel=0` : null
-                    if (youtubeEmbed) {
-                      return (
-                        <div className="relative aspect-video w-full">
-                          <iframe
-                            className="absolute inset-0 h-full w-full"
-                            src={youtubeEmbed}
-                            title={`${modal.item.title} trailer`}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                          />
-                        </div>
-                      )
-                    }
-                    return modal.item.poster_url
-                      ? <img src={modal.item.poster_url} alt={modal.item.title} className="w-full h-auto object-contain aspect-video md:aspect-auto" />
-                      : <div className="w-full aspect-video grid place-items-center text-white/60">Sem mídia</div>
-                  })()}
-                </div>
-
-                {/* Chips (mobile) */}
-                <div className="px-3 pt-3 md:hidden flex items-center gap-2 text-sm">
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes}/{modal.item.member_count} curtiram</span>
-                </div>
-
-                {/* Conteúdo */}
-                <div className="grid gap-4 p-3 md:p-4 md:grid-cols-[1.1fr_1fr]">
-                  {/* Detalhes / Sinopse */}
-                  <div className="rounded-xl ring-1 ring-white/10 bg-white/5 p-4 order-2 md:order-1">
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
-                      <dt className="text-white/60">Duração</dt>
-                      <dd>
-                        {typeof modal.details?.runtime === 'number'
-                          ? `${modal.details.runtime} min`
-                          : '—'}
-                      </dd>
-
-                      <dt className="text-white/60">Nota TMDB</dt>
-                      <dd>
-                        {typeof modal.details?.vote_average === 'number'
-                          ? modal.details.vote_average.toFixed(1)
-                          : '—'}
-                      </dd>
-
-                      <dt className="text-white/60">Gêneros</dt>
-                      <dd>
-                        {modal.details?.genres?.length
-                          ? modal.details.genres.map((g) => g.name).join(' • ')
-                          : '—'}
-                      </dd>
-                    </dl>
-
-                    <div className="mt-3 text-sm leading-relaxed max-h-56 md:max-h-64 overflow-auto pr-1">
-                      {modal.details?.overview
-                        ? modal.details.overview
-                        : <span className="text-white/60">Sem sinopse disponível.</span>}
-                    </div>
-
-                    {/* Provedores de streaming (ícones + mensagens corretas para a região) */}
-                    {(() => {                  
-
-                      const { providers, hasRegion, regionLink } = extractProviders(modal.details, watchRegion)
-
-                      // Link de busca no Google (título + ano + "onde assistir")
-                      const gq = encodeURIComponent(`${modal.item.title} ${modal.item.year ?? ''} onde assistir`)
-                      const gHref = `https://www.google.com/search?q=${gq}`
-
-                      // Caso 1: Há provedores na região selecionada (ex.: BR) → renderiza ícones normalmente
-                      if (providers.length > 0) {
-                        return (
-                          <div className="mt-4">
-                            <div className="mb-2 text-sm text-white/70">Disponível em</div>
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {providers.map((p) => {
-                                // 1) deeplink do backend (p.url)
-                                // 2) fallback: busca do serviço
-                                const href =
-                                  p.url ||
-                                  providerSearchUrl(p.id, modal.item.title, watchRegion) ||
-                                  undefined
-
-                                const content = (
-                                  <div className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5">
-                                    <img
-                                      src={p.logoUrl || '/providers/generic.svg'}
-                                      alt={p.name}
-                                      className="h-6 w-6 object-contain opacity-90"
-                                      loading="lazy"
-                                      decoding="async"
-                                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
-                                    />
-                                  </div>
-                                )
-
-                                return href ? (
-                                  <a
-                                    key={p.id}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title={p.name}
-                                    className="inline-block"
-                                  >
-                                    {content}
-                                  </a>
-                                ) : (
-                                  <div key={p.id} title={p.name} className="inline-block opacity-80">
-                                    {content}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      }
-
-                      // Caso 2: A região consta no payload, mas sem ofertas listadas → mostra aviso + Google
-                      if (hasRegion) {
-                        return (
-                          <div className="mt-4 text-sm text-white/70">
-                            Disponível na região <span className="font-medium">{watchRegion}</span>, mas sem plataformas listadas no momento.
-                            {' '}
-                            {regionLink ? (
-                              <>
-                                Tente abrir no{' '}
-                                <a
-                                  href={regionLink}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="underline hover:text-white"
-                                >
-                                  agregador da região
-                                </a>
-                                {' '}ou
-                              </>
-                            ) : null}{' '}
-                            <a
-                              href={gHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 ring-1 ring-white/15 hover:bg-white/15"
-                            >
-                              🔎 Buscar no Google
-                            </a>
-                          </div>
-                        )
-                      }
-
-                      // Caso 3: nenhuma info de plataforma → apenas botão Google
-                      return (
-                        <div className="mt-4">
-                          <a
-                            href={gHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/15 hover:bg-white/15"
-                          >
-                            🔎 Buscar no Google
-                          </a>
-                        </div>
-                      )
-                    })()}
-                  </div>
-
-                  {/* Poster “cartão” (desktop) */}
-                  <div className="hidden md:block rounded-xl overflow-hidden ring-1 ring-white/10 bg-black min-h-[280px] order-1 md:order-2">
-                    {modal.item.poster_url
-                      ? <img src={modal.item.poster_url} alt={modal.item.title} className="w-full h-full object-contain bg-black" />
-                      : <div className="w-full h-full grid place-items-center text-white/60">Sem pôster</div>
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+          <p className="matches-copy-status" role="status">{copyStatus}</p>
+          {loading ? <div className="matches-skeleton" role="status"><div /><span>Reunindo as escolhas de vocês…</span></div>
+            : !sessionId ? <div className="matches-empty"><Film size={36} aria-hidden="true" /><h3>Sessão indisponível</h3><p>Confira o código da sessão. Ela pode ter expirado ou a conexão pode estar indisponível.</p><CinemaButton onClick={() => navigate('/')}>Ir para o início</CinemaButton></div>
+            : listError ? <div className="matches-load-error" role="alert"><p>Não foi possível atualizar a seleção. Tente novamente em instantes.</p><button onClick={() => void loadMatches(sessionId)}>Tentar novamente</button></div> : null}
+          {!loading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? 'Vamos tentar outro título' : 'O próximo sim está por vir'}</span><h3>{q.trim() ? 'Esse filme não está na seleção.' : 'Ainda não deu match.'}</h3><p>{q.trim() ? 'Busque outro título ou veja todos os filmes aprovados pelo grupo.' : 'Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.'}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? 'Limpar busca' : 'Continuar votando'}</CinemaButton></div> : null}
+          {!loading && sessionId && featured ? <>
+            <article className="matches-spotlight">
+              <button className="matches-spotlight-poster" onClick={() => void openDetails(featured)} aria-label={`Ver detalhes de ${featured.title}`}><MatchPoster title={featured.title} poster={featured.poster_url} priority /><span className="matches-poster-open"><ArrowUpRight size={20} aria-hidden="true" /></span></button>
+              <div className="matches-spotlight-copy"><p className="cinema-eyebrow"><Sparkles size={14} aria-hidden="true" />Em destaque</p><p className="matches-film-year">{featured.year ?? 'Ano não informado'} <span>· Escolha do grupo</span></p><h3>{featured.title}</h3><p className="matches-spotlight-description">Um filme em comum.<br />Uma boa razão para assistir juntos.</p><div className="matches-consensus"><span><Heart size={18} fill="currentColor" aria-hidden="true" /></span><div><strong>Todo mundo disse sim.</strong><p>{featured.likes} de {featured.member_count} participantes curtiram</p></div></div><CinemaButton direction="diagonal" onClick={() => void openDetails(featured)}>Explorar o filme</CinemaButton><p className="matches-detail-hint">Sinopse, trailer e onde assistir</p></div>
+            </article>
+            {visible.length > 1 ? <div className="matches-more-heading"><h3>Mais filmes para o seu play</h3><span>{visible.length - 1} {visible.length === 2 ? 'outra escolha' : 'outras escolhas'}</span></div> : null}
+            <ul className="matches-grid">{visible.slice(1).map(movie => <li key={movie.movie_id}><button className="matches-film-card" onClick={() => void openDetails(movie)} aria-label={`Ver detalhes de ${movie.title}`}><div className="matches-card-image"><MatchPoster title={movie.title} poster={movie.poster_url} /><span className="matches-card-consensus"><Check size={13} aria-hidden="true" />{movie.likes}/{movie.member_count} curtiram</span><span className="matches-poster-open"><ArrowUpRight size={19} aria-hidden="true" /></span></div><div className="matches-card-copy"><span>{movie.year ?? 'Ano não informado'}</span><h4>{movie.title}</h4><p>{movie.latestAt ? 'Match em ' + new Date(movie.latestAt).toLocaleDateString('pt-BR') : 'Escolha do grupo'}</p></div></button></li>)}</ul>
+          </> : null}
+        </section>
+        <footer className="matches-footer"><Clapperboard size={19} aria-hidden="true" /><p>Menos tempo escolhendo. Mais tempo assistindo juntos.</p><Link to={`/s/${code}`}>Continuar descobrindo <ArrowUpRight size={15} aria-hidden="true" /></Link></footer>
       </div>
+      {modal ? <MatchDetailsDialog key={modal.item.movie_id} item={modal.item} details={modal.details} loading={loadingDetails} region={watchRegion} onClose={closeDetails} /> : null}
     </main>
   )
-}
-
-type ProviderCard = {
-  id: number
-  name: string
-  logoUrl: string | null
-  url: string | null
-}
-
-type UnknownRecord = Record<string, unknown>
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function extractProviders(
-  details: unknown,
-  region: string,
-): {
-  providers: ProviderCard[]
-  hasRegion: boolean
-  regionLink: string | null
-} {
-  const out: {
-    providers: ProviderCard[]
-    hasRegion: boolean
-    regionLink: string | null
-  } = {
-    providers: [],
-    hasRegion: false,
-    regionLink: null,
-  }
-
-  if (!isRecord(details)) return out
-
-  const baseImg = 'https://image.tmdb.org/t/p/w45'
-  const R = String(region || 'BR').toUpperCase()
-
-  // Preferências por domínio (IDs TMDB)
-  const PROVIDER_HOSTS: Record<number, string[]> = {
-    8: ['netflix.com'],
-    119: ['primevideo.com', 'amazon.com'],
-    337: ['disneyplus.com'],
-    384: ['max.com', 'hbomax.com'],
-    307: ['globoplay.com'],
-    350: ['tv.apple.com', 'apple.com'],
-    531: ['paramountplus.com'],
-    619: ['starplus.com'],
-  }
-
-  // Domínios que não queremos abrir como link de streaming.
-  const BAD_HOSTS = [
-    'imdb.com',
-    'youtube.com',
-    'youtu.be',
-    'themoviedb.org',
-    'google.com',
-  ]
-
-  const safeHost = (url: string) => {
-    try {
-      const host = new URL(url).hostname.replace(/^www\./, '')
-      return !BAD_HOSTS.some((bad) => host.endsWith(bad))
-    } catch {
-      return false
-    }
-  }
-
-  const hostMatch = (url: string, providerId: number) => {
-    try {
-      const host = new URL(url).hostname.replace(/^www\./, '')
-      const allowedHosts = PROVIDER_HOSTS[providerId]
-
-      if (!allowedHosts || allowedHosts.length === 0) {
-        return safeHost(url)
-      }
-
-      return allowedHosts.some((domain) => host.endsWith(domain))
-    } catch {
-      return false
-    }
-  }
-
-  // Formatos aceitos de payload de provedores.
-  const wp =
-    details.watch_providers ??
-    details.watchProviders ??
-    details.watchProvidersV2 ??
-    details.providers ??
-    details.providersByRegion ??
-    details.watchProvidersByRegion ??
-    null
-
-  let area: unknown = null
-
-  if (Array.isArray(wp)) {
-    area = wp
-  } else if (isRecord(wp)) {
-    if (isRecord(wp.results)) {
-      area = wp.results[R] ?? null
-    } else {
-      area = wp[R] ?? null
-    }
-  }
-
-  if (area) {
-    out.hasRegion = true
-  }
-
-  if (
-    isRecord(area) &&
-    typeof area.link === 'string' &&
-    area.link.length > 0
-  ) {
-    out.regionLink = area.link
-  }
-
-  // Reúne todas as ofertas encontradas no payload.
-  let offers: unknown[] = []
-
-  const pushAll = (value: unknown) => {
-    if (Array.isArray(value)) {
-      offers.push(...value)
-    }
-  }
-
-  if (Array.isArray(area)) {
-    offers = [...area]
-  } else if (isRecord(area)) {
-    pushAll(area.flatrate)
-    pushAll(area.ads)
-    pushAll(area.free)
-    pushAll(area.rent)
-    pushAll(area.buy)
-    pushAll(area.offers)
-    pushAll(area.streaming)
-  }
-
-  // Fallbacks para formatos legados ou enriquecidos pelo backend.
-  pushAll(details.offers)
-  pushAll(details.providers)
-  pushAll(details.providers_list)
-  pushAll(details.providers_flat)
-
-  if (isRecord(details.justwatch)) {
-    pushAll(details.justwatch.offers)
-  }
-
-  const bestUrlForProvider = (
-    providerId: number,
-    list: unknown[],
-  ): string | null => {
-    const urls: string[] = []
-
-    for (const item of list) {
-      if (!isRecord(item)) continue
-
-      const id = Number(
-        item.provider_id ??
-        item.id ??
-        item.providerId,
-      )
-
-      if (id !== providerId) continue
-
-      const urlData = isRecord(item.urls) ? item.urls : null
-
-      const candidates: unknown[] = [
-        urlData?.standard_web,
-        urlData?.deeplink_web,
-        item.url,
-        item.deep_link,
-      ]
-
-      for (const candidate of candidates) {
-        if (candidate == null) continue
-
-        const url = String(candidate)
-
-        if (safeHost(url)) {
-          urls.push(url)
-        }
-      }
-    }
-
-    if (urls.length === 0) return null
-
-    const preferred = urls.find((url) =>
-      hostMatch(url, providerId),
-    )
-
-    return preferred ?? urls[0] ?? null
-  }
-
-  // Deduplica por provider_id.
-  const byId = new Map<number, ProviderCard>()
-
-  for (const item of offers) {
-    if (!isRecord(item)) continue
-
-    const id = Number(
-      item.provider_id ??
-      item.id ??
-      item.providerId,
-    )
-
-    if (!Number.isFinite(id)) continue
-
-    const name = String(
-      item.provider_name ??
-      item.name ??
-      'Provider',
-    )
-
-    const rawLogo =
-      item.logo_url ??
-      item.logo_path ??
-      item.logo ??
-      item.icon ??
-      item.icon_path ??
-      null
-
-    const logoUrl =
-      rawLogo == null
-        ? null
-        : String(rawLogo).startsWith('http')
-          ? String(rawLogo)
-          : `${baseImg}${String(rawLogo)}`
-
-    if (!byId.has(id)) {
-      byId.set(id, {
-        id,
-        name,
-        logoUrl,
-        url: null,
-      })
-    }
-  }
-
-  // Escolhe a melhor URL encontrada para cada serviço.
-  for (const [id, entry] of byId.entries()) {
-    byId.set(id, {
-      ...entry,
-      url: bestUrlForProvider(id, offers),
-    })
-  }
-
-  out.providers = Array.from(byId.values()).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  )
-
-  return out
-}
-
-function providerSearchUrl(providerId: number, title: string, region?: string): string | undefined {
-  // Normaliza consulta
-  const q = encodeURIComponent(title)
-  const cc = String(region || 'BR').toLowerCase(); // país em minúsculas (ex.: 'br')
-
-  // Mapeamento dos principais provedores (IDs do TMDB)
-  switch (providerId) {
-    case 8:   // Netflix
-      return `https://www.netflix.com/search?q=${q}`
-    case 119: // Prime Video
-      return `https://www.primevideo.com/search?phrase=${q}`
-    case 337: // Disney+
-      return `https://www.disneyplus.com/search/${q}`
-    case 384: // Max (HBO Max)
-      return `https://www.max.com/search?q=${q}`
-    case 307: // Globoplay
-      return `https://globoplay.globo.com/busca/?q=${q}`
-    case 350: // Apple TV+
-      return `https://tv.apple.com/${cc}/search?term=${q}`
-    case 531: // Paramount+
-      return `https://www.paramountplus.com/search/?searchTerm=${q}`
-    case 619: // Star+
-      return `https://www.starplus.com/search/${q}`
-    default:
-      // Não mapeado: sem fallback para TMDB/JustWatch
-      return undefined;
-  }
 }

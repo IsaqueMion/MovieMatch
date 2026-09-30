@@ -246,6 +246,12 @@ O corredor desenha a camada de cada pôster em tamanho suficiente para sua maior
 
 Os controles de votação mantêm os mesmos callbacks e bloqueios. O coração verde alterna contorno e preenchimento, com pulsação ao passar o mouse; recusar usa coral e um balanço breve, e desfazer usa uma rotação para trás. Animações contínuas ficam restritas ao hover de dispositivos com mouse, e a preferência por movimento reduzido desativa os efeitos.
 
+### Tela de matches
+
+A seleção do grupo usa a mesma identidade da home, com um filme em destaque e os demais em uma grade de pôsteres 2:3. Busca, ordenação e cópia continuam disponíveis; o consenso é calculado pela RPC existente `list_session_matches`, com atualização por Realtime, foco e verificação periódica.
+
+Os detalhes abrem em um diálogo com poster, sinopse, trailer e plataformas para a região da sessão. O painel mantém o foco, fecha com Escape e devolve o foco ao botão de origem. Consultas malsucedidas, sessão indisponível, busca sem resultados e ausência de matches têm apresentações distintas. Os testes isolados são executados com `node --test tests/matches.browser.mjs` e interceptam o Supabase, sem gravar dados reais; a CI também executa essa suíte.
+
 ### Analytics opcional
 
 O script de Web Analytics só é carregado quando `VITE_ENABLE_ANALYTICS=true`. Ative primeiro Web Analytics no projeto da Vercel e depois configure essa variável e faça um novo deploy. Isso evita tentar executar a página HTML de fallback quando o endpoint de Analytics não está disponível. [Configuração oficial](https://vercel.com/docs/analytics/quickstart).

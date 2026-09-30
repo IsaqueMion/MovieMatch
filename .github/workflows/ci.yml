@@ -46,4 +46,6 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Browser regression tests (mocked APIs)
-        run: pnpm test:browser
+        run: |
+          pnpm test:browser
+          node --test tests/matches.browser.mjs
