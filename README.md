@@ -156,6 +156,23 @@ pnpm test
 
 Os testes unitários usam o test runner nativo do Node.js e cobrem, inicialmente, a assinatura dos filtros, persistência do progresso de swipe e embaralhamento determinístico.
 
+Os testes de navegador cobrem a home em 390, 768 e 1440 pixels, fontes e pôsteres locais, ausência de autenticação ao abrir a página, movimento reduzido, entrada inválida/expirada, erros de conexão e votação com publicidade bloqueada. Todas as chamadas ao Supabase são simuladas nesta suíte.
+
+```bash
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:browser
+```
+
+No Windows, o Edge instalado pode ser usado sem baixar outro navegador:
+
+```powershell
+$env:BROWSER_CHANNEL = 'msedge'
+pnpm test:browser
+```
+
+Por padrão a suíte abre seu próprio servidor de preview na porta 4178. Defina `TEST_BASE_URL` para verificar um servidor já iniciado.
+
 ## Build de produção
 
 ```bash
@@ -207,6 +224,12 @@ revival/2026-09
 ```
 
 ## Dados de filmes
+
+### Verificação do consenso no Supabase
+
+O script manual `tests/session-consensus.sql` verifica as RPCs publicadas e as escritas sob RLS com um, dois e três participantes, incluindo entrada em sessão expirada. Todos os dados de teste ficam em uma subtransação revertida, e o próprio script confirma que nenhum registro permaneceu. Ele não executa migrações e não faz parte da CI.
+
+Essa verificação do banco complementa os testes de navegador com APIs simuladas. A validação integrada em dispositivos reais deve ser concluída antes da publicação em produção.
 
 Este produto utiliza dados da API do TMDB.
 

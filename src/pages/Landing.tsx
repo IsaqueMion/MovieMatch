@@ -1,703 +1,205 @@
-import {
-  lazy,
-  Suspense,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Clapperboard,
-  Heart,
-  Link2,
-  LogIn,
-  Play,
-  Plus,
-  SlidersHorizontal,
-  Users,
-} from 'lucide-react'
-
+import { ArrowDown, ArrowRight, ArrowUpRight, Clapperboard, Heart, Pause, Play, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
+import { ImageStreamHero, type StreamImage } from '../components/ui/image-stream-hero'
+import LandingSwipePreview from '../components/landing/LandingSwipePreview'
 
-const LandingSwipePreview = lazy(
-  () =>
-    import(
-      '../components/landing/LandingSwipePreview'
-    ),
-)
+const POSTERS: StreamImage[] = [
+  { src: '/demo/interstellar.jpg' },
+  { src: '/demo/amelie.jpg' },
+  { src: '/demo/grand-budapest.jpg' },
+  { src: '/demo/spirited-away.jpg' },
+  { src: '/demo/la-la-land.jpg' },
+  { src: '/demo/arrival.jpg' },
+]
+const STEPS = [
+  { number: '01', title: 'Junte o elenco.', description: 'Crie uma sessão e compartilhe o link ou o código com quem vai assistir.' },
+  { number: '02', title: 'Cada um dá seu voto.', description: 'Escolham os filtros do grupo. Depois, cada pessoa curte os filmes que quer ver.' },
+  { number: '03', title: 'O sim é de todo mundo.', description: 'Com pelo menos duas pessoas, o filme vira match quando todos os participantes atuais curtirem.' },
+]
 
 async function getAuthenticatedClient() {
-  const [
-    { ensureAnonymousUser },
-    { supabase },
-  ] = await Promise.all([
+  const [{ ensureAnonymousUser }, { supabase }] = await Promise.all([
     import('../lib/auth'),
     import('../lib/supabase'),
   ])
-
   await ensureAnonymousUser()
-
   return supabase
 }
 
 export default function Landing() {
   usePageMeta({
-    title:
-      'MovieMatch — encontre o filme em comum',
-    description:
-      'Crie uma sessão, vote em filmes com seus amigos e descubra os títulos que todo mundo quer assistir.',
+    title: 'MovieMatch — o próximo filme, a escolha de todos',
+    description: 'Crie uma sessão, convide seu grupo e encontre um filme que todos querem assistir. Sem cadastro, no celular ou no computador.',
   })
-
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [status, setStatus] = useState('')
-  const [busyAction, setBusyAction] = useState<
-    'create' | 'join' | null
-  >(null)
-  const [showPreview, setShowPreview] =
-    useState(false)
-  const [showMobileCta, setShowMobileCta] =
-    useState(false)
-
-  const inputRef =
-    useRef<HTMLInputElement | null>(null)
-  const primaryActionsRef =
-    useRef<HTMLDivElement | null>(null)
-
-  const navigate = useNavigate()
-
-  const codeComplete =
-    code.length === 6
-
-  const codeHint =
-    code.length > 0 &&
-    !codeComplete
-      ? `Faltam ${6 - code.length} ${6 - code.length === 1 ? 'caractere' : 'caracteres'}.`
-      : ''
+  const [failed, setFailed] = useState(false)
+  const [busyAction, setBusyAction] = useState<'create' | 'join' | null>(null)
+  const [paused, setPaused] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const actionPending = useRef(false)
+  const complete = code.length === 6
+  const hint = code.length > 0 && !complete
+    ? 'Faltam ' + (6 - code.length) + (code.length === 5 ? ' caractere.' : ' caracteres.')
+    : 'O código tem 6 letras ou números.'
 
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => setShowPreview(true),
-      250,
-    )
-
-    return () => {
-      window.clearTimeout(timer)
-    }
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReducedMotion(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
   }, [])
 
-  useEffect(() => {
-    const target =
-      primaryActionsRef.current
-
-    if (
-      !target ||
-      typeof IntersectionObserver ===
-        'undefined'
-    ) {
-      return
-    }
-
-    const observer =
-      new IntersectionObserver(
-        ([entry]) => {
-          setShowMobileCta(
-            !entry.isIntersecting,
-          )
-        },
-        {
-          threshold: 0.2,
-        },
-      )
-
-    observer.observe(target)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [])
-
-  async function handleJoin() {
-    if (busyAction) return
-
-    const normalizedCode =
-      code.trim().toUpperCase()
-
-    if (
-      normalizedCode.length !== 6
-    ) {
-      setStatus(
-        'Digite os 6 caracteres do código da sessão.',
-      )
+  async function handleJoin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (actionPending.current) return
+    const normalizedCode = code.trim().toUpperCase()
+    if (normalizedCode.length !== 6) {
+      setStatus('Digite os 6 caracteres do código da sessão.')
+      setFailed(true)
       inputRef.current?.focus()
       return
     }
-
+    actionPending.current = true
     setBusyAction('join')
-    setStatus('Conectando…')
-
+    setFailed(false)
+    setStatus('Procurando sua sessão…')
     try {
-      const supabase =
-        await getAuthenticatedClient()
-
-      setStatus('Procurando sessão…')
-
-      const { data, error } =
-        await supabase.rpc(
-          'join_session',
-          {
-            p_code:
-              normalizedCode,
-          },
-        )
-
-      const session =
-        Array.isArray(data)
-          ? data[0]
-          : null
-
-      if (
-        error ||
-        !session?.code
-      ) {
-        console.error(
-          'join_session failed:',
-          error,
-        )
-        setStatus(
-          'Sessão não encontrada ou expirada.',
-        )
+      const client = await getAuthenticatedClient()
+      const { data, error } = await client.rpc('join_session', { p_code: normalizedCode })
+      const session = Array.isArray(data) ? data[0] : null
+      if (error || !session?.code) {
+        setFailed(true)
+        setStatus(!error || error.code === 'P0002' || error.code === '22023'
+          ? 'Sessão não encontrada ou expirada. Confira o código ou crie uma nova.'
+          : 'Não foi possível conectar à sessão. Tente novamente.')
         return
       }
-
-      navigate(
-        `/s/${String(session.code)}`,
-      )
-    } catch (error) {
-      console.error(
-        'failed to join session:',
-        error,
-      )
-
-      setStatus(
-        'Não foi possível entrar agora. Tente novamente.',
-      )
+      navigate('/s/' + String(session.code))
+    } catch {
+      setFailed(true)
+      setStatus('Não foi possível conectar agora. Tente novamente.')
     } finally {
+      actionPending.current = false
       setBusyAction(null)
     }
   }
 
   async function handleCreate() {
-    if (busyAction) return
-
+    if (actionPending.current) return
+    actionPending.current = true
     setBusyAction('create')
-    setStatus('Criando sessão…')
-
+    setFailed(false)
+    setStatus('Preparando sua sessão…')
     try {
-      const supabase =
-        await getAuthenticatedClient()
-
-      const { data, error } =
-        await supabase.rpc(
-          'create_session',
-        )
-
-      const session =
-        Array.isArray(data)
-          ? data[0]
-          : null
-
-      if (
-        error ||
-        !session?.code
-      ) {
-        console.error(
-          'create_session failed:',
-          error,
-        )
-        setStatus(
-          'Não foi possível criar a sessão.',
-        )
+      const client = await getAuthenticatedClient()
+      const { data, error } = await client.rpc('create_session')
+      const session = Array.isArray(data) ? data[0] : null
+      if (error || !session?.code) {
+        setFailed(true)
+        setStatus('Não foi possível criar a sessão. Tente novamente.')
         return
       }
-
-      navigate(
-        `/s/${String(session.code)}`,
-      )
-    } catch (error) {
-      console.error(
-        'failed to create session:',
-        error,
-      )
-
-      setStatus(
-        'Não foi possível criar a sessão agora. Tente novamente.',
-      )
+      navigate('/s/' + String(session.code))
+    } catch {
+      setFailed(true)
+      setStatus('Não foi possível conectar agora. Tente novamente.')
     } finally {
+      actionPending.current = false
       setBusyAction(null)
     }
   }
 
   function focusJoin() {
-    inputRef.current?.focus()
-    inputRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-    })
+    inputRef.current?.focus({ preventScroll: true })
+    inputRef.current?.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'center' })
   }
 
   return (
-    <div className="min-h-dvh bg-neutral-950 pb-20 text-white md:pb-0">
-      <header className="border-b border-white/10 bg-neutral-950/95 backdrop-blur">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
-          <a
-            href="/"
-            className="flex items-center gap-2.5"
-          >
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500">
-              <Clapperboard className="h-[18px] w-[18px] text-neutral-950" />
-            </div>
-            <span className="text-base font-semibold tracking-tight">
-              MovieMatch
-            </span>
-          </a>
-
-          <nav className="hidden items-center gap-6 text-sm text-white/60 md:flex">
-            <a
-              href="#como-funciona"
-              className="transition hover:text-white"
-            >
-              Como funciona
-            </a>
-            <a
-              href="#recursos"
-              className="transition hover:text-white"
-            >
-              Recursos
-            </a>
-          </nav>
-
-          <button
-            type="button"
-            onClick={() => {
-              void handleCreate()
-            }}
-            disabled={
-              busyAction !== null
-            }
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3.5 text-sm font-medium text-neutral-950 transition hover:bg-white/90 disabled:cursor-wait disabled:opacity-60"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">
-              Nova sessão
-            </span>
-            <span className="sm:hidden">
-              Criar
-            </span>
-          </button>
-        </div>
+    <div className="cinema-page">
+      <a className="cinema-skip-link" href="#conteudo">Pular para o conteúdo</a>
+      <header className="cinema-header cinema-container">
+        <a href="/" className="cinema-brand" aria-label="MovieMatch, página inicial">
+          <span className="cinema-brand-mark"><Clapperboard size={22} aria-hidden="true" /></span>
+          MovieMatch<span className="cinema-brand-dot">.</span>
+        </a>
+        <nav aria-label="Navegação principal">
+          <a href="#como-funciona">Como funciona</a>
+          <a href="#recursos">A experiência</a>
+        </nav>
+        <button className="cinema-header-action" onClick={() => void handleCreate()} disabled={busyAction !== null}>
+          {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}<ArrowUpRight size={16} aria-hidden="true" />
+        </button>
       </header>
 
-      <main>
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-8 px-5 py-8 lg:h-[calc(100dvh-4rem)] lg:min-h-[620px] lg:grid-cols-[minmax(0,1fr)_390px] lg:gap-12 lg:py-5">
-          <div className="max-w-2xl">
-            <p className="mb-2 text-sm font-medium text-emerald-400">
-              MovieMatch
-            </p>
-
-            <h1 className="max-w-xl text-4xl font-semibold leading-[1.06] tracking-tight lg:text-[44px] xl:text-5xl">
-              Escolher o filme não precisa virar discussão.
-            </h1>
-
-            <p className="mt-4 max-w-xl text-base leading-6 text-white/60 lg:text-[17px]">
-              Crie uma sessão, compartilhe o código
-              e vote nos filmes. Quando todo mundo
-              curtir o mesmo título, ele entra nos
-              matches.
-            </p>
-
-            <div
-              ref={primaryActionsRef}
-              className="mt-5 max-w-xl rounded-2xl border border-white/10 bg-neutral-900 p-4"
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleCreate()
-                  }}
-                  disabled={
-                    busyAction !== null
-                  }
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 text-sm font-semibold text-neutral-950 transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60"
-                >
-                  <Plus className="h-4 w-4" />
-                  {busyAction ===
-                  'create'
-                    ? 'Criando sessão…'
-                    : 'Criar nova sessão'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={focusJoin}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/10 px-4 text-sm font-medium text-white/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Já tenho um código
-                </button>
-              </div>
-
-              <div className="my-3 flex items-center gap-3">
-                <div className="h-px flex-1 bg-white/10" />
-                <span className="text-[11px] uppercase tracking-[0.14em] text-white/30">
-                  entrar em uma sessão
-                </span>
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="min-w-0 flex-1">
-                  <input
-                    ref={inputRef}
-                    value={code}
-                    onChange={(event) => {
-                      const next =
-                        event.target.value
-                          .toUpperCase()
-                          .replace(
-                            /[^A-Z0-9]/g,
-                            '',
-                          )
-                          .slice(0, 6)
-
-                      setCode(next)
-                      setStatus('')
-                    }}
-                    onKeyDown={(
-                      event,
-                    ) => {
-                      if (
-                        event.key ===
-                        'Enter'
-                      ) {
-                        void handleJoin()
-                      }
-                    }}
-                    placeholder="EX.: 7F9XQ2"
-                    maxLength={6}
-                    autoCapitalize="characters"
-                    autoComplete="off"
-                    spellCheck={false}
-                    aria-label="Código da sessão"
-                    aria-invalid={
-                      code.length >
-                        0 &&
-                      !codeComplete
-                    }
-                    aria-describedby="session-code-hint"
-                    className="h-11 w-full rounded-lg border border-white/10 bg-neutral-950 px-3.5 font-mono text-sm uppercase tracking-[0.18em] text-white outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-white/30 focus:border-emerald-400/60 aria-[invalid=true]:border-red-400/70"
-                  />
-
-                  <p
-                    id="session-code-hint"
-                    className={
-                      codeHint
-                        ? 'mt-1.5 min-h-4 text-xs text-red-300'
-                        : 'mt-1.5 min-h-4 text-xs text-white/30'
-                    }
-                  >
-                    {codeHint ||
-                      (codeComplete
-                        ? 'Código completo.'
-                        : 'O código tem 6 caracteres.')}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleJoin()
-                  }}
-                  disabled={
-                    busyAction !==
-                      null ||
-                    !codeComplete
-                  }
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 sm:self-start"
-                >
-                  <LogIn className="h-4 w-4" />
-                  {busyAction ===
-                  'join'
-                    ? 'Entrando…'
-                    : 'Entrar'}
-                </button>
-              </div>
-
-              {status ? (
-                <p
-                  className="mt-2 text-sm text-white/60"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {status}
-                </p>
-              ) : null}
+      <main id="conteudo">
+        <ImageStreamHero images={POSTERS} paused={paused || reducedMotion} className="cinema-stream">
+          <div className="cinema-stream-shade" aria-hidden="true" />
+          <div className="cinema-stream-content">
+            <div className="cinema-hero-copy">
+              <p className="cinema-eyebrow"><span className="cinema-status-dot" /> PARA A SUA PRÓXIMA SESSÃO</p>
+              <h1>O próximo filme.<br /><span>A escolha de todos.</span></h1>
+              <p className="cinema-hero-description">Menos tempo escolhendo.<br className="cinema-mobile-break" /> Mais tempo assistindo juntos.</p>
             </div>
-
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/40">
-              <span>Sem cadastro</span>
-              <span>Tempo real</span>
-              <span>Celular e PC</span>
+            <div className="cinema-hero-bottom">
+              <p className="cinema-stream-caption">Uma prévia do catálogo. A sessão de verdade começa com você.</p>
+              <div className="cinema-hero-actions">
+                <button className="cinema-button cinema-button-primary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
+                  {busyAction === 'create' ? 'Criando sessão…' : 'Criar uma sessão'}<ArrowUpRight size={20} aria-hidden="true" />
+                </button>
+                <button className="cinema-button cinema-button-secondary" onClick={focusJoin} disabled={busyAction !== null}>Tenho um código<ArrowDown size={18} aria-hidden="true" /></button>
+              </div>
+              <p className="cinema-hero-note">Sem cadastro. Sem baixar nada. Só escolher.</p>
             </div>
           </div>
+          <button className="cinema-motion-toggle" onClick={() => setPaused(value => !value)} disabled={reducedMotion} aria-pressed={paused || reducedMotion} aria-label={reducedMotion ? 'Animação pausada pela preferência de movimento reduzido' : paused ? 'Retomar animação dos pôsteres' : 'Pausar animação dos pôsteres'}>
+            {paused || reducedMotion ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
+            <span>{reducedMotion ? 'Movimento reduzido' : paused ? 'Retomar' : 'Pausar'}</span>
+          </button>
+        </ImageStreamHero>
 
-          <Suspense
-            fallback={
-              <LandingPreviewSkeleton />
-            }
-          >
-            {showPreview ? (
-              <LandingSwipePreview />
-            ) : (
-              <LandingPreviewSkeleton />
-            )}
-          </Suspense>
+        <section className="cinema-join cinema-container" aria-labelledby="join-title">
+          <div><p className="cinema-eyebrow">JÁ FOI CONVIDADO?</p><h2 id="join-title">Seu grupo está esperando.</h2></div>
+          <form className="cinema-join-form" onSubmit={event => void handleJoin(event)} noValidate aria-busy={busyAction === 'join'}>
+            <label htmlFor="session-code">Código da sessão</label>
+            <div className="cinema-join-controls">
+              <input id="session-code" ref={inputRef} value={code} onChange={event => { setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)); setStatus(''); setFailed(false) }} placeholder="EX.: 7F9XQ2" maxLength={6} autoCapitalize="characters" autoComplete="off" spellCheck={false} disabled={busyAction !== null} aria-invalid={code.length > 0 && !complete} aria-describedby="session-code-hint session-status" />
+              <button type="submit" className="cinema-button cinema-button-light" disabled={!complete || busyAction !== null}>{busyAction === 'join' ? 'Entrando…' : 'Entrar'}<ArrowRight size={18} aria-hidden="true" /></button>
+            </div>
+            <p className="cinema-input-hint" id="session-code-hint">{hint}</p>
+          </form>
+          <p id="session-status" className={'cinema-session-status' + (failed ? ' is-error' : '')} role="status" aria-live="polite">{status}</p>
         </section>
 
-        <section
-          id="como-funciona"
-          className="border-y border-white/10 bg-neutral-900/35"
-        >
-          <div className="mx-auto w-full max-w-6xl px-5 py-12">
-            <div className="mb-8 max-w-lg">
-              <p className="text-sm font-medium text-emerald-400">
-                Como funciona
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                Três passos para chegar no filme.
-              </h2>
-            </div>
+        <section id="como-funciona" className="cinema-how cinema-container">
+          <div className="cinema-section-heading"><p className="cinema-eyebrow">COMO FUNCIONA</p><h2>O roteiro é simples.</h2><p>A parte difícil era escolher. Era.</p></div>
+          <div className="cinema-steps">{STEPS.map(step => <article className="cinema-step" key={step.number}><span className="cinema-step-number">{step.number}<ArrowUpRight size={20} aria-hidden="true" /></span><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
+        </section>
 
-            <div className="grid gap-8 md:grid-cols-3 md:gap-10">
-              <Step
-                number="01"
-                icon={
-                  <Link2 className="h-5 w-5" />
-                }
-                title="Crie e compartilhe"
-                description="Abra uma sessão e envie o código para quem vai assistir com você."
-              />
-              <Step
-                number="02"
-                icon={
-                  <Heart className="h-5 w-5" />
-                }
-                title="Vote nos filmes"
-                description="Cada participante curte ou passa. Os filtros ficam sincronizados para o grupo."
-              />
-              <Step
-                number="03"
-                icon={
-                  <Play className="h-5 w-5" />
-                }
-                title="Veja os matches"
-                description="Quando todos aprovarem o mesmo filme, ele aparece na lista da sessão."
-              />
+        <section id="recursos" className="cinema-experience">
+          <div className="cinema-container cinema-experience-grid">
+            <div className="cinema-experience-copy"><p className="cinema-eyebrow">DO “O QUE VAMOS VER?” AO PLAY</p><h2>Gostos diferentes.<br /><span>Um filme em comum.</span></h2><p>Da comédia de sexta ao suspense de domingo: descubram o que combina com todo mundo.</p>
+              <ul className="cinema-features">
+                <li><SlidersHorizontal size={20} aria-hidden="true" /><div><h3>O catálogo do seu jeito</h3><p>Filtrem por gênero, duração, nota e serviços de streaming.</p></div></li>
+                <li><Users size={20} aria-hidden="true" /><div><h3>Cada pessoa tem seu voto</h3><p>Os filtros são compartilhados. O gosto continua sendo seu.</p></div></li>
+                <li><Heart size={20} aria-hidden="true" /><div><h3>O match é do grupo</h3><p>Todos os participantes atuais precisam curtir. Quem fecha a aba ainda faz parte da sessão.</p></div></li>
+              </ul>
             </div>
+            <LandingSwipePreview />
           </div>
         </section>
 
-        <section
-          id="recursos"
-          className="mx-auto w-full max-w-6xl px-5 py-12"
-        >
-          <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-14">
-            <div>
-              <p className="text-sm font-medium text-emerald-400">
-                Recursos
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                O necessário para decidir em grupo.
-              </h2>
-            </div>
-
-            <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-              <Feature
-                icon={
-                  <Users className="h-5 w-5" />
-                }
-                title="Sessão compartilhada"
-                description="Participantes, filtros e matches ficam sincronizados."
-              />
-              <Feature
-                icon={
-                  <SlidersHorizontal className="h-5 w-5" />
-                }
-                title="Filtros úteis"
-                description="Gênero, ano, nota, duração, idioma e serviços de streaming."
-              />
-              <Feature
-                icon={
-                  <Heart className="h-5 w-5" />
-                }
-                title="Match do grupo"
-                description="O filme entra na lista quando todos os participantes atuais aprovarem."
-              />
-              <Feature
-                icon={
-                  <Play className="h-5 w-5" />
-                }
-                title="Detalhes do filme"
-                description="Sinopse, trailer, avaliação, classificação e disponibilidade."
-              />
-            </div>
-          </div>
-        </section>
+        <section className="cinema-final-cta cinema-container"><span className="cinema-eyebrow">LUZES BAIXAS. ESCOLHA FEITA.</span><h2>Hoje tem filme.</h2><button className="cinema-button cinema-button-primary" onClick={() => void handleCreate()} disabled={busyAction !== null}>{busyAction === 'create' ? 'Criando sessão…' : 'Começar uma sessão'}<ArrowUpRight size={20} aria-hidden="true" /></button></section>
       </main>
 
-      <footer className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-6 text-sm text-white/45 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Clapperboard className="h-4 w-4" />
-            <span>MovieMatch</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <a
-              href="#como-funciona"
-              className="transition hover:text-white"
-            >
-              Como funciona
-            </a>
-            <a
-              href="#recursos"
-              className="transition hover:text-white"
-            >
-              Recursos
-            </a>
-            <a
-              href="/privacy.html"
-              className="transition hover:text-white"
-            >
-              Privacidade
-            </a>
-            <a
-              href="/terms.html"
-              className="transition hover:text-white"
-            >
-              Termos
-            </a>
-          </div>
-        </div>
+      <footer className="cinema-footer cinema-container">
+        <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label="Informações do site"><a href="/privacy.html">Privacidade</a><a href="/terms.html">Termos</a><a href="/ads.html">Publicidade</a></nav></div>
+        <div className="cinema-footer-bottom"><span>Feito para decidir juntos.</span><p>Este produto usa a API do <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>, mas não é endossado ou certificado pelo TMDB.</p></div>
       </footer>
-
-      {showMobileCta ? (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-neutral-950/95 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2.5 backdrop-blur md:hidden">
-          <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                void handleCreate()
-              }}
-              disabled={
-                busyAction !== null
-              }
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 text-sm font-semibold text-neutral-950 disabled:opacity-60"
-            >
-              <Plus className="h-4 w-4" />
-              Criar sessão
-            </button>
-
-            <button
-              type="button"
-              onClick={focusJoin}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-medium text-white"
-            >
-              <LogIn className="h-4 w-4" />
-              Entrar
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function Step({
-  number,
-  icon,
-  title,
-  description,
-}: {
-  number: string
-  icon: ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <article className="border-t border-white/10 pt-5">
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-xs text-white/30">
-          {number}
-        </span>
-        <span className="text-emerald-400">
-          {icon}
-        </span>
-      </div>
-
-      <h3 className="mt-5 text-base font-semibold">
-        {title}
-      </h3>
-      <p className="mt-2 text-sm leading-6 text-white/50">
-        {description}
-      </p>
-    </article>
-  )
-}
-
-function Feature({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <article className="flex gap-3">
-      <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-emerald-400">
-        {icon}
-      </div>
-
-      <div>
-        <h3 className="text-sm font-semibold">
-          {title}
-        </h3>
-        <p className="mt-1 text-sm leading-6 text-white/50">
-          {description}
-        </p>
-      </div>
-    </article>
-  )
-}
-
-function LandingPreviewSkeleton() {
-  return (
-    <div
-      className="mx-auto w-full max-w-[390px]"
-      aria-hidden
-    >
-      <div className="rounded-2xl border border-white/10 bg-neutral-900 p-3">
-        <div className="mb-3 h-12 rounded-xl bg-white/5" />
-        <div className="h-[clamp(360px,52dvh,430px)] animate-pulse rounded-xl bg-white/5" />
-        <div className="mx-auto mt-3 flex max-w-md items-center justify-center gap-5">
-          <div className="h-14 w-14 rounded-full bg-red-500/25" />
-          <div className="h-11 w-11 rounded-full bg-white/10" />
-          <div className="h-14 w-14 rounded-full bg-emerald-500/25" />
-        </div>
-      </div>
     </div>
   )
 }

@@ -31,3 +31,4 @@ dist-ssr
 # Supabase CLI
 supabase/.temp/
 .vercel
+test-results/

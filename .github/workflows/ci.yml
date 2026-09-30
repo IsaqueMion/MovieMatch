@@ -38,3 +38,12 @@ jobs:
 
       - name: Production build
         run: pnpm build
+        env:
+          VITE_SUPABASE_URL: https://moviematch-browser-tests.supabase.co
+          VITE_SUPABASE_ANON_KEY: browser-test-key
+
+      - name: Install browser for UI tests
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser regression tests (mocked APIs)
+        run: pnpm test:browser
