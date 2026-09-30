@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ArrowUpRight, Check, Play, Star, X } from 'lucide-react'
 import type { MovieDetails } from '../../lib/functions'
-import { extractProviders, providerSearchUrl } from '../../lib/matchProviders'
+import { extractProviders, resolveProviderLink } from '../../lib/matchProviders'
 import MatchPoster from './MatchPoster'
 import CinemaButton from '../ui/cinema-button'
 
@@ -65,11 +65,11 @@ export default function MatchDetailsDialog({ item, details, loading, region, onC
           <section className="matches-watch" aria-label="Onde assistir">
             <h3>Onde assistir <span>{region}</span></h3>
             {providers.length ? <div className="matches-providers">{providers.map(provider => {
-              const href = provider.url || providerSearchUrl(provider.id, item.title, region)
-              const content = <><img src={provider.logoUrl || '/providers/generic.svg'} alt="" width={28} height={28} onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/providers/generic.svg' }} /><span>{provider.name}</span>{href ? <ArrowUpRight size={14} aria-hidden="true" /> : null}</>
-              return href ? <a key={provider.id} href={href} target="_blank" rel="noopener noreferrer">{content}</a> : <span key={provider.id}>{content}</span>
+              const { href, label } = resolveProviderLink(provider, item.title, region, regionLink, item.tmdb_id)
+              return <a key={provider.id} href={href} title={`${label}: ${item.title} · ${provider.name}`} target="_blank" rel="noopener noreferrer"><img src={provider.logoUrl || '/providers/generic.svg'} alt="" width={28} height={28} onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/providers/generic.svg' }} /><span>{provider.name}<small>{label}</small></span><ArrowUpRight size={14} aria-hidden="true" /></a>
             })}</div> : <p>{loading ? 'Consultando as plataformas…' : 'Nenhuma plataforma informada para esta região.'}</p>}
             {!loading ? <div className="matches-watch-links">{regionLink ? <a href={regionLink} target="_blank" rel="noopener noreferrer">Consultar disponibilidade <ArrowUpRight size={14} aria-hidden="true" /></a> : null}<a href={search} target="_blank" rel="noopener noreferrer">Buscar onde assistir <ArrowUpRight size={14} aria-hidden="true" /></a></div> : null}
+            {providers.length ? <p className="matches-provider-source">Disponibilidade: <a href="https://www.justwatch.com/" target="_blank" rel="noopener noreferrer">JustWatch</a> via TMDB.</p> : null}
           </section>
           {item.tmdb_id != null ? <a className="matches-tmdb-link" href={`https://www.themoviedb.org/movie/${item.tmdb_id}`} target="_blank" rel="noopener noreferrer">Mais sobre o filme no TMDB <ArrowUpRight size={14} aria-hidden="true" /></a> : null}
         </div>

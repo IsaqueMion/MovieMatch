@@ -36,11 +36,14 @@ export function extractProviders(
 
   // Preferências por domínio (IDs TMDB)
   const PROVIDER_HOSTS: Record<number, string[]> = {
+    2: ['tv.apple.com', 'apple.com'],
+    3: ['play.google.com'],
     8: ['netflix.com'],
-    119: ['primevideo.com', 'amazon.com'],
+    10: ['primevideo.com', 'amazon.com', 'amazon.com.br'],
+    119: ['primevideo.com', 'amazon.com', 'amazon.com.br'],
     337: ['disneyplus.com'],
     384: ['max.com', 'hbomax.com'],
-    307: ['globoplay.com'],
+    307: ['globoplay.com', 'globoplay.globo.com'],
     350: ['tv.apple.com', 'apple.com'],
     531: ['paramountplus.com'],
     619: ['starplus.com'],
@@ -52,13 +55,15 @@ export function extractProviders(
     'youtube.com',
     'youtu.be',
     'themoviedb.org',
-    'google.com',
   ]
+
+  const belongsTo = (host: string, domain: string) => host === domain || host.endsWith(`.${domain}`)
 
   const safeHost = (url: string) => {
     try {
-      const host = new URL(url).hostname.replace(/^www\./, '')
-      return !BAD_HOSTS.some((bad) => host.endsWith(bad))
+      const parsed = new URL(url)
+      const host = parsed.hostname.replace(/^www\./, '')
+      return /^https?:$/.test(parsed.protocol) && !parsed.username && !parsed.password && host !== 'google.com' && !BAD_HOSTS.some((bad) => belongsTo(host, bad))
     } catch {
       return false
     }
@@ -73,7 +78,7 @@ export function extractProviders(
         return safeHost(url)
       }
 
-      return allowedHosts.some((domain) => host.endsWith(domain))
+      return allowedHosts.some((domain) => belongsTo(host, domain))
     } catch {
       return false
     }
@@ -108,7 +113,7 @@ export function extractProviders(
   if (
     isRecord(area) &&
     typeof area.link === 'string' &&
-    area.link.length > 0
+    isHttpUrl(area.link)
   ) {
     out.regionLink = area.link
   }
@@ -187,7 +192,7 @@ export function extractProviders(
       hostMatch(url, providerId),
     )
 
-    return preferred ?? urls[0] ?? null
+    return preferred ?? null
   }
 
   // Deduplica por provider_id.
@@ -259,6 +264,7 @@ export function providerSearchUrl(providerId: number, title: string, region?: st
   switch (providerId) {
     case 8:   // Netflix
       return `https://www.netflix.com/search?q=${q}`
+    case 10: // Amazon Video
     case 119: // Prime Video
       return `https://www.primevideo.com/search?phrase=${q}`
     case 337: // Disney+
@@ -267,6 +273,7 @@ export function providerSearchUrl(providerId: number, title: string, region?: st
       return `https://www.max.com/search?q=${q}`
     case 307: // Globoplay
       return `https://globoplay.globo.com/busca/?q=${q}`
+    case 2:   // Apple TV Store
     case 350: // Apple TV+
       return `https://tv.apple.com/${cc}/search?term=${q}`
     case 531: // Paramount+
@@ -277,4 +284,20 @@ export function providerSearchUrl(providerId: number, title: string, region?: st
       // Não mapeado: sem fallback para TMDB/JustWatch
       return undefined;
   }
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return /^https?:$/.test(url.protocol) && !url.username && !url.password
+  } catch { return false }
+}
+
+export function resolveProviderLink(provider: ProviderCard, title: string, region: string, regionLink: string | null, tmdbId: number | null) {
+  if (provider.url) return { href: provider.url, label: 'Abrir filme' }
+  const search = providerSearchUrl(provider.id, title, region)
+  if (search) return { href: search, label: 'Buscar filme' }
+  const watch = regionLink || (tmdbId != null ? `https://www.themoviedb.org/movie/${tmdbId}/watch?locale=${encodeURIComponent(region)}` : null)
+  if (watch) return { href: watch, label: 'Ver disponibilidade' }
+  return { href: `https://www.google.com/search?q=${encodeURIComponent(`${title} ${provider.name} onde assistir`)}`, label: 'Buscar disponibilidade' }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpRight, Clapperboard, Heart, Pause, Play, SlidersHorizontal, Users } from 'lucide-react'
+import { ArrowUpRight, Clapperboard, Heart, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
 import { ImageStreamHero, type StreamImage } from '../components/ui/image-stream-hero'
 import LandingSwipePreview from '../components/landing/LandingSwipePreview'
@@ -165,7 +165,9 @@ export default function Landing() {
             </div>
           </div>
           <button className="cinema-motion-toggle" onClick={() => setPaused(value => !value)} disabled={reducedMotion} aria-pressed={paused || reducedMotion} aria-label={reducedMotion ? 'Animação pausada pela preferência de movimento reduzido' : paused ? 'Retomar animação dos pôsteres' : 'Pausar animação dos pôsteres'}>
-            {paused || reducedMotion ? <Play size={14} aria-hidden="true" /> : <Pause size={14} aria-hidden="true" />}
+            <span key={paused || reducedMotion ? 'play' : 'pause'} className="cinema-motion-icon" aria-hidden="true">
+              {paused || reducedMotion ? <svg viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z" /></svg> : <svg viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z" /></svg>}
+            </span>
           </button>
         </ImageStreamHero>
 

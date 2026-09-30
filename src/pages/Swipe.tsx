@@ -22,7 +22,7 @@ import {
   type DiscoverFilters,
   type MonetizationType,
 } from '../lib/functions'
-import { Share2, Star, SlidersHorizontal } from 'lucide-react'
+import { Star, SlidersHorizontal } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { Toaster, toast } from 'sonner'
@@ -37,6 +37,8 @@ import SwipeCard, {
 } from '../components/swipe/SwipeCard'
 import AdSwipeCard from '../components/swipe/AdSwipeCard'
 import SwipeActionButtons from '../components/swipe/SwipeActionButtons'
+import ShareSessionButton from '../components/swipe/ShareSessionButton'
+import SessionLoader from '../components/ui/session-loader'
 import {
   clearProgress,
   filtersSig,
@@ -1753,6 +1755,7 @@ function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging) return
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
       if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }
       else if (e.key === 'Backspace') { e.preventDefault(); undoRef.current?.() }
@@ -1761,29 +1764,6 @@ function Swipe() {
     return () => window.removeEventListener('keydown', onKey)
   }, [busy, dragging])
   // ===============================================
-
-  async function shareInvite() {
-  const invite = `${window.location.origin}/join?code=${(code ?? '').toUpperCase()}`
-  const title = 'MovieMatch — junte-se à minha sessão'
-  const text = `Entre com o código ${String(code ?? '').toUpperCase()} no MovieMatch`
-
-  try {
-    if (navigator.share) {
-      await navigator.share({ title, text, url: invite })
-      return
-    }
-    await navigator.clipboard.writeText(invite)
-    toast('Link copiado!', { description: invite })
-  } catch {
-    try {
-      await navigator.clipboard.writeText(invite)
-      toast('Link copiado!', { description: invite })
-    } catch (error) {
-      console.error('clipboard write failed:', error)
-      toast.error('Não foi possível copiar o link.')
-    }
-  }
-}
 
   // A verificação apenas autoriza o usuário a selecionar conteúdo adulto.
   // O filtro só é efetivamente aplicado pelo FilterModal ao clicar em Aplicar.
@@ -1992,7 +1972,7 @@ function Swipe() {
   if (loading) {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-        <p className="text-white/90">Carregando sessão…</p>
+        <SessionLoader />
         {/* Anti-adblock — só mostra para não-premium */}
         <AdblockWall enabled={!isPremium} />
         <Toaster richColors position="bottom-center" />
@@ -2064,15 +2044,7 @@ function Swipe() {
               <SlidersHorizontal className="h-[18px] w-[18px]" />
             </button>
 
-            <button
-              type="button"
-              onClick={shareInvite}
-              title="Compartilhar link"
-              aria-label="Compartilhar sessão"
-              className="grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-            >
-              <Share2 className="h-[18px] w-[18px]" />
-            </button>
+            <ShareSessionButton code={code ?? ''} />
 
             <Link
               to={`/s/${code}/matches`}

@@ -11,6 +11,8 @@ import {
 import JoinRedirect from './pages/JoinRedirect'
 import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
+import SessionLoader from './components/ui/session-loader'
+import BackToTop from './components/ui/back-to-top'
 
 const Swipe = lazy(
   () => import('./pages/Swipe'),
@@ -27,12 +29,7 @@ function RouteLoading() {
       aria-live="polite"
       aria-busy="true"
     >
-      <div className="text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-emerald-400" />
-        <p className="mt-3 text-sm text-white/70">
-          Carregando…
-        </p>
-      </div>
+      <SessionLoader />
     </main>
   )
 }
@@ -40,6 +37,7 @@ function RouteLoading() {
 export default function App() {
   return (
     <BrowserRouter>
+      <BackToTop />
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route

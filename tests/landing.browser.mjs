@@ -355,3 +355,95 @@ test('criação não duplica sessões e anúncio bloqueado permite votar e dispe
     assert.equal(await page.locator('.mm-ad-notice').count(), 0)
   } finally { await ctx.close() }
 })
+
+for (const reducedMotion of ['no-preference', 'reduce']) {
+  test(`carregamento da sessão usa ondas e respeita ${reducedMotion}`, async () => {
+    const { ctx, page } = await context({ viewport: { width: 390, height: 844 }, reducedMotion })
+    let release
+    const gate = new Promise(resolve => { release = resolve })
+    await ctx.route(/supabase\.co\/auth\//, async route => { await gate; await route.fallback() })
+    try {
+      await page.goto(new URL('/s/DEMO01', baseUrl).href)
+      const loader = page.locator('.cinema-session-loader')
+      await loader.waitFor()
+      assert.equal(await loader.locator('.cinema-wave').count(), 4)
+      assert.equal(await loader.locator('.cinema-wave-bar').count(), 96)
+      assert.equal(await loader.getAttribute('role'), 'status')
+      assert.match(await loader.innerText(), /Carregando sessão/)
+      const animation = await loader.locator('[data-level="1"] .cinema-wave-bar').first().evaluate(element => getComputedStyle(element).animationName)
+      assert.equal(animation, reducedMotion === 'reduce' ? 'none' : 'cinema-wave-height, cinema-wave-skew')
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      if (process.env.VISUAL_CAPTURE_DIR && reducedMotion === 'no-preference') await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/session-wave-390.png' })
+      release()
+      await page.getByRole('button', { name: 'Compartilhar sessão' }).waitFor()
+      assert.equal(await loader.count(), 0)
+    } finally { release(); await ctx.close() }
+  })
+}
+
+for (const width of [390, 768, 1440]) {
+  test(`compartilhamento expansível em ${width}px: convites, cópia, teclado e cancelamento`, async () => {
+    const { ctx, page, state } = await context({ viewport: { width, height: 844 } })
+    await ctx.addInitScript(() => {
+      window.copiedInvite = ''
+      window.sharePayload = null
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedInvite = text } } })
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async payload => { window.sharePayload = payload; throw new DOMException('Cancelled', 'AbortError') } })
+    })
+    try {
+      await page.goto(new URL('/s/DEMO01', baseUrl).href)
+      const trigger = page.getByRole('button', { name: 'Compartilhar sessão' })
+      await trigger.click()
+      const panel = page.getByRole('dialog', { name: 'Convidar para a sessão' })
+      await panel.waitFor()
+      await page.waitForFunction(() => [...document.querySelectorAll('.cinema-share-action')].every(element => getComputedStyle(element).opacity === '1'))
+      assert.equal(await panel.evaluate(element => { const r = element.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight }), true)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      const invite = new URL('/join?code=DEMO01', baseUrl).href
+      const whatsapp = new URL(await page.getByRole('link', { name: 'WhatsApp' }).getAttribute('href'))
+      const telegram = new URL(await page.getByRole('link', { name: 'Telegram' }).getAttribute('href'))
+      assert.ok(whatsapp.searchParams.get('text').includes(invite))
+      assert.equal(telegram.searchParams.get('url'), invite)
+      if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/share-session-${width}.png` })
+      await page.keyboard.press('ArrowRight')
+      assert.equal(state.reactions.length, 0)
+      await page.getByRole('button', { name: 'Mais opções' }).click()
+      assert.equal(await page.evaluate(() => window.sharePayload.url), invite)
+      assert.equal(await page.evaluate(() => window.copiedInvite), '')
+      assert.equal(await panel.count(), 1)
+      await page.keyboard.press('Escape')
+      assert.equal(await panel.count(), 0)
+      assert.equal(await trigger.evaluate(element => element === document.activeElement), true)
+      await trigger.click()
+      await page.getByRole('button', { name: 'Copiar link', exact: true }).click()
+      assert.equal(await page.evaluate(() => window.copiedInvite), invite)
+      assert.equal(await panel.count(), 0)
+      await trigger.click()
+      await page.locator('main').click({ position: { x: 4, y: 400 } })
+      assert.equal(await panel.count(), 0)
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await trigger.click()
+      assert.equal(await panel.locator('.cinema-share-action').first().evaluate(element => getComputedStyle(element).animationName), 'none')
+    } finally { await ctx.close() }
+  })
+}
+
+test('retorno ao topo aparece após rolar, respeita movimento reduzido e devolve o foco', async () => {
+  const { ctx, page } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+  try {
+    await page.goto(baseUrl)
+    assert.equal(await page.getByRole('button', { name: 'Voltar ao topo' }).count(), 0)
+    await page.evaluate(() => window.scrollTo(0, 700))
+    const top = page.getByRole('button', { name: 'Voltar ao topo' })
+    await top.waitFor()
+    assert.equal(await top.evaluate(element => getComputedStyle(element).transitionDuration), '0s')
+    if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/back-to-top-390.png' })
+    await top.click()
+    await page.waitForFunction(() => window.scrollY === 0)
+    assert.equal(await page.locator('main h1').evaluate(element => element === document.activeElement), true)
+    assert.equal(await top.count(), 0)
+    await page.goto(new URL('/s/DEMO01', baseUrl).href)
+    await page.getByRole('button', { name: 'Compartilhar sessão' }).waitFor()
+    assert.equal(await top.count(), 0)
+  } finally { await ctx.close() }
+})

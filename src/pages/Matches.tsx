@@ -5,6 +5,7 @@ import { ArrowUpRight, Check, ChevronDown, Clapperboard, Copy, Film, Heart, Sear
 import CinemaButton from '../components/ui/cinema-button'
 import MatchPoster from '../components/matches/MatchPoster'
 import MatchDetailsDialog from '../components/matches/MatchDetailsDialog'
+import SessionLoader from '../components/ui/session-loader'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
 import { ensureAnonymousUser } from '../lib/auth'
@@ -23,7 +24,7 @@ type MatchItem = {
   latestAt: number
 }
 
-type SortKey = 'recent' | 'title'
+type SortKey = 'recent' | 'oldest' | 'title'
 
 export default function Matches() {
   const { code = '' } = useParams()
@@ -308,10 +309,10 @@ export default function Matches() {
           .includes(term),
     )
 
-    if (sort === 'recent') {
+    if (sort !== 'title') {
       arr = arr.slice().sort(
         (a, b) =>
-          b.latestAt - a.latestAt ||
+          (sort === 'oldest' ? a.latestAt - b.latestAt : b.latestAt - a.latestAt) ||
           a.title.localeCompare(b.title),
       )
     } else {
@@ -353,12 +354,12 @@ export default function Matches() {
             <div><p className="cinema-eyebrow">Sua próxima sessão</p><h2 id="matches-selection-title">A seleção do grupo</h2></div>
             <div className="matches-controls">
               <label className="matches-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Buscar filme</span><input type="search" value={q} onChange={event => setQ(event.target.value)} placeholder="Buscar um filme" disabled={loading || !sessionId} /></label>
-              <label className="matches-sort"><span className="sr-only">Ordenar filmes</span><select value={sort} onChange={event => setSort(event.target.value as SortKey)} disabled={loading || !sessionId}><option value="recent">Mais recentes</option><option value="title">Título (A→Z)</option></select><ChevronDown size={14} aria-hidden="true" /></label>
+              <label className="matches-sort"><span className="sr-only">Ordenar filmes</span><select value={sort} onChange={event => setSort(event.target.value as SortKey)} disabled={loading || !sessionId}><option value="recent">Mais recentes</option><option value="oldest">Mais antigos</option><option value="title">Título (A→Z)</option></select><ChevronDown size={14} aria-hidden="true" /></label>
               <button className="matches-copy" onClick={copyList} disabled={!visible.length} title="Copiar lista"><Copy size={16} aria-hidden="true" /><span>Copiar lista</span></button>
             </div>
           </div>
           <p className="matches-copy-status" role="status">{copyStatus}</p>
-          {loading ? <div className="matches-skeleton" role="status"><div /><span>Reunindo as escolhas de vocês…</span></div>
+          {loading ? <div className="matches-loading"><SessionLoader label="Reunindo as escolhas de vocês…" /></div>
             : !sessionId ? <div className="matches-empty"><Film size={36} aria-hidden="true" /><h3>Sessão indisponível</h3><p>Confira o código da sessão. Ela pode ter expirado ou a conexão pode estar indisponível.</p><CinemaButton onClick={() => navigate('/')}>Ir para o início</CinemaButton></div>
             : listError ? <div className="matches-load-error" role="alert"><p>Não foi possível atualizar a seleção. Tente novamente em instantes.</p><button onClick={() => void loadMatches(sessionId)}>Tentar novamente</button></div> : null}
           {!loading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? 'Vamos tentar outro título' : 'O próximo sim está por vir'}</span><h3>{q.trim() ? 'Esse filme não está na seleção.' : 'Ainda não deu match.'}</h3><p>{q.trim() ? 'Busque outro título ou veja todos os filmes aprovados pelo grupo.' : 'Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.'}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? 'Limpar busca' : 'Continuar votando'}</CinemaButton></div> : null}

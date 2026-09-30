@@ -135,6 +135,9 @@ for (const width of [390, 768, 1440]) {
 test('busca, ordenação, cópia e retorno à votação', async () => {
   const { ctx, page } = await fixture()
   try {
+    await page.getByLabel('Ordenar filmes').selectOption('oldest')
+    assert.equal(await page.locator('.matches-spotlight h3').innerText(), 'A Viagem de Chihiro')
+    assert.deepEqual(await page.locator('.matches-film-card h4').allTextContents(), [...movies].reverse().slice(1).map(movie => movie.title))
     await page.getByLabel('Ordenar filmes').selectOption('title')
     assert.equal(await page.locator('.matches-spotlight h3').innerText(), 'A Chegada')
     await page.getByLabel('Buscar filme').fill('amélie')
