@@ -34,12 +34,12 @@ before(async () => {
 })
 after(async () => { await browser?.close(); server?.kill() })
 
-async function fixture({ width = 1440, empty = false, invalid = false, listFailure = false, detailsFailure = false, liveImages = false, missingPoster = false } = {}) {
+async function fixture({ count = 5, width = 1440, empty = false, invalid = false, listFailure = false, detailsFailure = false, liveImages = false, missingPoster = false } = {}) {
   const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
   const uid = '11111111-1111-4111-8111-111111111111'
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
-  const state = { listFailure, requests: [], movies: empty ? [] : structuredClone(movies), detailsCalls: 0 }
+  const state = { listFailure, requests: [], movies: empty ? [] : structuredClone(movies).slice(0, count), detailsCalls: 0 }
   if (missingPoster) state.movies[0].poster_url = null
   await ctx.addInitScript(() => {
     window.copiedMatchList = ''
@@ -72,8 +72,8 @@ async function fixture({ width = 1440, empty = false, invalid = false, listFailu
   await ctx.route(/youtube\.com\/embed/, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Trailer de teste</title><button>Reproduzir</button>' }))
   if (!liveImages) await ctx.route(/https:\/\/image\.tmdb\.org\//, async route => {
     const movie = catalogue.movies.find(movie => new URL(movie.poster).pathname.split('/').pop() === new URL(route.request().url()).pathname.split('/').pop())
-    const thumbnail = movie?.preview?.split(',')[1]
-    if (thumbnail) return route.fulfill({ contentType: 'image/jpeg', body: Buffer.from(thumbnail, 'base64') })
+    const index = ids.indexOf(movie?.id)
+    if (index >= 0) return route.fulfill({ contentType: 'image/jpeg', body: await readFile(new URL('../public' + posters[index], import.meta.url)) })
     return route.abort()
   })
   const page = await ctx.newPage()
@@ -91,14 +91,14 @@ for (const width of [390, 768, 1440]) {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       assert.equal(await page.locator('.matches-spotlight h3').innerText(), 'Interestelar')
       assert.match(await page.locator('.matches-consensus').innerText(), /3 de 3 participantes/)
-      assert.equal(await page.locator('.matches-film-card').count(), 4)
-      const poster = page.locator('.matches-spotlight .matches-poster')
+      assert.equal(await page.locator('.matches-film-card').count(), 5)
+      const poster = page.locator('.coverflow-card[aria-hidden="false"] .matches-poster')
       const ratio = await poster.evaluate(element => element.getBoundingClientRect().width / element.getBoundingClientRect().height)
       assert.ok(Math.abs(ratio - 2 / 3) < .01)
-      await page.waitForFunction(() => document.querySelector('.matches-spotlight .cinema-poster')?.classList.contains('is-ready'))
+      await page.waitForFunction(() => document.querySelector('.coverflow-card[aria-hidden="false"] .cinema-poster')?.classList.contains('is-ready'))
       if (process.env.VISUAL_CAPTURE_DIR) {
         await page.locator('.matches-film-card').last().scrollIntoViewIfNeeded()
-        await page.waitForFunction(() => [...document.querySelectorAll('.matches-poster .cinema-poster')].every(element => element.classList.contains('is-ready')))
+        await page.waitForFunction(() => [...document.querySelectorAll('.matches-grid .cinema-poster, .coverflow-card[aria-hidden="false"] .cinema-poster')].every(element => element.classList.contains('is-ready')))
         await page.evaluate(() => window.scrollTo(0, 0))
         await delay(300)
         await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/matches-${width}.png`, fullPage: true })
@@ -125,7 +125,7 @@ for (const width of [390, 768, 1440]) {
       assert.equal(await page.getByRole('button', { name: 'Explorar o filme' }).evaluate(element => element === document.activeElement), true)
       assert.equal(state.detailsCalls, 1)
       await page.emulateMedia({ reducedMotion: 'reduce' })
-      const open = page.locator('.matches-spotlight-poster')
+      const open = page.locator('.coverflow-card[aria-hidden="false"] .matches-spotlight-poster')
       await open.hover()
       assert.equal(await open.locator('.matches-poster-open').evaluate(element => getComputedStyle(element).transform), 'none')
     } finally { await ctx.close() }
@@ -137,7 +137,7 @@ test('busca, ordenação, cópia e retorno à votação', async () => {
   try {
     await page.getByLabel('Ordenar filmes').selectOption('oldest')
     assert.equal(await page.locator('.matches-spotlight h3').innerText(), 'A Viagem de Chihiro')
-    assert.deepEqual(await page.locator('.matches-film-card h4').allTextContents(), [...movies].reverse().slice(1).map(movie => movie.title))
+    assert.deepEqual(await page.locator('.matches-film-card h4').allTextContents(), [...movies].reverse().map(movie => movie.title))
     await page.getByLabel('Ordenar filmes').selectOption('title')
     assert.equal(await page.locator('.matches-spotlight h3').innerText(), 'A Chegada')
     await page.getByLabel('Buscar filme').fill('amélie')
@@ -148,7 +148,7 @@ test('busca, ordenação, cópia e retorno à votação', async () => {
     await page.getByLabel('Buscar filme').fill('não existe')
     assert.match(await page.locator('.matches-empty h3').innerText(), /não está na seleção/)
     await page.getByRole('button', { name: 'Limpar busca' }).click()
-    assert.equal(await page.locator('.matches-film-card').count(), 4)
+    assert.equal(await page.locator('.matches-film-card').count(), 5)
     await page.getByRole('button', { name: 'Voltar a votar' }).click()
     await page.waitForURL('**/s/DEMO01')
   } finally { await ctx.close() }
@@ -173,7 +173,7 @@ test('vazio, sessão expirada e falha de consulta têm mensagens distintas e rec
 test('falha nos detalhes não reabre painel fechado; pôster ausente tem alternativa', async () => {
   const { ctx, page } = await fixture({ detailsFailure: true, missingPoster: true })
   try {
-    assert.match(await page.locator('.matches-spotlight .matches-no-poster').innerText(), /Interestelar/)
+    assert.match(await page.locator('.coverflow-card[aria-hidden="false"] .matches-no-poster').innerText(), /Interestelar/)
     await page.getByRole('button', { name: 'Explorar o filme' }).click()
     await page.getByRole('button', { name: 'Fechar detalhes' }).click()
     await delay(2200)
@@ -193,5 +193,69 @@ test('atualização de participantes remove filmes que deixaram de ter consenso'
     await page.getByText('Ainda não deu match.').waitFor()
     assert.equal(await page.locator('.matches-film-card').count(), 0)
     assert.equal(await page.locator('.matches-total > span').innerText(), '00')
+  } finally { await ctx.close() }
+})
+
+test('coverflow navega por botões e teclado, respeita movimento reduzido e abre o filme selecionado', async () => {
+  const { ctx, page, state } = await fixture()
+  try {
+    await page.getByRole('button', { name: 'Próximo filme' }).click()
+    await page.waitForFunction(() => document.querySelector('.coverflow-caption h3')?.textContent.includes('Amélie'))
+    const selected = page.locator('.coverflow-card[aria-hidden="false"]')
+    await page.waitForFunction(() => {
+      const m = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.coverflow-card[aria-hidden="false"]')).transform)
+      return Math.abs(m.m13) < .001
+    })
+    await page.getByRole('button', { name: 'Explorar o filme' }).click()
+    await page.getByRole('dialog').waitFor()
+    assert.equal(await page.locator('.matches-dialog h2').innerText(), movies[1].title)
+    assert.ok(state.requests.some(path => path.includes('movie_details')))
+    await page.keyboard.press('Escape')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const frame = page.locator('.coverflow-frame')
+    await frame.focus()
+    await page.keyboard.press('End')
+    assert.equal(await page.locator('.coverflow-caption h3').innerText(), movies[4].title)
+    await page.keyboard.press('ArrowRight')
+    assert.equal(await page.locator('.coverflow-caption h3').innerText(), movies[0].title)
+    await page.getByRole('button', { name: 'Próximo filme' }).evaluate(button => { button.click(); button.click() })
+    assert.equal(await page.locator('.coverflow-caption h3').innerText(), movies[2].title)
+    assert.equal(await page.locator('.coverflow-card[aria-hidden="false"]').count(), 1)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+  } finally { await ctx.close() }
+})
+
+test('coverflow com um ou dois filmes não perde pôsteres nem navega para posições inexistentes', async () => {
+  for (const count of [1, 2]) {
+    const { ctx, page } = await fixture({ count, width: 390 })
+    try {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      assert.equal(await page.locator('.coverflow-card').count(), count)
+      assert.equal(await page.locator('.coverflow-caption h3').innerText(), movies[0].title)
+      if (count === 1) assert.equal(await page.locator('.coverflow-navigation').count(), 0)
+      else {
+        assert.equal(await page.getByRole('button', { name: 'Filme anterior' }).isDisabled(), true)
+        await page.getByRole('button', { name: 'Próximo filme' }).click()
+        await page.waitForFunction(() => document.querySelector('.coverflow-caption h3')?.textContent.includes('Amélie'))
+        assert.equal(await page.getByRole('button', { name: 'Próximo filme' }).isDisabled(), true)
+        await page.getByRole('button', { name: 'Filme anterior' }).click()
+        await page.waitForFunction(() => document.querySelector('.coverflow-caption h3')?.textContent === 'Interestelar')
+      }
+    } finally { await ctx.close() }
+  }
+})
+
+test('arrastar o coverflow seleciona outro filme sem abrir os detalhes', async () => {
+  const { ctx, page } = await fixture()
+  try {
+    const poster = page.locator('.coverflow-card[aria-hidden="false"]')
+    const bounds = await poster.boundingBox()
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(bounds.x + bounds.width / 2 - 250, bounds.y + bounds.height / 2, { steps: 15 })
+    await delay(150)
+    await page.mouse.up()
+    await page.waitForFunction(() => document.querySelector('.coverflow-caption h3')?.textContent !== 'Interestelar')
+    assert.equal(await page.getByRole('dialog').count(), 0)
   } finally { await ctx.close() }
 })

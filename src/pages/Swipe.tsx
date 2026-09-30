@@ -13,7 +13,7 @@ import {
   useMemo,
   useCallback,
 } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   discoverMovies,
@@ -22,7 +22,7 @@ import {
   type DiscoverFilters,
   type MonetizationType,
 } from '../lib/functions'
-import { Star, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeftRight, Film } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 import { Toaster, toast } from 'sonner'
@@ -37,7 +37,11 @@ import SwipeCard, {
 } from '../components/swipe/SwipeCard'
 import AdSwipeCard from '../components/swipe/AdSwipeCard'
 import SwipeActionButtons from '../components/swipe/SwipeActionButtons'
-import ShareSessionButton from '../components/swipe/ShareSessionButton'
+import SwipeSessionHeader from '../components/swipe/SwipeSessionHeader'
+import SwipeMatchDialog from '../components/swipe/SwipeMatchDialog'
+import SwipeTutorial, { type SwipeTutorialHandle } from '../components/swipe/SwipeTutorial'
+import CinemaButton from '../components/ui/cinema-button'
+import '../styles/swipe.css'
 import SessionLoader from '../components/ui/session-loader'
 import {
   clearProgress,
@@ -1334,13 +1338,14 @@ function Swipe() {
   useEffect(() => {
     if (!matchModal) return
     const t = setTimeout(() => {
-      confetti({ particleCount: 100, spread: 70, startVelocity: 45, origin: { y: 0.3 } })
+      confetti({ particleCount: 100, spread: 70, startVelocity: 45, origin: { y: 0.3 }, disableForReducedMotion: true })
     }, 120)
     return () => clearTimeout(t)
   }, [matchModal])
 
   // ===== animação imperativa p/ botões/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
+  const tutorialRef = useRef<SwipeTutorialHandle | null>(null)
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
@@ -1969,310 +1974,55 @@ function Swipe() {
     }
   }
 
-  // —— estados de carregamento / erro —— 
+  // —— estados de carregamento / erro ——
   if (loading) {
-    return (
-      <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-        <SessionLoader />
-        {/* Anti-adblock — só mostra para não-premium */}
-        <AdblockWall enabled={!isPremium} />
-        <Toaster richColors position="bottom-center" />
-      </main>
-    )
+    return <main className="cinema-page swipe-error"><SessionLoader /><AdblockWall enabled={!isPremium} /><Toaster richColors position="bottom-center" /></main>
   }
-
   if (fatalError) {
-    return (
-      <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
-        <div className="max-w-md text-center">
-          <h2 className="text-lg font-semibold mb-2">Não foi possível iniciar a sessão</h2>
-          <p className="text-white/80 mb-4">{fatalError}</p>
-          <button
-            className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-            onClick={() => window.location.reload()}
-          >
-            Tentar novamente
-          </button>
-        </div>
-        <Toaster richColors position="bottom-center" />
-      </main>
-    )
+    return <main className="cinema-page swipe-error"><div className="swipe-empty"><Film size={32} aria-hidden="true" /><p className="cinema-eyebrow">Vamos tentar de novo</p><h1>Não foi possível iniciar a sessão</h1><p>{fatalError}</p><CinemaButton direction="right" onClick={() => window.location.reload()}>Tentar novamente</CinemaButton></div><Toaster richColors position="bottom-center" /></main>
   }
-
   const det = current ? detailsCache[current.tmdb_id] : undefined
 
   return (
-    <main className="h-dvh max-h-dvh flex flex-col overflow-hidden overscroll-none bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800">
-      {/* Top bar */}
-      <div className="relative z-20 shrink-0 px-3 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-2 rounded-xl bg-white/5 px-2.5 py-1.5 ring-1 ring-white/10 backdrop-blur">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs text-white/80">
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-white">
-              <span className="hidden sm:inline">
-                Sessão
-              </span>
-
-              <span className="font-semibold tracking-wide">
-                {code}
-              </span>
-            </span>
-
-            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {onlineCount} online
-            </span>
-
-            {filtersCount > 0 ? (
-              <button
-                type="button"
-                onClick={() => setOpenFilters(true)}
-                className="min-w-0 truncate rounded-full bg-white/10 px-2 py-1 text-[11px] transition hover:bg-white/15"
-                title="Editar filtros"
-              >
-                {filtersCount} filtros
-              </button>
-            ) : null}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setOpenFilters(true)}
-              title="Filtros"
-              aria-label="Abrir filtros"
-              className="grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
-            >
-              <SlidersHorizontal className="h-[18px] w-[18px]" />
-            </button>
-
-            <ShareSessionButton code={code ?? ''} />
-
-            <Link
-              to={`/s/${code}/matches`}
-              onClick={() => {
-                if (LS_KEY) {
-                  localStorage.setItem(
-                    LS_KEY,
-                    String(Date.now()),
-                  )
-                }
-              }}
-              data-new-match={
-                hasNewMatch ? '1' : undefined
-              }
-              title="Ver matches"
-              aria-label={
-                hasNewMatch
-                  ? 'Ver matches, há novos matches'
-                  : 'Ver matches'
-              }
-              className="relative grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-emerald-500 text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
-            >
-              <Star className="h-[18px] w-[18px]" />
-            </Link>
-          </div>
+    <main className="cinema-page swipe-page" id="conteudo">
+      <SwipeSessionHeader code={code ?? ''} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
+        if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
+      }} />
+      <div className="swipe-deck">
+        <div className="swipe-stage-heading"><h1>Uma escolha de cada vez</h1><span><ArrowLeftRight size={14} aria-hidden="true" />Arraste o pôster para votar</span></div>
+        <h1 className="sr-only min-[900px]:hidden">Escolha o próximo filme</h1>
+        <div className="swipe-card-stage">
+          {current ? (isAdStep ? <AdSwipeCard ref={cardRef} key={`ad-${i}-${adsShown.current}`} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />
+            : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
+            : <div className="swipe-empty" role="status">
+              <Film size={34} aria-hidden="true" />
+              <p className="cinema-eyebrow">{noResults ? 'Um novo caminho para o play' : 'Mais histórias pela frente'}</p>
+              <h2>{noResults ? 'Vamos ampliar a seleção?' : loadingMore ? 'Preparando mais filmes.' : 'Você viu este lote.'}</h2>
+              <p>{noResults ? (discoverHint === 'relax_providers' ? 'Nenhum resultado com os filtros atuais. Remova ou reduza os catálogos de streaming selecionados.' : 'Nenhum resultado com os filtros atuais. Experimente outros gêneros ou amplie o período da busca.') : loadingMore ? 'Buscando as próximas opções para a sessão.' : 'Altere os filtros para descobrir novas opções ou confira os matches do grupo.'}</p>
+              {!loadingMore ? <CinemaButton tone="secondary" direction="right" compact onClick={() => setOpenFilters(true)}>Ajustar filtros</CinemaButton> : null}
+            </div>}
         </div>
+        <footer className="swipe-voting" aria-label="Seu voto">
+          <div>
+            <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />
+          </div>
+          <div className="swipe-keyboard-hint" aria-hidden="true"><span><kbd>←</kbd>Passo</span><span><kbd>→</kbd>Quero ver</span><span><kbd>⌫</kbd>Desfazer</span></div>
+        </footer>
       </div>
-
-      {/* centro */}
-      <div className="relative z-0 flex-1 min-h-0 overflow-hidden px-3 sm:px-4">
-        <div className="mx-auto h-full min-h-0 w-full max-w-md">
-          <div className="h-full flex flex-col">
-            <div className="relative flex-1 min-h-0 overflow-hidden">
-                {current ? (
-                  // se for hora do anúncio, mostra AdSwipeCard; senão, o SwipeCard normal
-                  isAdStep ? (
-                    <AdSwipeCard
-                      ref={cardRef}
-                      key={`ad-${i}-${adsShown.current}`}
-                      onDragState={setDragging}
-                      onDecision={(v) => react(v, { skipAnimation: true })}
-                    />
-                  ) :
-                  <SwipeCard
-                    ref={cardRef}
-                    key={`movie-${current.tmdb_id}`}
-                    movie={current}
-                    details={det}
-                    onDragState={setDragging}
-                    onDecision={(v) => react(v, { skipAnimation: true })}
-                  />
-                ) : current ? (
-                  <motion.div
-                    key="loading-det"
-                    className="h-full grid place-items-center text-white/80"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <div className="text-center">
-                      <p>Carregando detalhes…</p>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="empty"
-                    className="h-full grid place-items-center text-white/80"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <div className="text-center max-w-sm">
-                      {noResults ? (
-                        <>
-                          <p className="font-medium">Nenhum resultado com os filtros atuais.</p>
-                          {discoverHint === 'relax_providers' ? (
-                            <p className="text-white/60 mt-1">Dica: remova ou reduza os catálogos de streaming selecionados.</p>
-                          ) : (
-                            <p className="text-white/60 mt-1">Tente relaxar alguns critérios ou limpar tudo.</p>
-                          )}
-                          <div className="mt-3 flex items-center justify-center gap-2">
-                            {/* botões existentes permanecem iguais */}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <p>Acabaram os filmes deste lote 😉</p>
-                          {loadingMore ? <p className="text-white/60 mt-1">Buscando mais filmes…</p> : null}
-                        </>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Banners sutis (só para não-premium) */}
-      {!isPremium ? (
-        <>
-          <div className="hidden sm:block fixed top-3 left-3 z-40">
-            <AdSlot
-              id={`ad-tl-${sessionId ?? 's'}`}
-              adClient="ca-pub-8257200313072326"
-              adSlot="8357155401"
-              width={180}
-              height={180}
-            />
-          </div>
-          <div className="hidden sm:block fixed bottom-3 right-3 z-40">
-            <AdSlot
-              id={`ad-br-${sessionId ?? 's'}`}
-              adClient="ca-pub-8257200313072326"
-              adSlot="4497801440"
-              width={180}
-              height={180}
-            />
-          </div>
-        </>
-      ) : null}
-
-      {/* Ações */}
-      <div className="relative z-30 shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-2.5">
-        <SwipeActionButtons
-          onDislike={() => react(-1)}
-          onUndo={() => undo()}
-          onLike={() => react(1)}
-          dislikeDisabled={
-            busy ||
-            dragging ||
-            !current
-          }
-          undoDisabled={
-            busy ||
-            dragging ||
-            isAdStep ||
-            historyRef.current.length === 0
-          }
-          likeDisabled={
-            busy ||
-            dragging ||
-            !current
-          }
-        />
-      </div>
-
-      {/* Banner UNDO */}
-      <AnimatePresence>
-        {undoMsg && (
-          <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none">
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }}
-              className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow">
-              {undoMsg}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {openFilters ? (
-        <Suspense fallback={null}>
-          <FilterModal
-            open
-            filters={filters}
-            defaultFilters={DEFAULT_FILTERS}
-            currentYear={currentYear}
-            isAdult={isAdult}
-            onRequestAdultVerification={() =>
-              setShowAgeGate(true)
-            }
-            onClose={() => setOpenFilters(false)}
-            onApply={applyFilters}
-          />
-        </Suspense>
-      ) : null}
-
-      {/* Modal Match */}
-      <AnimatePresence>
-        {matchModal && (
-          <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMatchModal(null)} />
-            <motion.div
-              initial={{ scale: 0.96, opacity: 0, y: 6 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.96, opacity: 0, y: 6 }} transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-              className="relative z-10 w-[min(92vw,28rem)] rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white"
-            >
-              <div className="flex items-center gap-3">
-                {matchModal.poster_url ? (
-                  <img src={matchModal.poster_url} alt={matchModal.title} className="w-16 h-24 object-cover rounded-md ring-1 ring-white/10" />
-                ) : null}
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold">Deu match!</h3>
-                  <p className="text-sm text-white/80 truncate">
-                    {matchModal.title} {matchModal.year ? <span className="text-white/60">({matchModal.year})</span> : null}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button onClick={() => setMatchModal(null)} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15">Continuar</button>
-                <Link
-                  to={`/s/${code}/matches`}
-                  className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
-                  onClick={() => {
-                    if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
-                    setLatestMatchAt(0)
-                    setMatchModal(null)
-                  }}
-                >
-                  Ver matches
-                </Link>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ÚNICA instância do AgeGateModal */}
-      {showAgeGate ? (
-        <AgeGateModal
-          open
-          onConfirm={confirmAdult}
-          onCancel={cancelAdult}
-        />
-      ) : null}
-
+      {!isPremium ? <>
+        <aside className="swipe-ad swipe-ad-left" aria-label="Publicidade"><span>Publicidade</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={180} height={180} /></aside>
+        <aside className="swipe-ad swipe-ad-right" aria-label="Publicidade"><span>Publicidade</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={180} height={180} /></aside>
+      </> : null}
+      <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
+      {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
+      {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {
+        if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
+        setLatestMatchAt(0)
+        setMatchModal(null)
+      }} /> : null}
+      {showAgeGate ? <AgeGateModal open onConfirm={confirmAdult} onCancel={cancelAdult} /> : null}
+      {sessionId ? <SwipeTutorial key={sessionId} ref={tutorialRef} sessionId={sessionId} code={code ?? ''} /> : null}
       <AdblockWall enabled={!isPremium} />
-
       <Toaster richColors position="bottom-center" />
     </main>
   )

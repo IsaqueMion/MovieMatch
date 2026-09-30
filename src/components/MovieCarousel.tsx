@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { AlignLeft, Film, Play } from 'lucide-react'
 import type { MovieDetails } from '../lib/functions'
 import { tmdbPosterSrcs } from '../lib/images'
-
+import catalogue from '../data/landingMovies.json'
 
 type Props = {
   title: string
@@ -11,303 +12,71 @@ type Props = {
   fullHeight?: boolean
   edgeToEdge?: boolean
 }
-
-// slides possíveis
 type SlideKind = 'poster' | 'trailer' | 'synopsis'
+const slideLabels = { poster: 'Pôster', trailer: 'Trailer', synopsis: 'Sinopse' }
+const slideIcons = { poster: Film, trailer: Play, synopsis: AlignLeft }
 
-// helpers para ler campos opcionais que não estão no tipo
-function getTrailerKey(details?: MovieDetails): string | null {
-  const key = details?.trailer?.key
-  return typeof key === 'string' && key.length > 0 ? key : null
-}
+export default function MovieCarousel({ title, year, poster_url, details, fullHeight = true, edgeToEdge = false }: Props) {
+  const id = useId()
+  const trailerKey = details?.trailer?.key
+  const slides = useMemo<SlideKind[]>(() => trailerKey ? ['poster', 'trailer', 'synopsis'] : ['poster', 'synopsis'], [trailerKey])
+  const [slide, setSlide] = useState<SlideKind>('poster')
+  useEffect(() => { setSlide('poster') }, [poster_url, title])
+  const active = slides.includes(slide) ? slide : 'poster'
 
-function getRuntime(details?: MovieDetails): number | undefined {
-  const runtime = details?.runtime
-  return typeof runtime === 'number' ? runtime : undefined
-}
-
-function getOverview(details?: MovieDetails): string | undefined {
-  const overview = details?.overview
-  return typeof overview === 'string' && overview.length > 0
-    ? overview
-    : undefined
-}
-
-export default function MovieCarousel({
-  title,
-  year,
-  poster_url,
-  details,
-  fullHeight = true,
-  edgeToEdge = false,
-}: Props) {
-  const trailerKey = getTrailerKey(details)
-  const hasTrailer = !!details?.trailer?.key
-
-  const slides = useMemo<SlideKind[]>(() => {
-    const arr: SlideKind[] = ['poster']
-    if (hasTrailer) arr.push('trailer')
-    arr.push('synopsis')
-    return arr
-  }, [hasTrailer])
-
-  const [slide, setSlide] = useState(0)
-
-  // mantém índice válido ao mudar # de slides
-  useEffect(() => {
-    if (slide > slides.length - 1) setSlide(0)
-  }, [slides.length, slide])
-
-  // ao trocar de filme, volta ao primeiro slide
-  useEffect(() => {
-    setSlide(0)
-  }, [poster_url, title])
-
-  const next = () => setSlide((s) => (s + 1) % slides.length)
-  const prev = () => setSlide((s) => (s - 1 + slides.length) % slides.length)
-
-  const youtubeEmbed: string | null = trailerKey
-    ? `https://www.youtube.com/embed/${trailerKey}?playsinline=1&rel=0`
-    : null
-
-  const slideKey: SlideKind = slides[slide] ?? 'poster'
-  const runtime = getRuntime(details)
-  const overview = getOverview(details)
-
-  return (
-    <div className="h-full min-h-0 w-full select-none">
-      <div
-        className={
-          edgeToEdge
-            ? 'relative h-full min-h-0 overflow-hidden'
-            : 'relative h-full min-h-0 overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5'
-        }
-      >
-        {/* área do slide */}
-        <div
-          className={`relative h-full min-h-0 overflow-hidden ${
-            fullHeight ? '' : 'min-h-[520px]'
-          } bg-neutral-950 text-white`}
-        >
-          {/* Poster */}
-          <FadeSlide visible={slideKey === 'poster'}>
-            <PosterResponsive
-              title={title}
-              year={year}
-              poster_url={poster_url}
-              fullHeight={fullHeight}
-              edgeToEdge={edgeToEdge}
-            />
-          </FadeSlide>
-
-          {/* Trailer */}
-          <FadeSlide visible={slideKey === 'trailer'}>
-            {youtubeEmbed ? (
-              <div
-                className="relative w-full h-full bg-black overflow-hidden"
-                data-interactive="true"
-              >
-                <div className="absolute inset-x-3 sm:inset-x-4 top-1/2 -translate-y-1/2 aspect-video overflow-hidden rounded-xl">
-                  <iframe
-                    className="absolute inset-0 w-full h-full"
-                    src={youtubeEmbed}
-                    title={`${title} trailer`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                </div>
-              </div>
-            ) : (
-              <Skeleton>Carregando trailer…</Skeleton>
-            )}
-          </FadeSlide>
-
-          {/* Sinopse */}
-          <FadeSlide visible={slideKey === 'synopsis'}>
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="w-full max-w-sm mx-auto bg-white text-gray-900 p-4 rounded-xl shadow-lg">
-                <h3 className="font-semibold text-lg">
-                  {title}{year ? ` (${year})` : ''}
-                </h3>
-                <div className="mt-0.5 text-sm text-gray-600">
-                  {typeof runtime === 'number' ? `${runtime} min` : '—'}
-                  {details?.genres?.length ? ` • ${details.genres.map(g => g.name).join(' • ')}` : ''}
-                </div>
-                <div className="mt-3 text-sm leading-relaxed max-h-64 overflow-y-auto pr-1">
-                  {overview || <Skeleton>Carregando sinopse…</Skeleton>}
-                </div>
-              </div>
-            </div>
-          </FadeSlide>
-
-          {/* setas laterais */}
-          {slides.length > 1 && (
-            <>
-              <button
-                onClick={prev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-white/15 hover:bg-white/25 transition px-3 py-2 rounded-full backdrop-blur"
-                aria-label="Anterior"
-              >
-                ‹
-              </button>
-              <button
-                onClick={next}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-white/15 hover:bg-white/25 transition px-3 py-2 rounded-full backdrop-blur"
-                aria-label="Próximo"
-              >
-                ›
-              </button>
-            </>
-          )}
-
-          {/* Dots (esconde no trailer) */}
-          {slides.length > 1 && slideKey !== 'trailer' && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex gap-2 bg-black/20 rounded-full px-2 py-1 backdrop-blur">
-              {slides.map((kind, idx) => (
-                <button
-                  key={kind}
-                  onClick={() => setSlide(idx)}
-                  className={`w-2.5 h-2.5 rounded-full transition ${idx === slide ? 'bg-white' : 'bg-white/50'}`}
-                  aria-label={`Ir para ${kind}`}
-                />
-              ))}
-            </div>
-          )}
+  return <div className={`swipe-carousel${fullHeight ? '' : ' is-natural-height'}${edgeToEdge ? ' is-edge-to-edge' : ''}`} onKeyDown={event => event.stopPropagation()}>
+    <div className="swipe-carousel-slides">
+      <FadeSlide id={`${id}-poster`} tabId={`${id}-tab-poster`} visible={active === 'poster'}>
+        <PosterResponsive title={title} year={year} poster_url={poster_url} edgeToEdge={edgeToEdge} />
+      </FadeSlide>
+      {trailerKey ? <FadeSlide id={`${id}-trailer`} tabId={`${id}-tab-trailer`} visible={active === 'trailer'}>
+        <div className="swipe-trailer-slide" data-interactive="true">
+          <span className="cinema-eyebrow">Uma prévia antes do play</span>
+          {active === 'trailer' ? <div><iframe src={`https://www.youtube.com/embed/${encodeURIComponent(trailerKey)}?playsinline=1&rel=0`} title={`Trailer de ${title}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div> : null}
         </div>
-      </div>
-    </div>
-  )
-}
-
-function FadeSlide({ visible, children }: { visible: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      className={`absolute inset-0 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-      style={{ zIndex: visible ? 1 : 0 }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function Skeleton({ children }: { children?: React.ReactNode }) {
-  return (
-    <div className="w-full h-full flex items-center justify-center">
-      <div className="w-full max-w-sm p-4">
-        <div className="animate-pulse space-y-3">
-          <div className="h-48 bg-gray-200 rounded" />
-          <div className="h-4 bg-gray-200 rounded" />
-          <div className="h-4 bg-gray-200 rounded w-2/3" />
-          {children ? <div className="text-xs text-gray-500">{children}</div> : null}
+      </FadeSlide> : null}
+      <FadeSlide id={`${id}-synopsis`} tabId={`${id}-tab-synopsis`} visible={active === 'synopsis'}>
+        <div className="swipe-synopsis-slide" data-interactive="true">
+          <p className="cinema-eyebrow">A história</p><h4>{title}</h4>
+          <p className="swipe-synopsis-year">{year}{details?.runtime ? ` · ${details.runtime} min` : ''}</p>
+          <div tabIndex={active === 'synopsis' ? 0 : -1} aria-label="Sinopse do filme">{details ? details.overview || 'Sinopse indisponível no momento.' : 'Preparando a sinopse…'}</div>
         </div>
-      </div>
+      </FadeSlide>
     </div>
-  )
+    <div className="swipe-carousel-tabs" role="tablist" aria-label="Conheça o filme" data-interactive="true">
+      {slides.map((kind, index) => {
+        const Icon = slideIcons[kind]
+        return <button key={kind} id={`${id}-tab-${kind}`} role="tab" type="button" aria-label={slideLabels[kind]} aria-selected={kind === active} aria-controls={`${id}-${kind}`} tabIndex={kind === active ? 0 : -1} onClick={() => setSlide(kind)} onKeyDown={event => {
+          const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? slides.length - 1 : direction ? (index + direction + slides.length) % slides.length : -1
+          if (next < 0) return
+          event.preventDefault()
+          setSlide(slides[next])
+          document.getElementById(`${id}-tab-${slides[next]}`)?.focus({ preventScroll: true })
+        }}><Icon size={14} aria-hidden="true" /><span>{slideLabels[kind]}</span></button>
+      })}
+    </div>
+  </div>
 }
 
-function PosterResponsive({
-  title,
-  year,
-  poster_url,
-  edgeToEdge = false,
-}: {
-  title: string
-  year: number | null
-  poster_url: string
-  fullHeight?: boolean
-  edgeToEdge?: boolean
-}) {
+function FadeSlide({ id, tabId, visible, children }: { id: string; tabId: string; visible: boolean; children: ReactNode }) {
+  return <div id={id} role="tabpanel" aria-labelledby={tabId} aria-hidden={!visible} inert={!visible} className={`swipe-carousel-slide${visible ? ' is-visible' : ''}`}>{children}</div>
+}
+
+function PosterResponsive({ title, year, poster_url, edgeToEdge }: { title: string; year: number | null; poster_url: string; edgeToEdge: boolean }) {
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
-  const { src, srcSet, sizes } = tmdbPosterSrcs(poster_url)
+  const { src, srcSet } = tmdbPosterSrcs(poster_url)
+  const file = poster_url.split('/').pop()
+  const preview = file ? catalogue.movies.find(movie => movie.poster.split('/').pop() === file)?.preview : undefined
   const alt = `${title}${year ? ` (${year})` : ''}`
-
-  return (
-    <div className="relative h-full w-full bg-black">
-      {!loaded && !error ? (
-        <div
-          className={
-            edgeToEdge
-              ? 'absolute inset-0 animate-pulse bg-white/5'
-              : 'absolute inset-0 animate-pulse rounded-2xl bg-white/5'
-          }
-        />
-      ) : null}
-
-      {!error ? (
-        <div
-          className={
-            edgeToEdge
-              ? 'absolute inset-0 overflow-hidden bg-black'
-              : 'absolute inset-0 overflow-hidden rounded-2xl bg-black'
-          }
-        >
-          {edgeToEdge ? null : (
-            <img
-              src={src || poster_url}
-              srcSet={srcSet}
-              sizes={sizes}
-              alt=""
-              aria-hidden="true"
-              className={`absolute inset-0 h-full w-full scale-110 object-cover blur-xl transition-opacity duration-300 ${
-                loaded
-                  ? 'opacity-35'
-                  : 'opacity-0'
-              }`}
-              draggable={false}
-            />
-          )}
-
-          <img
-            src={src || poster_url}
-            srcSet={srcSet}
-            sizes={sizes}
-            alt={alt}
-            className={`relative z-10 h-full w-full transition-opacity duration-300 ${
-              edgeToEdge
-                ? 'object-cover'
-                : 'object-contain'
-            } ${
-              loaded
-                ? 'opacity-100'
-                : 'opacity-0'
-            }`}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            draggable={false}
-            style={{
-              pointerEvents: 'none',
-            }}
-            onLoad={() =>
-              setLoaded(true)
-            }
-            onError={() =>
-              setError(true)
-            }
-          />
-        </div>
-      ) : (
-        <div
-          className={
-            edgeToEdge
-              ? 'grid h-full w-full place-items-center bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4 text-center'
-              : 'grid h-full w-full place-items-center rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-4 text-center ring-1 ring-white/10'
-          }
-        >
-          <div>
-            <div className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white/80">
-              🎬
-            </div>
-            <p className="text-sm text-white/80">
-              Sem pôster disponível
-            </p>
-            <p className="mt-1 line-clamp-2 text-xs text-white/60">
-              {alt}
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+  return <div className={`swipe-poster-image${loaded ? ' is-ready' : ''}`} style={preview ? { backgroundImage: `url("${preview}")` } : undefined}>
+    {(!loaded && !preview) || error ? <div className="swipe-poster-placeholder" aria-hidden="true"><Film size={28} /><span>{title}</span><small>{error ? 'Pôster indisponível' : 'Preparando o pôster'}</small></div> : null}
+    {!error && poster_url ? <img src={src || poster_url} srcSet={srcSet || undefined} sizes="(min-width: 900px) 390px, (max-height: 700px) 230px, 340px" width={500} height={750} alt={alt} draggable={false} loading="eager" fetchPriority="high" decoding="async" className={edgeToEdge ? 'is-edge-to-edge' : ''} onLoad={async event => {
+      const image = event.currentTarget
+      const source = image.currentSrc
+      try { await image.decode() } catch { /* The loaded image can still be displayed. */ }
+      if (image.isConnected && image.currentSrc === source) setLoaded(true)
+    }} onError={() => setError(true)} /> : <span className="sr-only">Pôster indisponível de {title}</span>}
+  </div>
 }

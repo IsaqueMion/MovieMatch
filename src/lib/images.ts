@@ -1,6 +1,7 @@
 // src/lib/images.ts
 export function tmdbPosterSrcs(posterUrl?: string) {
   if (!posterUrl) return { src: '', srcSet: '', sizes: '' }
+  if (!posterUrl.startsWith('https://image.tmdb.org/t/p/')) return { src: posterUrl, srcSet: '', sizes: '' }
 
   // tenta reaproveitar o path do TMDB (depois do /wNNN/)
   const m = posterUrl.match(/\/t\/p\/w\d+\/(.+)$/)

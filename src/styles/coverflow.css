@@ -1,0 +1,28 @@
+.coverflow-carousel { width: 100%; min-width: 0; }
+.coverflow-stage { position: relative; }
+.coverflow-frame { cursor: grab; overflow: hidden; padding: 32px 0 40px; outline-offset: -5px !important; border-radius: 8px; }
+.coverflow-frame:active { cursor: grabbing; }
+.coverflow-track { position: relative; height: calc(var(--cf-card) * 1.5); transform-style: preserve-3d; user-select: none; }
+.coverflow-card { position: absolute; left: 50%; top: 0; width: var(--cf-card); aspect-ratio: 2 / 3; border-radius: 9px; overflow: hidden; background: var(--cinema-surface); box-shadow: 0 18px 32px #0007; will-change: transform; transform: translateX(-50%); }
+.coverflow-open { display: block; height: 100%; width: 100%; padding: 0; cursor: inherit; }
+.coverflow-open > img { display: block; height: 100%; width: 100%; object-fit: cover; user-select: none; }
+.coverflow-open .matches-poster { height: 100%; border-radius: 0; }
+.coverflow-navigation { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.coverflow-navigation > button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid #4a5c50; border-radius: 50%; color: var(--cinema-accent); background: #75efb807; transition: background .2s, border-color .2s; }
+.coverflow-navigation > button:hover { background: #75efb817; border-color: var(--cinema-accent); }
+.coverflow-navigation > button:disabled { opacity: .3; cursor: default; }
+.coverflow-navigation > span { min-width: 70px; text-align: center; font: 500 12px var(--cinema-body); font-variant-numeric: tabular-nums; color: #dfebe2; }
+.coverflow-navigation i { font-style: normal; margin-inline: 9px; color: #6d8074; }
+.coverflow-caption { text-align: center; padding: 0 24px 36px; }
+.coverflow-caption h3 { font-family: var(--cinema-display); }
+.matches-spotlight.matches-coverflow { display: block; padding: 12px 0 0; overflow: hidden; background: radial-gradient(ellipse at 50% 24%, #29453280, transparent 65%), #141c17; }
+.matches-coverflow .coverflow-caption .matches-film-year { margin-top: 26px; font-size: 11px; }
+.matches-coverflow .coverflow-caption h3 { font-size: clamp(28px, 3.2vw, 44px); line-height: 1.08; letter-spacing: -.045em; margin: 12px auto 17px; max-width: 650px; }
+.matches-coverflow .matches-consensus { justify-content: center; margin: 0 auto 20px; text-align: left; }
+.matches-coverflow .matches-consensus > span { width: 35px; height: 35px; }
+.matches-coverflow .matches-detail-hint { margin-top: 12px; }
+.matches-coverflow .coverflow-open .matches-poster-open { bottom: 12px; right: 12px; }
+.matches-carousel-intro { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--cinema-muted); font-size: 10px; margin: 15px 0 0; }
+.matches-carousel-intro svg { color: var(--cinema-accent); }
+@media (max-width: 640px) { .coverflow-frame { padding: 27px 0 28px; } .coverflow-caption { padding: 0 20px 27px; } .matches-coverflow .coverflow-caption .matches-film-year { margin-top: 22px; } .matches-coverflow .coverflow-caption h3 { font-size: 29px; } .matches-coverflow .matches-consensus strong { font-size: 11px; } .matches-coverflow .matches-consensus p { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .coverflow-navigation > button { transition: none; } }

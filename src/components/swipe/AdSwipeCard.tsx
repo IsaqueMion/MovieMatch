@@ -1,3 +1,4 @@
+import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import {
   forwardRef,
   useEffect,
@@ -37,6 +38,7 @@ const AdSwipeCard = forwardRef<
   { onDragState, onDecision },
   ref,
 ) {
+  const reducedMotion = useReducedMotion()
   const x = useMotionValue(0)
   const rotate = useTransform(
     x,
@@ -74,7 +76,7 @@ const AdSwipeCard = forwardRef<
         const controls = animate(
           x,
           endX,
-          TWEEN_SWIPE,
+          reducedMotion ? { ...TWEEN_SWIPE, duration: 0 } : TWEEN_SWIPE,
         )
 
         controls.then(() =>
@@ -83,10 +85,10 @@ const AdSwipeCard = forwardRef<
       },
 
       reset: () => {
-        animate(x, 0, TWEEN_SNAP)
+        animate(x, 0, reducedMotion ? { ...TWEEN_SNAP, duration: 0 } : TWEEN_SNAP)
       },
     }),
-    [onDecision, x],
+    [onDecision, reducedMotion, x],
   )
 
   return (
@@ -94,8 +96,8 @@ const AdSwipeCard = forwardRef<
       className="relative h-full w-full will-change-transform"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.12 }}
-      style={{ x, rotate, touchAction: 'pan-y' }}
+      transition={{ duration: reducedMotion ? 0 : 0.12 }}
+      style={{ x, rotate: reducedMotion ? 0 : rotate, touchAction: 'pan-y' }}
       drag="x"
       dragControls={dragControls}
       dragListener={false}
@@ -126,29 +128,27 @@ const AdSwipeCard = forwardRef<
             direction * (window.innerWidth + 180)
 
           const controls =
-            animate(x, endX, TWEEN_SWIPE)
+            animate(x, endX, reducedMotion ? { ...TWEEN_SWIPE, duration: 0 } : TWEEN_SWIPE)
 
           controls.then(() =>
             onDecision(direction === 1 ? 1 : -1),
           )
         } else {
-          animate(x, 0, TWEEN_SNAP)
+          animate(x, 0, reducedMotion ? { ...TWEEN_SNAP, duration: 0 } : TWEEN_SNAP)
         }
       }}
     >
       <div className="grid h-full min-h-0 place-items-center px-1 py-2">
-        <div className="w-[min(92vw,22rem)] rounded-2xl bg-gradient-to-br from-emerald-700/20 to-cyan-600/20 p-5 text-white ring-1 ring-white/10">
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-white/70">
+        <div className="swipe-ad-interlude">
+          <div className="cinema-eyebrow">
             Publicidade
           </div>
 
-          <div className="text-lg font-semibold">
-            Dica de hoje 🍿
-          </div>
+          <h2>Uma pausa.<br /><span>Mais histórias.</span></h2>
 
           <p className="mt-1 text-sm leading-relaxed text-white/80">
-            Aproveite filmes sem anúncios futuramente
-            com o plano simbólico.
+            A publicidade ajuda a manter o MovieMatch gratuito.
+            Seu próximo filme está logo ali.
           </p>
 
           <div className="mt-3 text-xs text-white/60">

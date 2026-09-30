@@ -43,6 +43,11 @@ html, body, #root { height: 100%; }
 .cinema-poster.is-ready img { opacity: 1; }
 .cinema-vote-actions { display: flex; align-items: center; justify-content: center; gap: 22px; max-width: 448px; margin-inline: auto; }
 .cinema-vote-actions.is-preview { pointer-events: none; }
+.cinema-dock { display: flex; align-items: flex-end; justify-content: center; gap: 22px; max-width: 100%; }
+.cinema-dock-item { position: relative; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; }
+.cinema-dock-control { display: flex; justify-content: center; align-items: center; }
+.cinema-dock-label { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); white-space: nowrap; color: var(--cinema-muted); font: 400 9px var(--cinema-body); }
+.cinema-dock-default { display: grid; place-items: center; background: var(--cinema-surface); color: var(--cinema-accent); border: 1px solid var(--cinema-line); border-radius: 20px; }
 .cinema-vote-button { --vote-color: #75efb8; --vote-rim: #2b5140; --vote-hover-rim: #40725a; position: relative; display: grid; place-items: center; width: 68px; height: 68px; border: 7px solid var(--vote-rim); border-radius: 26px; background: #19241f; color: var(--vote-color); box-shadow: inset 0 -3px 8px #0006, 0 6px 18px #0003; touch-action: manipulation; transition: transform .4s cubic-bezier(.68, -.55, .27, 1.55), border-color .4s, background-color .4s; }
 .cinema-vote-button.is-dislike { --vote-color: #f4a495; --vote-rim: #513632; --vote-hover-rim: #795048; background: #2c211f; }
 .cinema-vote-button.is-undo { --vote-color: #dccda8; --vote-rim: #444237; --vote-hover-rim: #68614e; width: 54px; height: 54px; border-width: 6px; border-radius: 21px; background: #25251f; }
@@ -122,6 +127,8 @@ html, body, #root { height: 100%; }
 .cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-text { color: var(--button-hover-ink); transform: translateX(-3px); }
 .cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-arrow svg { animation: cinema-arrow-travel .55s cubic-bezier(.4, 0, .2, 1) both; }
 .cinema-button:active:not(:disabled) { transform: scale(.97); }
+.cinema-specular-fx { opacity: 0; border-radius: inherit; transition: opacity .2s; }
+.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-specular-fx { opacity: 1; }
 .cinema-button:disabled .cinema-button-arrow svg { animation: none; }
 .cinema-button.is-compact { --button-height: 44px; padding: 0 54px 0 16px; font-size: 13px; }
 .cinema-button.is-compact .cinema-button-arrow svg { width: 16px; height: 16px; }

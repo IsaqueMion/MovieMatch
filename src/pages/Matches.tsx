@@ -1,9 +1,10 @@
 // src/pages/Matches.tsx
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, Check, ChevronDown, Clapperboard, Copy, Film, Heart, Search, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Check, ChevronDown, Clapperboard, Copy, Film, Heart, Search, ArrowLeftRight } from 'lucide-react'
 import CinemaButton from '../components/ui/cinema-button'
 import MatchPoster from '../components/matches/MatchPoster'
+import { CoverflowCarousel } from '../components/ui/coverflow-carousel'
 import MatchDetailsDialog from '../components/matches/MatchDetailsDialog'
 import SessionLoader from '../components/ui/session-loader'
 import { supabase } from '../lib/supabase'
@@ -364,12 +365,22 @@ export default function Matches() {
             : listError ? <div className="matches-load-error" role="alert"><p>Não foi possível atualizar a seleção. Tente novamente em instantes.</p><button onClick={() => void loadMatches(sessionId)}>Tentar novamente</button></div> : null}
           {!loading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? 'Vamos tentar outro título' : 'O próximo sim está por vir'}</span><h3>{q.trim() ? 'Esse filme não está na seleção.' : 'Ainda não deu match.'}</h3><p>{q.trim() ? 'Busque outro título ou veja todos os filmes aprovados pelo grupo.' : 'Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.'}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? 'Limpar busca' : 'Continuar votando'}</CinemaButton></div> : null}
           {!loading && sessionId && featured ? <>
-            <article className="matches-spotlight">
-              <button className="matches-spotlight-poster" onClick={() => void openDetails(featured)} aria-label={`Ver detalhes de ${featured.title}`}><MatchPoster title={featured.title} poster={featured.poster_url} priority /><span className="matches-poster-open"><ArrowUpRight size={20} aria-hidden="true" /></span></button>
-              <div className="matches-spotlight-copy"><p className="cinema-eyebrow"><Sparkles size={14} aria-hidden="true" />Em destaque</p><p className="matches-film-year">{featured.year ?? 'Ano não informado'} <span>· Escolha do grupo</span></p><h3>{featured.title}</h3><p className="matches-spotlight-description">Um filme em comum.<br />Uma boa razão para assistir juntos.</p><div className="matches-consensus"><span><Heart size={18} fill="currentColor" aria-hidden="true" /></span><div><strong>Todo mundo disse sim.</strong><p>{featured.likes} de {featured.member_count} participantes curtiram</p></div></div><CinemaButton direction="diagonal" onClick={() => void openDetails(featured)}>Explorar o filme</CinemaButton><p className="matches-detail-hint">Sinopse, trailer e onde assistir</p></div>
+            <article className="matches-spotlight matches-coverflow">
+              <p className="matches-carousel-intro"><ArrowLeftRight size={14} aria-hidden="true" />{visible.length > 1 ? 'Deslize pelos filmes que conquistaram o grupo' : 'O filme que conquistou o grupo'}</p>
+              <CoverflowCarousel
+                key={`${sort}:${q.trim().toLowerCase()}:${visible.map(movie => movie.movie_id).join(',')}`}
+                slides={visible.map(movie => ({ id: movie.movie_id, src: movie.poster_url, alt: `Pôster de ${movie.title}`, title: movie.title }))}
+                label="Matches da sessão"
+                onActivate={index => void openDetails(visible[index])}
+                renderSlide={(_slide, index, active) => <><MatchPoster title={visible[index].title} poster={visible[index].poster_url} priority={active || index < 3} /><span className="matches-poster-open"><ArrowUpRight size={20} aria-hidden="true" /></span></>}
+                renderCaption={(_slide, index) => {
+                  const movie = visible[index]
+                  return <><p className="matches-film-year">{movie.year ?? 'Ano não informado'} <span>· Escolha do grupo</span></p><h3>{movie.title}</h3><div className="matches-consensus"><span><Heart size={16} fill="currentColor" aria-hidden="true" /></span><div><strong>Todo mundo disse sim.</strong><p>{movie.likes} de {movie.member_count} participantes curtiram</p></div></div><CinemaButton direction="diagonal" onClick={() => void openDetails(movie)}>Explorar o filme</CinemaButton><p className="matches-detail-hint">Sinopse, trailer e onde assistir</p></>
+                }}
+              />
             </article>
-            {visible.length > 1 ? <div className="matches-more-heading"><h3>Mais filmes para o seu play</h3><span>{visible.length - 1} {visible.length === 2 ? 'outra escolha' : 'outras escolhas'}</span></div> : null}
-            <ul className="matches-grid">{visible.slice(1).map(movie => <li key={movie.movie_id}><button className="matches-film-card" onClick={() => void openDetails(movie)} aria-label={`Ver detalhes de ${movie.title}`}><div className="matches-card-image"><MatchPoster title={movie.title} poster={movie.poster_url} /><span className="matches-card-consensus"><Check size={13} aria-hidden="true" />{movie.likes}/{movie.member_count} curtiram</span><span className="matches-poster-open"><ArrowUpRight size={19} aria-hidden="true" /></span></div><div className="matches-card-copy"><span>{movie.year ?? 'Ano não informado'}</span><h4>{movie.title}</h4><p>{movie.latestAt ? 'Match em ' + new Date(movie.latestAt).toLocaleDateString('pt-BR') : 'Escolha do grupo'}</p></div></button></li>)}</ul>
+            <div className="matches-more-heading"><h3>Todos os matches</h3><span>{visible.length} {visible.length === 1 ? 'escolha em comum' : 'escolhas em comum'}</span></div>
+            <ul className="matches-grid">{visible.map(movie => <li key={movie.movie_id}><button className="matches-film-card" onClick={() => void openDetails(movie)} aria-label={`Ver detalhes de ${movie.title}`}><div className="matches-card-image"><MatchPoster title={movie.title} poster={movie.poster_url} /><span className="matches-card-consensus"><Check size={13} aria-hidden="true" />{movie.likes}/{movie.member_count} curtiram</span><span className="matches-poster-open"><ArrowUpRight size={19} aria-hidden="true" /></span></div><div className="matches-card-copy"><span>{movie.year ?? 'Ano não informado'}</span><h4>{movie.title}</h4><p>{movie.latestAt ? 'Match em ' + new Date(movie.latestAt).toLocaleDateString('pt-BR') : 'Escolha do grupo'}</p></div></button></li>)}</ul>
           </> : null}
         </section>
         <footer className="matches-footer"><Clapperboard size={19} aria-hidden="true" /><p>Menos tempo escolhendo. Mais tempo assistindo juntos.</p><Link to={`/s/${code}`}>Continuar descobrindo <ArrowUpRight size={15} aria-hidden="true" /></Link></footer>

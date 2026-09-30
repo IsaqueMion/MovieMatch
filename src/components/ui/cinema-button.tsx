@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowUpRight } from 'lucide-react'
 import type { ComponentProps } from 'react'
+import SpecularButton from './SpecularButton'
 
 type Props = ComponentProps<'button'> & {
   direction?: 'diagonal' | 'down' | 'right'
@@ -11,10 +12,10 @@ type Props = ComponentProps<'button'> & {
 export default function CinemaButton({ children, direction = 'diagonal', tone = 'primary', compact = false, className = '', type = 'button', ...props }: Props) {
   const Icon = direction === 'down' ? ArrowDown : direction === 'right' ? ArrowRight : ArrowUpRight
   return (
-    <button type={type} className={`cinema-button cinema-button-${tone} cinema-button-${direction}${compact ? ' is-compact' : ''} ${className}`} {...props}>
+    <SpecularButton unstyled size="lg" radius={compact ? 22 : 27} tint="#ffffff" tintOpacity={0} blur={0} textColor="#f5f4ee" lineColor={tone === 'light' ? '#ffffff' : '#b7ffdb'} baseColor="#40574a" intensity={1} shineSize={10} shineFade={40} thickness={1} speed={0.35} followMouse proximity={250} autoAnimate={false} delay={550} type={type} className={`cinema-button cinema-button-${tone} cinema-button-${direction}${compact ? ' is-compact' : ''} ${className}`} {...props}>
       <span className="cinema-button-circle" aria-hidden="true" />
       <span className="cinema-button-text">{children}</span>
       <span className="cinema-button-arrow" aria-hidden="true"><Icon size={18} /></span>
-    </button>
+    </SpecularButton>
   )
 }

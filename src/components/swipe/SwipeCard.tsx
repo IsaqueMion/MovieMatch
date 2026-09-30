@@ -1,3 +1,4 @@
+import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import {
   forwardRef,
   useEffect,
@@ -11,7 +12,7 @@ import {
   useMotionValue,
   useTransform,
 } from 'framer-motion'
-import { Star } from 'lucide-react'
+import { Clock3, Heart, Star } from 'lucide-react'
 
 import type { MovieDetails } from '../../lib/functions'
 import MovieCarousel from '../MovieCarousel'
@@ -62,6 +63,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
     },
     ref,
   ) {
+    const reducedMotion = useReducedMotion()
     const x = useMotionValue(0)
     const rotate = useTransform(
       x,
@@ -111,26 +113,26 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           const controls = animate(
             x,
             endX,
-            TWEEN_SWIPE,
+            reducedMotion ? { ...TWEEN_SWIPE, duration: 0 } : TWEEN_SWIPE,
           )
 
           controls.then(() => onDecision(value))
         },
 
         reset: () => {
-          animate(x, 0, TWEEN_SNAP)
+          animate(x, 0, reducedMotion ? { ...TWEEN_SNAP, duration: 0 } : TWEEN_SNAP)
         },
       }),
-      [onDecision, x],
+      [onDecision, reducedMotion, x],
     )
 
     return (
       <motion.div
-        className="relative h-full w-full will-change-transform"
+        className="swipe-film relative h-full w-full will-change-transform"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.12 }}
-        style={{ x, rotate, touchAction: 'pan-y' }}
+        transition={{ duration: reducedMotion ? 0 : 0.12 }}
+        style={{ x, rotate: reducedMotion ? 0 : rotate, touchAction: 'pan-y' }}
         drag="x"
         dragControls={dragControls}
         dragListener={false}
@@ -161,13 +163,13 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               direction * (window.innerWidth + 180)
 
             const controls =
-              animate(x, endX, TWEEN_SWIPE)
+              animate(x, endX, reducedMotion ? { ...TWEEN_SWIPE, duration: 0 } : TWEEN_SWIPE)
 
             controls.then(() =>
               onDecision(direction === 1 ? 1 : -1),
             )
           } else {
-            animate(x, 0, TWEEN_SNAP)
+            animate(x, 0, reducedMotion ? { ...TWEEN_SNAP, duration: 0 } : TWEEN_SNAP)
           }
         }}
       >
@@ -176,31 +178,21 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
             style={{ opacity: dislikeOpacity }}
             className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-6deg] bg-black/20"
           >
-            NOPE
+            PASSO
           </motion.div>
 
           <motion.div
             style={{ opacity: likeOpacity }}
             className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[6deg] bg-black/20"
           >
-            LIKE
+            QUERO VER
           </motion.div>
         </div>
 
         <div
-          className={
-            fitPoster
-              ? 'grid w-full grid-rows-[auto_auto] gap-2 overflow-hidden'
-              : 'grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden'
-          }
+          className={`swipe-film-layout${fitPoster ? ' is-fit-poster' : ''}`}
         >
-          <div
-            className={
-              fitPoster
-                ? 'relative aspect-[2/3] overflow-hidden'
-                : 'relative min-h-0 overflow-hidden'
-            }
-          >
+          <div className="swipe-poster-column"><div className="swipe-poster-frame">
             <MovieCarousel
               key={movie.tmdb_id}
               title={movie.title}
@@ -210,52 +202,24 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               fullHeight
               edgeToEdge={edgeToEdgePoster}
             />
-          </div>
+          </div></div>
 
           <div
-            className="relative z-10 shrink-0 select-text text-white"
+            className="swipe-film-copy relative z-10 select-text"
             data-interactive="true"
           >
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
-                {movie.title}{' '}
-                {movie.year ? (
-                  <span className="text-white/60">
-                    ({movie.year})
-                  </span>
-                ) : null}
-              </h3>
-
-              <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
-                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                <span className="tabular-nums">
-                  {details?.vote_average != null
-                    ? details.vote_average.toFixed(1)
-                    : '—'}
-                </span>
-              </div>
+            <p className="cinema-eyebrow swipe-film-eyebrow">Qual vai ser o próximo?</p>
+            <h3 className="swipe-film-title line-clamp-1" title={movie.title}>{movie.title}</h3>
+            <div className="swipe-film-facts" aria-label="Informações do filme">
+              {movie.year ? <span>{movie.year}</span> : null}
+              {details?.runtime ? <span><Clock3 size={14} aria-hidden="true" />{details.runtime} min</span> : null}
+              {details?.age_rating?.trim() ? <span className="swipe-age" aria-label={`Classificação ${details.age_rating}`}>{details.age_rating}</span> : null}
+              {details?.vote_average != null ? <span className="swipe-rating"><Star size={14} aria-hidden="true" />{details.vote_average.toFixed(1)} <small>TMDB</small></span> : null}
             </div>
-
-            <div className="mt-1 flex min-h-[22px] flex-wrap items-start gap-1">
-              {details?.genres?.length
-                ? details.genres.slice(0, 3).map((genre) => (
-                    <span
-                      key={genre.id}
-                      className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/90"
-                    >
-                      {genre.name}
-                    </span>
-                  ))
-                : null}
-            </div>
-
-            <div className="mt-1">
-              <span className="text-[11px] text-white/70 mr-1.5">
-                Classificação:
-              </span>
-              <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-                {details?.age_rating?.trim() || '—'}
-              </span>
+            {details?.genres?.length ? <p className="swipe-film-genres">{details.genres.slice(0, 3).map(genre => genre.name).join(' · ')}</p> : null}
+            <div className="swipe-film-story">
+              <p className="swipe-synopsis">{details ? details.overview || 'Sinopse indisponível no momento.' : 'Preparando os detalhes do filme…'}</p>
+              <p className="swipe-consensus-note"><Heart size={16} aria-hidden="true" /><span>Seu voto faz parte da escolha.<small>O match acontece quando todos curtirem.</small></span></p>
             </div>
           </div>
         </div>
