@@ -1,19 +1,67 @@
-// src/App.tsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Landing from './pages/Landing'
-import Swipe from './pages/Swipe'
+import {
+  lazy,
+  Suspense,
+} from 'react'
+import {
+  BrowserRouter,
+  Route,
+  Routes,
+} from 'react-router-dom'
+
 import JoinRedirect from './pages/JoinRedirect'
-import Matches from './pages/Matches'
+import Landing from './pages/Landing'
+import NotFound from './pages/NotFound'
+import SessionLoader from './components/ui/session-loader'
+import BackToTop from './components/ui/back-to-top'
+
+const Swipe = lazy(
+  () => import('./pages/Swipe'),
+)
+
+const Matches = lazy(
+  () => import('./pages/Matches'),
+)
+
+function RouteLoading() {
+  return (
+    <main
+      className="min-h-dvh grid place-items-center bg-neutral-900 p-6 text-white"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <SessionLoader />
+    </main>
+  )
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-         <Route path="/s/:code" element={<Swipe />} />
-        <Route path="/join" element={<JoinRedirect />} /> 
-        <Route path="/s/:code/matches" element={<Matches />} />
-      </Routes>
+      <BackToTop />
+      <Suspense fallback={<RouteLoading />}>
+        <Routes>
+          <Route
+            path="/"
+            element={<Landing />}
+          />
+          <Route
+            path="/join"
+            element={<JoinRedirect />}
+          />
+          <Route
+            path="/s/:code"
+            element={<Swipe />}
+          />
+          <Route
+            path="/s/:code/matches"
+            element={<Matches />}
+          />
+          <Route
+            path="*"
+            element={<NotFound />}
+          />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

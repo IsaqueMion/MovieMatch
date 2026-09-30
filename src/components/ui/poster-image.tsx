@@ -1,0 +1,39 @@
+import { useState, type CSSProperties } from 'react'
+
+type PosterImageProps = {
+  src: string
+  preview?: string
+  alt: string
+  corridor?: boolean
+  priority?: boolean
+  lazy?: boolean
+}
+
+/** The embedded thumbnail paints immediately; the decoded full image fades over it. */
+export function PosterImage({ src, preview, alt, corridor = false, priority = false, lazy = false }: PosterImageProps) {
+  const [ready, setReady] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const tmdb = src.startsWith('https://image.tmdb.org/t/p/w500/')
+  const style: CSSProperties = preview ? { backgroundImage: `url("${preview}")` } : {}
+
+  return (
+    <div className={`cinema-poster ${ready ? 'is-ready' : ''}`} style={style}>
+      <picture>
+        {corridor && tmdb ? <>
+          <source media="(min-width: 1024px) and (min-resolution: 1.5dppx)" srcSet={src.replace('/w500/', '/original/')} />
+          <source media="(max-width: 639px) and (max-resolution: 2dppx)" srcSet={src} />
+        </> : null}
+        <img src={corridor && tmdb ? src.replace('/w500/', '/w780/') : src} alt={alt} width={500} height={750}
+          loading={lazy ? 'lazy' : 'eager'} fetchPriority={priority ? 'high' : corridor ? 'low' : 'auto'} decoding="async" draggable={false}
+          onLoad={async event => {
+            const image = event.currentTarget
+            const source = image.currentSrc
+            try { await image.decode() } catch { return }
+            if (image.isConnected && image.currentSrc === source) setReady(true)
+          }}
+          onError={() => { setFailed(true); setReady(false) }} />
+      </picture>
+      {failed && alt ? <div className="cinema-poster-unavailable" role="img" aria-label={alt.replace('Pôster de ', 'Pôster indisponível de ')}><span>{alt.replace('Pôster de ', '')}</span><small>Pôster indisponível</small></div> : null}
+    </div>
+  )
+}

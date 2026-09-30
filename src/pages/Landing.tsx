@@ -1,443 +1,214 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Clapperboard, Heart, Users, Play, Film, Sparkles, X as XIcon } from 'lucide-react'
-import { discoverMovies } from '../lib/functions'
-import { supabase } from '../lib/supabase'
-import type { DiscoverFilters } from '../lib/functions'
+import { ArrowUpRight, Clapperboard, Heart, SlidersHorizontal, Users } from 'lucide-react'
+import { usePageMeta } from '../hooks/usePageMeta'
+import { ImageStreamHero, type StreamImage } from '../components/ui/image-stream-hero'
+import LandingSwipePreview from '../components/landing/LandingSwipePreview'
+import catalogue from '../data/landingMovies.json'
+import { selectLandingMovies } from '../lib/landingSelection'
+import CinemaButton from '../components/ui/cinema-button'
 
-const LANDING_FILTERS: DiscoverFilters = {
-  genres: [],
-  excludeGenres: [],
+const FEATURED_KEY = 'mm:landing-featured:v1'
+
+function drawMovies() {
+  let previous: number | undefined
+  try { previous = Number(localStorage.getItem(FEATURED_KEY)) || undefined } catch { /* Storage is optional. */ }
+  return selectLandingMovies(catalogue.movies, previous)
 }
+const STEPS = [
+  { number: '01', title: 'Junte o elenco.', description: 'Crie uma sessão e compartilhe o link ou o código com quem vai assistir.' },
+  { number: '02', title: 'Cada um dá seu voto.', description: 'Escolham os filtros do grupo. Depois, cada pessoa curte os filmes que quer ver.' },
+  { number: '03', title: 'O sim é de todo mundo.', description: 'Com pelo menos duas pessoas, o filme vira match quando todos os participantes atuais curtirem.' },
+]
 
-type CarouselItem = {
-  title: string
-  year: number | null
-  poster_url: string
-}
-
-function genCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase()
+async function getAuthenticatedClient() {
+  const [{ ensureAnonymousUser }, { supabase }] = await Promise.all([
+    import('../lib/auth'),
+    import('../lib/supabase'),
+  ])
+  await ensureAnonymousUser()
+  return supabase
 }
 
 export default function Landing() {
-  const [code, setCode] = useState('')
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  usePageMeta({
+    title: 'MovieMatch — o próximo filme, a escolha de todos',
+    description: 'Crie uma sessão, convide seu grupo e encontre um filme que todos querem assistir. Sem cadastro, no celular ou no computador.',
+  })
   const navigate = useNavigate()
-
-  // --- Auth anônima ---
-  const [userId, setUserId] = useState<string | null>(null)
-  const [, setStatus] = useState<string>('')
+  const [selection] = useState(drawMovies)
+  const posterImages: StreamImage[] = useMemo(() => selection.posters.map(movie => ({ src: movie.poster, preview: movie.preview })), [selection.posters])
+  const [code, setCode] = useState('')
+  const [status, setStatus] = useState('')
+  const [failed, setFailed] = useState(false)
+  const [busyAction, setBusyAction] = useState<'create' | 'join' | null>(null)
+  const [paused, setPaused] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const actionPending = useRef(false)
+  const complete = code.length === 6
+  const hint = code.length > 0 && !complete
+    ? 'Faltam ' + (6 - code.length) + (code.length === 5 ? ' caractere.' : ' caracteres.')
+    : 'O código tem 6 letras ou números.'
 
   useEffect(() => {
-    (async () => {
-      setStatus('Conectando...')
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        const { data, error } = await supabase.auth.signInAnonymously()
-        if (error) { setStatus('Falha no login anônimo'); return }
-        setUserId(data.user?.id ?? null)
-      } else {
-        setUserId(user.id)
-      }
-      setStatus('Usuário anônimo conectado ✅')
-    })()
+    try { localStorage.setItem(FEATURED_KEY, String(selection.featured.id)) } catch { /* Random selection still works. */ }
+  }, [selection.featured.id])
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReducedMotion(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
   }, [])
 
-  // --- Entrar usando o código digitado (sem página /join) ---
-  async function handleJoin() {
-    const c = code.trim().toUpperCase()
-    if (!c) { inputRef.current?.focus(); return }
-    if (!userId) { alert('Conectando... tente novamente em alguns segundos.'); return }
-
-    setStatus('Procurando sessão...')
-    const { data: sessao, error } = await supabase
-      .from('sessions').select('id, code').eq('code', c).single()
-
-    if (error || !sessao) { setStatus('Sessão não encontrada.'); return }
-
-    const { error: errM } = await supabase
-      .from('session_members')
-      .insert({ session_id: sessao.id, user_id: userId })
-      .select().single()
-
-    if (errM && !String(errM.message).includes('duplicate')) {
-      setStatus('Erro ao entrar na sessão.'); return
+  async function handleJoin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (actionPending.current) return
+    const normalizedCode = code.trim().toUpperCase()
+    if (normalizedCode.length !== 6) {
+      setStatus('Digite os 6 caracteres do código da sessão.')
+      setFailed(true)
+      inputRef.current?.focus()
+      return
     }
-
-    setStatus(`Entrou na sessão ${sessao.code} ✅`)
-    navigate(`/s/${sessao.code}`)
-  }
-
-  // --- Criar nova sessão (sem página /create) ---
-  async function handleCreate() {
-    if (!userId) { alert('Conectando...'); return }
-    setStatus('Criando sessão...')
-    const newCode = genCode()
-
-    const { data: sessao, error } = await supabase
-      .from('sessions')
-      .insert({ code: newCode })
-      .select()
-      .single()
-
-    if (error) { setStatus('Erro ao criar sessão.'); return }
-
-    const { error: errM } = await supabase
-      .from('session_members')
-      .insert({ session_id: sessao.id, user_id: userId })
-
-    if (errM) { setStatus('Sessão criada, mas falhou ao entrar.'); return }
-
-    setStatus(`Sessão ${sessao.code} criada! ✅`)
-    navigate(`/s/${sessao.code}`)
-  }
-
-  // ------------------------------
-  // Carrossel (puxa da Edge Function "discover" futuramente; por agora pode cair no fallback)
-  // ------------------------------
-  const [items, setItems] = useState<CarouselItem[]>([])
-  const [idx, setIdx] = useState(0)
-  const [loadingCarousel, setLoadingCarousel] = useState(true)
-  const pausedRef = useRef(false)
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const randomPage = 1 + Math.floor(Math.random() * 5)
-        const data = await discoverMovies({
-              page: randomPage,
-              filters: LANDING_FILTERS,
-        })
-        const list = (data?.results ?? [])
-          .filter((m: any) => m?.poster_url)
-          .slice(0, 8)
-          .map((m: any) => ({ title: m.title, year: m.year ?? null, poster_url: m.poster_url }))
-        if (list.length > 0) setItems(list)
-      } catch (e) {
-        console.error('discoverMovies failed:', e)
-      } finally {
-        setLoadingCarousel(false)
+    actionPending.current = true
+    setBusyAction('join')
+    setFailed(false)
+    setStatus('Procurando sua sessão…')
+    try {
+      const client = await getAuthenticatedClient()
+      const { data, error } = await client.rpc('join_session', { p_code: normalizedCode })
+      const session = Array.isArray(data) ? data[0] : null
+      if (error || !session?.code) {
+        setFailed(true)
+        setStatus(!error || error.code === 'P0002' || error.code === '22023'
+          ? 'Sessão não encontrada ou expirada. Confira o código ou crie uma nova.'
+          : 'Não foi possível conectar à sessão. Tente novamente.')
+        return
       }
-    })()
-  }, [])
+      navigate('/s/' + String(session.code))
+    } catch {
+      setFailed(true)
+      setStatus('Não foi possível conectar agora. Tente novamente.')
+    } finally {
+      actionPending.current = false
+      setBusyAction(null)
+    }
+  }
 
-  // autoplay
-  useEffect(() => {
-    if (!items.length) return
-    const t = setInterval(() => {
-      if (!pausedRef.current) setIdx((i) => (i + 1) % items.length)
-    }, 3200)
-    return () => clearInterval(t)
-  }, [items])
+  async function handleCreate() {
+    if (actionPending.current) return
+    actionPending.current = true
+    setBusyAction('create')
+    setFailed(false)
+    setStatus('Preparando sua sessão…')
+    try {
+      const client = await getAuthenticatedClient()
+      const { data, error } = await client.rpc('create_session')
+      const session = Array.isArray(data) ? data[0] : null
+      if (error || !session?.code) {
+        setFailed(true)
+        setStatus('Não foi possível criar a sessão. Tente novamente.')
+        return
+      }
+      navigate('/s/' + String(session.code))
+    } catch {
+      setFailed(true)
+      setStatus('Não foi possível conectar agora. Tente novamente.')
+    } finally {
+      actionPending.current = false
+      setBusyAction(null)
+    }
+  }
 
-  const current = items[idx]
-  const hasCarousel = items.length > 0
-
-  // pontinhos
-  const dots = useMemo(() => {
-    const MAX = Math.min(6, items.length)
-    if (MAX <= 1) return null
-    const start = Math.min(Math.max(0, idx - Math.floor(MAX / 2)), Math.max(0, items.length - MAX))
-    const visible = items.slice(start, start + MAX)
-    return { start, visible, max: MAX }
-  }, [items, idx])
+  function focusJoin() {
+    inputRef.current?.focus({ preventScroll: true })
+    inputRef.current?.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'center' })
+  }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-neutral-950 text-white">
-      {/* BG */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-neutral-900 to-neutral-850" />
-        <div aria-hidden className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-emerald-500/15 blur-[90px]" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-pink-500/15 blur-[110px]" />
-        <svg aria-hidden className="absolute inset-0 opacity-[0.05]" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
-              <path d="M 32 0 L 0 0 0 32" fill="none" stroke="white" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grid)"/>
-        </svg>
-      </div>
-
-      {/* HEADER */}
-      <header className="px-4 pt-4">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-2xl bg-white/5 px-3 py-2 ring-1 ring-white/10 backdrop-blur">
-          <a href="/" className="flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700">
-              <Clapperboard className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">MovieMatch</span>
-          </a>
-
-          <nav className="hidden gap-2 sm:flex">
-            <a href="#como-funciona" className="rounded-md px-3 py-1.5 text-sm text-white/80 hover:bg-white/10">Como funciona</a>
-            <a href="#recursos" className="rounded-md px-3 py-1.5 text-sm text-white/80 hover:bg-white/10">Recursos</a>
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCreate}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600"
-            >
-              <Sparkles className="h-4 w-4" />
-              Criar sessão
-            </button>
-          </div>
-        </div>
+    <div className="cinema-page">
+      <a className="cinema-skip-link" href="#conteudo">Pular para o conteúdo</a>
+      <header className="cinema-header cinema-container">
+        <a href="/" className="cinema-brand" aria-label="MovieMatch, página inicial">
+          <span className="cinema-brand-mark"><Clapperboard size={22} aria-hidden="true" /></span>
+          MovieMatch<span className="cinema-brand-dot">.</span>
+        </a>
+        <nav aria-label="Navegação principal">
+          <a href="#como-funciona">Como funciona</a>
+          <a href="#recursos">A experiência</a>
+        </nav>
+        <CinemaButton compact tone="secondary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
+          {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}
+        </CinemaButton>
       </header>
 
-      {/* HERO */}
-      <main className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 px-4 pb-14 pt-10 md:grid-cols-2 md:gap-12 md:pt-14">
-        {/* Texto esquerda */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          className="space-y-6"
-        >
-          <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-            Dê <span className="bg-gradient-to-r from-emerald-300 to-emerald-500 bg-clip-text text-transparent">match</span> no filme perfeito
-          </h1>
-          <p className="max-w-prose text-lg text-white/80">
-            Convide amigos, deslize para o lado e encontre o filme em que todos dão <span className="text-emerald-300">like</span>.
-            Simples, fácil e sem briga.
-          </p>
-
-          {/* CTA */}
-          <div className="mt-6 rounded-2xl bg-white/5 p-3 ring-1 ring-white/10 backdrop-blur">
-            <div className="flex flex-col gap-3">
-                {/* Botão CRIAR acima, maior */}
-                <button
-                onClick={handleCreate}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-base font-semibold text-white hover:bg-emerald-600"
-                >
-                <Sparkles className="h-5 w-5" />
-                Criar nova sessão
-                </button>
-
-                <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-white/10" />
-                <span className="text-xs text-white/60">ou</span>
-                <div className="h-px flex-1 bg-white/10" />
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => (e.key === "Enter" ? handleJoin() : undefined)}
-                    placeholder="Digite o código da sessão (ex.: 7F9XQ2)"
-                    className="h-11 w-full rounded-lg border border-white/10 bg-neutral-900/60 px-3 text-white outline-none placeholder:text-white/40"
-                />
-                <button
-                    onClick={handleJoin}
-                    className="h-11 shrink-0 rounded-lg bg-white/10 px-4 font-medium text-white ring-1 ring-white/10 hover:bg-white/15"
-                >
-                    Entrar
-                </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2 pt-1 text-sm text-white/70">
-                <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Sem cadastro</span>
-                <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Tempo real</span>
-                <span className="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">Funciona no navegador</span>
-                </div>
-             </div>
+      <main id="conteudo">
+        <ImageStreamHero images={posterImages} paused={paused || reducedMotion} className="cinema-stream">
+          <div className="cinema-stream-shade" aria-hidden="true" />
+          <div className="cinema-stream-content">
+            <div className="cinema-hero-copy">
+              <p className="cinema-eyebrow"><span className="cinema-status-dot" /> PARA A SUA PRÓXIMA SESSÃO</p>
+              <h1>O próximo filme.<br /><span>A escolha de todos.</span></h1>
+              <p className="cinema-hero-description">Menos tempo escolhendo.<br className="cinema-mobile-break" /> Mais tempo assistindo juntos.</p>
             </div>
-        </motion.div>
-
-        {/* Carrossel direita */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: 'easeOut', delay: 0.05 }}
-          className="relative"
-        >
-          <div
-            className="relative mx-auto w-[min(28rem,92vw)] overflow-hidden rounded-3xl bg-neutral-900/60 ring-1 ring-white/10 shadow-xl"
-            onMouseEnter={() => (pausedRef.current = true)}
-            onMouseLeave={() => (pausedRef.current = false)}
-          >
-            {/* topo mock */}
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-2 text-sm text-white/70">
-                <Users className="h-4 w-4 text-emerald-300" />
-                2 online
+            <div className="cinema-hero-bottom">
+              <p className="cinema-stream-caption">Uma prévia do catálogo. A sessão de verdade começa com você.</p>
+              <div className="cinema-hero-actions">
+                <CinemaButton onClick={() => void handleCreate()} disabled={busyAction !== null}>
+                  {busyAction === 'create' ? 'Criando sessão…' : 'Criar uma sessão'}
+                </CinemaButton>
+                <CinemaButton tone="secondary" direction="down" onClick={focusJoin} disabled={busyAction !== null}>Tenho um código</CinemaButton>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-md bg-white/5 px-2 py-1 text-xs ring-1 ring-white/10">
-                <Heart className="h-3.5 w-3.5 text-emerald-300" /> Match instantâneo
-              </div>
-            </div>
-
-            {/* Poster com fade */}
-            <div className="px-4 pb-4">
-              <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 relative bg-neutral-800">
-                <AnimatePresence mode="wait" initial={false}>
-                  {loadingCarousel ? (
-                    <motion.div
-                      key="skeleton"
-                      className="absolute inset-0"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    >
-                      <SkeletonPoster />
-                    </motion.div>
-                  ) : hasCarousel ? (
-                    <motion.img
-                      key={current.poster_url}
-                      src={current.poster_url}
-                      alt={current.title}
-                      className="absolute inset-0 h-full w-full object-cover"
-                      initial={{ opacity: 0.0, scale: 1.02 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0.0, scale: 1.02 }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                      loading="eager"
-                      decoding="async"
-                    />
-                  ) : (
-                    <motion.div
-                      key="fallback"
-                      className="absolute inset-0 grid place-items-center text-white/50"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    >
-                      <Film className="h-16 w-16" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* gradiente de leitura no rodapé do pôster */}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-neutral-900/80 to-transparent" />
-              </div>
-
-              {/* Título + dots */}
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.h3
-                      key={hasCarousel ? `${current.title}-${current.year ?? ''}` : 'placeholder-title'}
-                      className="truncate text-base font-semibold"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      {hasCarousel ? (
-                        <>
-                          {current.title} {current.year ? <span className="text-white/60">({current.year})</span> : null}
-                        </>
-                      ) : (
-                        'Um Filme Qualquer (2024)'
-                      )}
-                    </motion.h3>
-                  </AnimatePresence>
-                  <p className="mt-1 flex flex-wrap gap-1 text-xs text-white/70">
-                    <span className="rounded-full bg-white/5 px-2 py-0.5 ring-1 ring-white/10">Sugerido</span>
-                    <span className="rounded-full bg-white/5 px-2 py-0.5 ring-1 ring-white/10">Aleatório</span>
-                  </p>
-                </div>
-
-                {/* dots */}
-                {dots && (
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {dots.visible.map((_, k) => {
-                      const realIndex = dots.start + k
-                      const active = realIndex === idx
-                      return (
-                        <button
-                          key={realIndex}
-                          onClick={() => setIdx(realIndex)}
-                          className={`h-2 w-2 rounded-full transition-all ${active ? 'w-4 bg-white' : 'bg-white/40 hover:bg-white/60'}`}
-                          aria-label={`Ir ao slide ${realIndex + 1}`}
-                        />
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* ações mock */}
-              <div className="mt-4 flex items-center justify-center gap-5 pb-2">
-                <button
-                    className="w-16 h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl"
-                    aria-label="Deslike"
-                >
-                    <XIcon className="w-6 h-6" />
-                </button>
-
-                <button
-                    className="w-12 h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg ring-1 ring-white/10"
-                    aria-label="Ver trailer"
-                >
-                    <Play className="w-5 h-5" />
-                </button>
-
-                <button
-                    className="w-16 h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl"
-                    aria-label="Like"
-                >
-                    <Heart className="w-6 h-6" />
-                </button>
-                </div>
+              <p className="cinema-hero-note">Sem cadastro. Sem baixar nada. Só escolher.</p>
             </div>
           </div>
-        </motion.div>
+          <button className="cinema-motion-toggle" onClick={() => setPaused(value => !value)} disabled={reducedMotion} aria-pressed={paused || reducedMotion} aria-label={reducedMotion ? 'Animação pausada pela preferência de movimento reduzido' : paused ? 'Retomar animação dos pôsteres' : 'Pausar animação dos pôsteres'}>
+            <span key={paused || reducedMotion ? 'play' : 'pause'} className="cinema-motion-icon" aria-hidden="true">
+              {paused || reducedMotion ? <svg viewBox="0 0 384 512"><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z" /></svg> : <svg viewBox="0 0 320 512"><path d="M48 64C21.5 64 0 85.5 0 112V400c0 26.5 21.5 48 48 48H80c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H48zm192 0c-26.5 0-48 21.5-48 48V400c0 26.5 21.5 48 48 48h32c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48H240z" /></svg>}
+            </span>
+          </button>
+        </ImageStreamHero>
+
+        <section className="cinema-join cinema-container" aria-labelledby="join-title">
+          <div><p className="cinema-eyebrow">JÁ FOI CONVIDADO?</p><h2 id="join-title">Seu grupo está esperando.</h2></div>
+          <form className="cinema-join-form" onSubmit={event => void handleJoin(event)} noValidate aria-busy={busyAction === 'join'}>
+            <label htmlFor="session-code">Código da sessão</label>
+            <div className="cinema-join-controls">
+              <input id="session-code" ref={inputRef} value={code} onChange={event => { setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)); setStatus(''); setFailed(false) }} placeholder="EX.: 7F9XQ2" maxLength={6} autoCapitalize="characters" autoComplete="off" spellCheck={false} disabled={busyAction !== null} aria-invalid={code.length > 0 && !complete} aria-describedby="session-code-hint session-status" />
+              <CinemaButton type="submit" tone="light" direction="right" disabled={!complete || busyAction !== null}>{busyAction === 'join' ? 'Entrando…' : 'Entrar'}</CinemaButton>
+            </div>
+            <p className="cinema-input-hint" id="session-code-hint">{hint}</p>
+          </form>
+          <p id="session-status" className={'cinema-session-status' + (failed ? ' is-error' : '')} role="status" aria-live="polite">{status}</p>
+        </section>
+
+        <section id="como-funciona" className="cinema-how cinema-container">
+          <div className="cinema-section-heading"><p className="cinema-eyebrow">COMO FUNCIONA</p><h2>O roteiro é simples.</h2><p>A parte difícil era escolher. Era.</p></div>
+          <div className="cinema-steps">{STEPS.map(step => <article className="cinema-step" key={step.number}><span className="cinema-step-number">{step.number}<ArrowUpRight size={20} aria-hidden="true" /></span><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
+        </section>
+
+        <section id="recursos" className="cinema-experience">
+          <div className="cinema-container cinema-experience-grid">
+            <div className="cinema-experience-copy"><p className="cinema-eyebrow">DO “O QUE VAMOS VER?” AO PLAY</p><h2>Gostos diferentes.<br /><span>Um filme em comum.</span></h2><p>Da comédia de sexta ao suspense de domingo: descubram o que combina com todo mundo.</p>
+              <ul className="cinema-features">
+                <li><SlidersHorizontal size={20} aria-hidden="true" /><div><h3>O catálogo do seu jeito</h3><p>Filtrem por gênero, duração, nota e serviços de streaming.</p></div></li>
+                <li><Users size={20} aria-hidden="true" /><div><h3>Cada pessoa tem seu voto</h3><p>Os filtros são compartilhados. O gosto continua sendo seu.</p></div></li>
+                <li><Heart size={20} aria-hidden="true" /><div><h3>O match é do grupo</h3><p>Todos os participantes atuais precisam curtir. Quem fecha a aba ainda faz parte da sessão.</p></div></li>
+              </ul>
+            </div>
+            <LandingSwipePreview movie={selection.featured} />
+          </div>
+        </section>
+
+        <section className="cinema-final-cta cinema-container"><span className="cinema-eyebrow">LUZES BAIXAS. ESCOLHA FEITA.</span><h2>Hoje tem filme.</h2><CinemaButton onClick={() => void handleCreate()} disabled={busyAction !== null}>{busyAction === 'create' ? 'Criando sessão…' : 'Começar uma sessão'}</CinemaButton></section>
       </main>
 
-      {/* COMO FUNCIONA */}
-      <section id="como-funciona" className="mx-auto w-full max-w-6xl px-4 pb-16">
-        <h2 className="mb-6 text-center text-xl font-semibold text-white/90 md:text-2xl">Como funciona</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card icon={<Users className="h-5 w-5 text-emerald-300" />} title="Crie e convide" desc="Gere um código de sessão e compartilhe com quem vai assistir com você." />
-          <Card icon={<Heart className="h-5 w-5 text-emerald-300" />} title="Dê like ou dislike" desc="Deslize pelo catálogo; quando duas pessoas curtirem o mesmo filme, é match!" />
-          <Card icon={<Play className="h-5 w-5 text-emerald-300" />} title="É hora do play" desc="Veja a lista de matches e escolha o que todo mundo topa assistir." />
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer className="px-4 pb-8">
-        <div className="mx-auto w-full max-w-6xl rounded-2xl bg-white/5 px-4 py-3 text-sm text-white/70 ring-1 ring-white/10 backdrop-blur">
-          <div className="flex flex-col items-center justify-between gap-2 md:flex-row">
-            <div className="flex items-center gap-2">
-              <Clapperboard className="h-4 w-4 text-white/80" />
-              <span>MovieMatch • encontre o filme em comum</span>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end">
-              <a href="#recursos" className="hover:text-white">Recursos</a>
-              <span className="text-white/40">•</span>
-              <button onClick={handleCreate} className="hover:text-white underline underline-offset-4">Criar sessão</button>
-              <span className="text-white/40">•</span>
-              <button onClick={() => inputRef.current?.focus()} className="hover:text-white underline underline-offset-4">Entrar</button>
-              <span className="text-white/40">•</span>
-              <a href="/privacy.html" className="hover:text-white">Privacidade</a>
-              <span className="text-white/40">•</span>
-              <a href="/terms.html" className="hover:text-white">Termos</a>
-              <span className="text-white/40">•</span>
-              <a href="/ads.html" className="hover:text-white">Publicidade</a>
-            </div>
-          </div>
-        </div>
+      <footer className="cinema-footer cinema-container">
+        <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label="Informações do site"><a href="/privacy.html">Privacidade</a><a href="/terms.html">Termos</a><a href="/ads.html">Publicidade</a></nav></div>
+        <div className="cinema-footer-bottom"><span>Feito para decidir juntos.</span><p>Este produto usa a API do <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>, mas não é endossado ou certificado pelo TMDB.</p></div>
       </footer>
-    </div>
-  )
-}
-
-function Card({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
-      <div className="mb-2 inline-flex items-center gap-2 rounded-md bg-white/5 px-2 py-1 ring-1 ring-white/10">
-        {icon}
-        <span className="text-sm font-medium text-white/90">{title}</span>
-      </div>
-      <p className="text-sm text-white/70">{desc}</p>
-    </div>
-  )
-}
-
-function SkeletonPoster() {
-  return (
-    <div className="h-full w-full">
-      <div className="absolute inset-0 animate-pulse bg-neutral-800" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.06),transparent_60%)]" />
     </div>
   )
 }

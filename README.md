@@ -1,69 +1,271 @@
-# React + TypeScript + Vite
+# MovieMatch
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+O **MovieMatch** é uma aplicação web para ajudar grupos de pessoas a encontrar um filme que todos queiram assistir.
 
-Currently, two official plugins are available:
+Os participantes entram em uma sessão compartilhada, avaliam filmes com likes e dislikes e acompanham os matches encontrados entre os membros da sessão.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Funcionalidades
 
-## Expanding the ESLint configuration
+* Criação e entrada em sessões por código
+* Sessões compartilhadas entre vários usuários
+* Autenticação anônima com Supabase
+* Swipe de filmes com like e dislike
+* Sincronização de participantes em tempo real
+* Detecção de matches
+* Histórico e opção de desfazer o último swipe
+* Filtros avançados por:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+  * gênero
+  * ano
+  * avaliação
+  * quantidade de votos
+  * duração
+  * idioma
+  * serviços de streaming
+  * região
+  * tipo de oferta
+* Consulta de detalhes dos filmes
+* Exibição de provedores de streaming
+* Verificação de maioridade para conteúdo adulto
+* Interface responsiva
+* Suporte a PWA
+* Página de matches
+* Integração com publicidade
+* Páginas públicas de privacidade, termos e publicidade
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Tecnologias
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+### Frontend
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+* React 19
+* TypeScript
+* Vite
+* React Router
+* Tailwind CSS
+* Framer Motion
+* Lucide React
+* Sonner
+
+### Backend e dados
+
+* Supabase
+
+  * autenticação anônima
+  * banco de dados
+  * Realtime
+  * Edge Functions
+
+### Outras integrações
+
+* TMDB para dados e metadados de filmes
+* Google AdSense para publicidade
+
+## Estrutura principal
+
+```text
+MovieMatch/
+├── public/
+│   ├── manifest.webmanifest
+│   ├── sw.js
+│   ├── offline.html
+│   ├── privacy.html
+│   ├── terms.html
+│   └── ads.html
+│
+├── src/
+│   ├── components/
+│   ├── lib/
+│   ├── pages/
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+│
+├── .env.example
+├── package.json
+├── pnpm-lock.yaml
+├── tailwind.config.js
+└── vite.config.ts
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Rotas
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Rota               | Função                     |
+| ------------------ | -------------------------- |
+| `/`                | Página inicial             |
+| `/join`            | Entrada em uma sessão      |
+| `/s/:code`         | Sessão e seleção de filmes |
+| `/s/:code/matches` | Matches da sessão          |
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Requisitos
+
+Para executar o projeto localmente:
+
+* Node.js
+* pnpm
+* Projeto Supabase configurado
+
+## Instalação
+
+Clone o repositório:
+
+```bash
+git clone https://github.com/IsaqueMion/MovieMatch.git
+cd MovieMatch
 ```
+
+Instale as dependências:
+
+```bash
+pnpm install
+```
+
+## Variáveis de ambiente
+
+Crie um arquivo `.env` na raiz do projeto usando `.env.example` como referência:
+
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-anon-aqui
+VITE_ENABLE_ANALYTICS=false
+```
+
+Nunca versione chaves ou credenciais privadas.
+
+A chave utilizada pelo frontend deve ser somente a chave pública apropriada para aplicações cliente. A segurança do banco de dados não deve depender do sigilo dessa chave, mas das políticas de acesso configuradas no Supabase.
+
+## Desenvolvimento
+
+Inicie o servidor local:
+
+```bash
+pnpm dev
+```
+
+## Validação do código
+
+Execute o ESLint:
+
+```bash
+pnpm lint
+```
+
+Execute os testes automatizados:
+
+```bash
+pnpm test
+```
+
+Os testes unitários usam o test runner nativo do Node.js e cobrem, inicialmente, a assinatura dos filtros, persistência do progresso de swipe e embaralhamento determinístico.
+
+Os testes de navegador cobrem a home em 390, 768 e 1440 pixels, fontes locais, pôsteres distintos, ausência de autenticação ao abrir a página, movimento reduzido, botões com animação direcional, imagens em telas de alta densidade, entrada inválida/expirada, erros de conexão e votação com publicidade bloqueada. Todas as chamadas ao Supabase e ao CDN de imagens são simuladas nesta suíte.
+
+```bash
+pnpm build
+pnpm exec playwright install chromium
+pnpm test:browser
+```
+
+No Windows, o Edge instalado pode ser usado sem baixar outro navegador:
+
+```powershell
+$env:BROWSER_CHANNEL = 'msedge'
+pnpm test:browser
+```
+
+Por padrão a suíte abre seu próprio servidor de preview na porta 4178. Defina `TEST_BASE_URL` para verificar um servidor já iniciado.
+
+## Build de produção
+
+```bash
+pnpm build
+```
+
+## Visualizar o build
+
+```bash
+pnpm preview
+```
+
+## PWA
+
+O MovieMatch possui suporte a Progressive Web App.
+
+O Service Worker é registrado somente em ambiente de produção e oferece cache de recursos estáticos e uma página de fallback para situações offline.
+
+## Privacidade
+
+O MovieMatch utiliza autenticação anônima para permitir participação em sessões sem exigir cadastro convencional.
+
+Quando o usuário opta por habilitar conteúdo adulto, a data de nascimento é utilizada apenas para verificar se ele possui 18 anos ou mais. A data completa não é armazenada pelo aplicativo; somente o status de maioridade é persistido.
+
+Mais informações:
+
+* `/privacy.html`
+* `/terms.html`
+* `/ads.html`
+
+## Status do projeto
+
+O projeto está passando por uma revisão e modernização de sua base de código.
+
+Entre os trabalhos em andamento estão:
+
+* melhoria da organização interna
+* revisão da segurança do Supabase
+* redução do tamanho dos componentes principais
+* melhoria da experiência mobile
+* testes automatizados
+* otimização de performance
+* revisão das regras de negócio de sessões e matches
+
+A branch utilizada para esse trabalho é:
+
+```text
+revival/2026-09
+```
+
+## Dados de filmes
+
+### Filmes da página inicial
+
+A home sorteia 18 pôsteres distintos e outro filme para o exemplo de match, usando `src/data/landingMovies.json`. O catálogo é obtido da função `discover` já publicada, com nota mínima 7,5, pelo menos 3.000 votos, ordenação por popularidade e conteúdo adulto desativado. Os pôsteres carregam diretamente do CDN do TMDB; título, ano e imagem são selecionados como um único objeto. O filme de exemplo não repete a visita anterior quando o armazenamento local está disponível.
+
+O sorteio acontece uma vez por abertura. Digitar um código ou pausar a animação não troca os filmes. O catálogo acompanha o deploy, mantendo a home sem autenticação nem consultas ao Supabase antes de uma ação do visitante. Para renovar os títulos e depois publicar um novo preview:
+
+```bash
+pnpm refresh:landing-catalog
+python scripts/refresh-landing-previews.py
+pnpm build
+```
+
+O comando usa somente a URL e a chave pública anon da configuração local; não cria usuários nem grava dados no banco. A chave do TMDB permanece na Edge Function. Os testes de navegador simulam o CDN; a verificação visual final também confere o carregamento real das imagens.
+
+O gerador de miniaturas requer Python 3 e Pillow, usados somente na manutenção do catálogo. Ele embute uma prévia JPEG de 24×36 de cada filme, sem uma requisição extra na abertura. A imagem do CDN aparece em transição suave depois de decodificada; se falhar, a prévia permanece. Os quatro pôsteres maiores da posição inicial têm prioridade de rede. O exemplo de match carrega sua imagem completa apenas ao se aproximar da tela.
+
+O corredor desenha a camada de cada pôster em tamanho suficiente para sua maior projeção visível, evitando ampliar uma textura pequena na aproximação. Em celulares usa w500, nas demais telas w780 e em desktops de alta densidade a imagem original. Os botões da home usam um componente reutilizável inspirado no círculo expansível da referência enviada, com setas que se movem para cima e à direita, para baixo ou para a direita. Movimento reduzido desativa as animações, preservando foco e identificação das ações.
+
+Os controles de votação mantêm os mesmos callbacks e bloqueios. O coração verde alterna contorno e preenchimento, com pulsação ao passar o mouse; recusar usa coral e um balanço breve, e desfazer usa uma rotação para trás. Animações contínuas ficam restritas ao hover de dispositivos com mouse, e a preferência por movimento reduzido desativa os efeitos.
+
+### Tela de matches
+
+A seleção do grupo usa a mesma identidade da home, com um filme em destaque e os demais em uma grade de pôsteres 2:3. Busca, ordenação e cópia continuam disponíveis; o consenso é calculado pela RPC existente `list_session_matches`, com atualização por Realtime, foco e verificação periódica.
+
+Os detalhes abrem em um diálogo com poster, sinopse, trailer e plataformas para a região da sessão. O painel mantém o foco, fecha com Escape e devolve o foco ao botão de origem. Consultas malsucedidas, sessão indisponível, busca sem resultados e ausência de matches têm apresentações distintas. Os testes isolados são executados com `node --test tests/matches.browser.mjs` e interceptam o Supabase, sem gravar dados reais; a CI também executa essa suíte.
+
+### Analytics opcional
+
+O script de Web Analytics só é carregado quando `VITE_ENABLE_ANALYTICS=true`. Ative primeiro Web Analytics no projeto da Vercel e depois configure essa variável e faça um novo deploy. Isso evita tentar executar a página HTML de fallback quando o endpoint de Analytics não está disponível. [Configuração oficial](https://vercel.com/docs/analytics/quickstart).
+
+### Verificação do consenso no Supabase
+
+O script manual `tests/session-consensus.sql` verifica as RPCs publicadas e as escritas sob RLS com um, dois e três participantes, incluindo entrada em sessão expirada. Todos os dados de teste ficam em uma subtransação revertida, e o próprio script confirma que nenhum registro permaneceu. Ele não executa migrações e não faz parte da CI.
+
+Essa verificação do banco complementa os testes de navegador com APIs simuladas. A validação integrada em dispositivos reais deve ser concluída antes da publicação em produção.
+
+Este produto utiliza dados da API do TMDB.
+
+**Este produto usa a API do TMDB, mas não é endossado ou certificado pelo TMDB.**
+
+## Autor
+
+Desenvolvido por [Isaque Mion](https://github.com/IsaqueMion).

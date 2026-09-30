@@ -1,9 +1,16 @@
 // src/pages/Matches.tsx
-import { useEffect, useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { ArrowUpRight, Check, ChevronDown, Clapperboard, Copy, Film, Heart, Search, Sparkles } from 'lucide-react'
+import CinemaButton from '../components/ui/cinema-button'
+import MatchPoster from '../components/matches/MatchPoster'
+import MatchDetailsDialog from '../components/matches/MatchDetailsDialog'
+import SessionLoader from '../components/ui/session-loader'
 import { supabase } from '../lib/supabase'
 import { getMovieDetails, type MovieDetails } from '../lib/functions'
-import { providerSearchUrl, providerMeta } from '../lib/providers'
+import { ensureAnonymousUser } from '../lib/auth'
+import { useSessionPresence } from '../hooks/useSessionPresence'
+import { usePageMeta } from '../hooks/usePageMeta'
 
 
 type MatchItem = {
@@ -13,21 +20,36 @@ type MatchItem = {
   year: number | null
   poster_url: string | null
   likes: number
+  member_count: number
   latestAt: number
 }
 
-type SortKey = 'recent' | 'likes' | 'title'
+type SortKey = 'recent' | 'oldest' | 'title'
 
 export default function Matches() {
   const { code = '' } = useParams()
+  const navigate = useNavigate()
+  const [copyStatus, setCopyStatus] = useState('')
+  const [listError, setListError] = useState(false)
+  const detailsRequest = useRef(0)
+
+  usePageMeta({
+    title: code
+      ? `Matches ${code.toUpperCase()} — MovieMatch`
+      : 'Matches — MovieMatch',
+    description:
+      'Veja os filmes aprovados pelos participantes da sua sessão do MovieMatch.',
+    robots:
+      'noindex,nofollow,noarchive',
+  })
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [items, setItems] = useState<MatchItem[]>([])
   const [loading, setLoading] = useState(true)
+  const onlineCount = useSessionPresence(sessionId)
 
   // Controles da UI
-  const [q, setQ] = useState('')                     // busca por título
-  const [sort, setSort] = useState<SortKey>('recent') // ordenação
-  const [minLikes, setMinLikes] = useState(2)        // mínimo de likes
+  const [q, setQ] = useState('')
+  const [sort, setSort] = useState<SortKey>('recent')
 
   // Região para provedores (lida na sessão; usamos no extractProviders)
   const [watchRegion, setWatchRegion] = useState<string>('BR')
@@ -37,35 +59,62 @@ export default function Matches() {
   const [loadingDetails, setLoadingDetails] = useState(false)
 
   async function openDetails(item: MatchItem) {
-    if (!item) return
+    const request = ++detailsRequest.current
+    setModal({ item, details: null })
     setLoadingDetails(true)
-    let det: MovieDetails | null = null
+    let details: MovieDetails | null = null
     try {
-      if (item.tmdb_id != null) {
-        // getMovieDetails já faz cache e busca da Edge Function
-        det = await getMovieDetails(item.tmdb_id)
-      }
-    } catch (e) {
-      console.error('getMovieDetails failed:', e)
+      if (item.tmdb_id != null) details = await getMovieDetails(item.tmdb_id, { region: watchRegion })
+    } catch (error) {
+      console.error('getMovieDetails failed:', error)
     } finally {
-      setModal({ item, details: det })
-      setLoadingDetails(false)
+      if (request === detailsRequest.current) {
+        setModal({ item, details })
+        setLoadingDetails(false)
+      }
     }
   }
-  function closeDetails() { setModal(null) }
+  function closeDetails() {
+    detailsRequest.current++
+    setModal(null)
+    setLoadingDetails(false)
+  }
 
   // Carregar sessão + primeira lista
   useEffect(() => {
     (async () => {
       setLoading(true)
 
-      const { data: sess } = await supabase
-        .from('sessions')
-        .select('id, code')
-        .eq('code', code.toUpperCase())
-        .maybeSingle()
+      const normalizedCode = code.trim().toUpperCase()
 
-      if (!sess) {
+      if (!normalizedCode) {
+        setSessionId(null)
+        setItems([])
+        setLoading(false)
+        return
+      }
+
+      try {
+        await ensureAnonymousUser()
+      } catch (authError) {
+        console.error('anonymous auth failed:', authError)
+        setSessionId(null)
+        setItems([])
+        setLoading(false)
+        return
+      }
+
+      const { data: sessionRows, error: sessionError } = await supabase.rpc(
+        'join_session',
+        {
+          p_code: normalizedCode,
+        },
+      )
+
+      const sess = Array.isArray(sessionRows) ? sessionRows[0] : null
+
+      if (sessionError || !sess?.id) {
+        console.error('join_session failed:', sessionError)
         setSessionId(null)
         setItems([])
         setLoading(false)
@@ -81,627 +130,251 @@ export default function Matches() {
           .select('watch_region')
           .eq('session_id', sess.id)
           .maybeSingle()
-        if (sf?.watch_region) setWatchRegion(String(sf.watch_region))
-      } catch {}
+
+        if (sf?.watch_region) {
+          setWatchRegion(String(sf.watch_region))
+        }
+      } catch {
+        // Falha ao recuperar a região não impede o carregamento da sessão.
+      }
 
       await loadMatches(sess.id)
       setLoading(false)
     })()
   }, [code])
 
-  // Tempo real: qualquer mudança em reactions desta sessão => recarrega
+  // Mantém os matches sincronizados.
+  //
+  // Reações chegam em tempo real pelo Supabase.
+  // A atualização periódica também cobre mudanças
+  // na quantidade de integrantes da sessão.
   useEffect(() => {
     if (!sessionId) return
-    const ch = supabase
+
+    let disposed = false
+
+    const refresh = () => {
+      if (disposed) return
+
+      void loadMatches(sessionId)
+    }
+
+    const channel = supabase
       .channel(`matches-${sessionId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'reactions', filter: `session_id=eq.${sessionId}` },
-        () => loadMatches(sessionId)
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reactions',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        refresh,
       )
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
-  }, [sessionId])
 
+    // Confere periodicamente se entrou ou saiu
+    // algum participante da sessão.
+    const intervalId = window.setInterval(
+      refresh,
+      5000,
+    )
+
+    // Ao voltar para a janela, atualiza imediatamente.
+    const handleFocus = () => {
+      refresh()
+    }
+
+    // Também atualiza ao voltar para esta aba.
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === 'visible'
+      ) {
+        refresh()
+      }
+    }
+
+    window.addEventListener(
+      'focus',
+      handleFocus,
+    )
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    )
+
+    return () => {
+      disposed = true
+
+      window.clearInterval(intervalId)
+
+      window.removeEventListener(
+        'focus',
+        handleFocus,
+      )
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      )
+
+      void supabase.removeChannel(channel)
+    }
+  }, [sessionId])
   async function loadMatches(sid: string) {
-    const { data, error } = await supabase
-      .from('reactions')
-      .select('movie_id, value, user_id, created_at, movies:movie_id(title,year,poster_url,tmdb_id)')
-      .eq('session_id', sid)
-      .eq('value', 1)
+    const {
+      data,
+      error,
+    } = await supabase.rpc(
+      'list_session_matches',
+      {
+        p_session_id: sid,
+      },
+    )
 
     if (error) {
-      console.error(error)
-      setItems([])
+      console.error(
+        'list_session_matches failed:',
+        error,
+      )
+
+      setListError(true)
       return
     }
+    setListError(false)
 
-    type MovieJoin = { title: string | null; year: number | null; poster_url: string | null; tmdb_id: number | null }
-    type Row = {
-      movie_id: number
-      value: 1 | -1
-      user_id: string | null
-      created_at: string | null
-      movies: MovieJoin | MovieJoin[] | null
+    type MatchRow = {
+      movie_id: number | string
+      tmdb_id: number | string | null
+      title: string | null
+      year: number | null
+      poster_url: string | null
+      likes: number | string
+      member_count: number | string
+      latest_at: string | null
     }
 
-    const rows = (data ?? []) as Row[]
+    const rows = (data ?? []) as MatchRow[]
 
-    const map = new Map<number, {
-      title: string; year: number | null; poster_url: string | null; tmdb_id: number | null;
-      users: Set<string>; latestAt: number
-    }>()
+    const list: MatchItem[] = rows.map(
+      (row) => ({
+        movie_id: Number(row.movie_id),
 
-    for (const r of rows) {
-      const mInfo = Array.isArray(r.movies) ? r.movies[0] : r.movies
-      const curr = map.get(r.movie_id) ?? {
-        title: mInfo?.title ?? '—',
-        year: mInfo?.year ?? null,
-        poster_url: mInfo?.poster_url ?? null,
-        tmdb_id: (typeof (mInfo as any)?.tmdb_id === 'number' ? (mInfo as any).tmdb_id : null) as number | null,
-        users: new Set<string>(),
-        latestAt: 0,
-      }
+        tmdb_id:
+          row.tmdb_id != null
+            ? Number(row.tmdb_id)
+            : null,
 
-      if (r.user_id) curr.users.add(String(r.user_id))
-      const ts = r.created_at ? new Date(r.created_at).getTime() : 0
-      if (ts > curr.latestAt) curr.latestAt = ts
+        title:
+          row.title?.trim() ||
+          'Filme sem título',
 
-      map.set(r.movie_id, curr)
-    }
+        year:
+          row.year != null
+            ? Number(row.year)
+            : null,
 
-    const list: MatchItem[] = []
-    for (const [movie_id, m] of map.entries()) {
-      const likes = m.users.size
-      list.push({
-        movie_id,
-        tmdb_id: m.tmdb_id ?? null,
-        title: m.title,
-        year: m.year,
-        poster_url: m.poster_url,
-        likes,
-        latestAt: m.latestAt,
-      })
-    }
+        poster_url:
+          row.poster_url ?? null,
 
-    // Ordenação padrão (pode ser alterada na UI)
-    list.sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
+        likes:
+          Number(row.likes) || 0,
+
+        member_count:
+          Number(row.member_count) || 0,
+
+        latestAt:
+          row.latest_at
+            ? new Date(
+                row.latest_at,
+              ).getTime()
+            : 0,
+      }),
+    )
+
     setItems(list)
   }
 
   // View filtrada/ordenada
   const visible = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    let arr = items.filter(i => i.likes >= minLikes && (term === '' || i.title.toLowerCase().includes(term)))
-    if (sort === 'recent') {
-      arr = arr.slice().sort((a, b) => (b.latestAt - a.latestAt) || (b.likes - a.likes) || a.title.localeCompare(b.title))
-    } else if (sort === 'likes') {
-      arr = arr.slice().sort((a, b) => (b.likes - a.likes) || (b.latestAt - a.latestAt) || a.title.localeCompare(b.title))
+    const term =
+      q.trim().toLowerCase()
+
+    let arr = items.filter(
+      (item) =>
+        term === '' ||
+        item.title
+          .toLowerCase()
+          .includes(term),
+    )
+
+    if (sort !== 'title') {
+      arr = arr.slice().sort(
+        (a, b) =>
+          (sort === 'oldest' ? a.latestAt - b.latestAt : b.latestAt - a.latestAt) ||
+          a.title.localeCompare(b.title),
+      )
     } else {
-      arr = arr.slice().sort((a, b) => a.title.localeCompare(b.title))
+      arr = arr.slice().sort(
+        (a, b) =>
+          a.title.localeCompare(b.title),
+      )
     }
+
     return arr
-  }, [items, q, sort, minLikes])
+  }, [items, q, sort])
 
-  function copyList() {
-    const lines = visible.map(m => `${m.title}${m.year ? ` (${m.year})` : ''} — ${m.likes} likes`)
+  async function copyList() {
+    const text = visible.map(movie => `${movie.title}${movie.year ? ` (${movie.year})` : ''} — ${movie.likes}/${movie.member_count} curtiram`).join('\n')
     try {
-      navigator.clipboard.writeText(lines.join('\n'))
-      alert('Lista copiada!')
+      await navigator.clipboard.writeText(text)
+      setCopyStatus('Lista copiada. Pronta para compartilhar.')
     } catch {
-      alert(lines.join('\n'))
+      setCopyStatus('Não foi possível copiar. Permita o acesso à área de transferência e tente novamente.')
     }
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
-        Carregando matches…
-      </main>
-    )
-  }
-
-  if (!sessionId) {
-    return (
-      <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
-        <div className="text-center space-y-2">
-          <p>Sessão não encontrada.</p>
-          <Link to="/" className="underline text-emerald-300">Voltar</Link>
-        </div>
-      </main>
-    )
-  }
-
+  const featured = visible[0]
   return (
-    <main className="min-h-dvh bg-neutral-900 text-white">
-      <div className="mx-auto max-w-5xl px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
-        {/* Header */}
-        <div className="sticky top-0 z-10 -mx-3 mb-3 border-b border-white/10 bg-neutral-900/90 px-3 py-2 backdrop-blur
-                sm:static sm:mb-4 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0
-                flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold">Matches — {code.toUpperCase()}</h1>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar título..."
-                className="h-10 w-full sm:w-56 rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm outline-none placeholder:text-white/40"
-              />
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
-                title="Ordenar por"
-              >
-                <option value="recent">Mais recentes</option>
-                <option value="likes">Mais likes</option>
-                <option value="title">Título (A→Z)</option>
-              </select>
-              <select
-                value={String(minLikes)}
-                onChange={(e) => setMinLikes(Number(e.target.value) || 0)}
-                className="h-10 w-full sm:w-auto rounded-md border border-white/10 bg-neutral-800/60 px-2 text-sm"
-                title="Mínimo de likes"
-              >
-                <option value="2">2+ likes</option>
-                <option value="3">3+ likes</option>
-                <option value="4">4+ likes</option>
-                <option value="1">1+ like</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2 mt-2 sm:mt-0">
-              <button onClick={copyList} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
-                Copiar lista
-              </button>
-              <Link to={`/s/${code}`} className="rounded-md bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15">
-                Voltar ao swipe
-              </Link>
+    <main className="cinema-page matches-page" id="conteudo">
+      <a className="cinema-skip-link" href="#matches-selection">Pular para os filmes</a>
+      <header className="cinema-container matches-header">
+        <Link className="cinema-brand" to="/" aria-label="MovieMatch, página inicial"><span className="cinema-brand-mark"><Clapperboard size={23} aria-hidden="true" /></span>MovieMatch<span className="cinema-brand-dot">.</span></Link>
+        <div className="matches-session"><span>Sessão <strong>{code.toUpperCase()}</strong></span>{sessionId ? <span className="matches-online"><i aria-hidden="true" />{onlineCount} online</span> : null}</div>
+        <CinemaButton compact tone="secondary" direction="right" onClick={() => navigate(`/s/${code}`)}>Voltar a votar</CinemaButton>
+      </header>
+      <div className="cinema-container">
+        <section className="matches-hero" aria-labelledby="matches-title">
+          <div><p className="cinema-eyebrow"><Heart size={13} aria-hidden="true" />A escolha é de vocês</p><h1 id="matches-title">Gostos diferentes.<br /><span>O mesmo sim.</span></h1><p className="matches-intro">{items.length ? 'Todos curtiram. Agora, só falta escolher qual filme vai ganhar o play.' : 'Quando os gostos se encontram, os filmes aparecem aqui. A próxima escolha é de vocês.'}</p></div>
+          <div className="matches-total" aria-live="polite"><span>{loading ? '—' : String(items.length).padStart(2, '0')}</span><p>{items.length === 1 ? 'filme em comum' : 'filmes em comum'}<small>Aprovados por todos os<br />participantes atuais.</small></p></div>
+        </section>
+        <section id="matches-selection" className="matches-selection" aria-labelledby="matches-selection-title" aria-busy={loading}>
+          <div className="matches-toolbar">
+            <div><p className="cinema-eyebrow">Sua próxima sessão</p><h2 id="matches-selection-title">A seleção do grupo</h2></div>
+            <div className="matches-controls">
+              <label className="matches-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Buscar filme</span><input type="search" value={q} onChange={event => setQ(event.target.value)} placeholder="Buscar um filme" disabled={loading || !sessionId} /></label>
+              <label className="matches-sort"><span className="sr-only">Ordenar filmes</span><select value={sort} onChange={event => setSort(event.target.value as SortKey)} disabled={loading || !sessionId}><option value="recent">Mais recentes</option><option value="oldest">Mais antigos</option><option value="title">Título (A→Z)</option></select><ChevronDown size={14} aria-hidden="true" /></label>
+              <button className="matches-copy" onClick={copyList} disabled={!visible.length} title="Copiar lista"><Copy size={16} aria-hidden="true" /><span>Copiar lista</span></button>
             </div>
           </div>
-        </div>
-
-        {/* Lista */}
-        {visible.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-white/80">Nenhum resultado com os filtros atuais.</p>
-          </div>
-        ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3">
-            {visible.map(m => (
-              <li
-                key={m.movie_id}
-                onClick={() => openDetails(m)}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') ? openDetails(m) : undefined}
-                role="button"
-                tabIndex={0}
-                className="rounded-xl overflow-hidden bg-white/5 ring-1 ring-white/10 cursor-pointer hover:ring-white/20 transition-shadow"
-              >
-                <div className="relative aspect-[2/3] bg-black">
-                  {m.poster_url
-                    ? <img src={m.poster_url} alt={m.title} className="h-full w-full object-contain" />
-                    : <div className="absolute inset-0 grid place-items-center text-white/50">Sem pôster</div>}
-                  <div className="absolute left-2 top-2 rounded-md bg-white/10 px-2 py-0.5 text-xs ring-1 ring-white/20">
-                    {m.likes} like{m.likes === 1 ? '' : 's'}
-                  </div>
-                </div>
-                <div className="p-2.5 sm:p-3">
-                  <h3 className="font-semibold leading-tight">
-                    {m.title} {m.year ? <span className="text-white/60">({m.year})</span> : null}
-                  </h3>
-                  <p className="mt-1 text-sm text-white/70">Mais recente: {m.latestAt ? new Date(m.latestAt).toLocaleDateString('pt-BR') : '—'}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Modal de Detalhes */}
-        {modal && (
-          <div className="fixed inset-0 z-[80]">
-            {/* backdrop */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeDetails} />
-            {/* container */}
-            <div className="absolute inset-0 grid place-items-center p-0 md:p-4">
-              <div className="relative w-full h-[100dvh] md:h-auto md:max-h-[92dvh] md:w-[min(980px,96vw)] overflow-auto bg-neutral-900 ring-1 ring-white/10 rounded-none md:rounded-2xl text-white">
-                {/* Header (fixo no topo no mobile) */}
-                <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-white/10 bg-neutral-900/85 backdrop-blur px-3 py-2 md:px-4 md:py-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base md:text-xl font-semibold leading-tight">
-                      {modal.item.title} {modal.item.year ? <span className="text-white/60">({modal.item.year})</span> : null}
-                    </h3>
-                    {/* chips (desktop) */}
-                    <div className="mt-1 hidden md:flex flex-wrap items-center gap-2 text-sm text-white/70">
-                      <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
-                      {modal.item.tmdb_id != null && (
-                        <a
-                          href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
-                          target="_blank" rel="noreferrer"
-                          className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10 hover:bg-white/15"
-                        >
-                          Ver no TMDB ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* link (mobile) */}
-                    {modal.item.tmdb_id != null && (
-                      <a
-                        href={`https://www.themoviedb.org/movie/${modal.item.tmdb_id}`}
-                        target="_blank" rel="noreferrer"
-                        className="md:hidden rounded-md bg-white/10 px-2 py-1 text-sm ring-1 ring-white/10"
-                      >
-                        TMDB ↗
-                      </a>
-                    )}
-                    <button
-                      onClick={closeDetails}
-                      className="rounded-md px-2 py-1 bg-white/10 hover:bg-white/15 ring-1 ring-white/10 text-base"
-                      aria-label="Fechar"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mídia (trailer/poster) — topo no mobile */}
-                <div className="w-full bg-black">
-                  {loadingDetails ? (
-                    <div className="w-full aspect-video grid place-items-center text-white/60">Carregando…</div>
-                  ) : (() => {
-                    const trailerKey = (modal.details as any)?.trailer?.key as string | undefined
-                    const youtubeEmbed = trailerKey ? `https://www.youtube.com/embed/${trailerKey}?playsinline=1&rel=0` : null
-                    if (youtubeEmbed) {
-                      return (
-                        <div className="relative aspect-video w-full">
-                          <iframe
-                            className="absolute inset-0 h-full w-full"
-                            src={youtubeEmbed}
-                            title={`${modal.item.title} trailer`}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                          />
-                        </div>
-                      )
-                    }
-                    return modal.item.poster_url
-                      ? <img src={modal.item.poster_url} alt={modal.item.title} className="w-full h-auto object-contain aspect-video md:aspect-auto" />
-                      : <div className="w-full aspect-video grid place-items-center text-white/60">Sem mídia</div>
-                  })()}
-                </div>
-
-                {/* Chips (mobile) */}
-                <div className="px-3 pt-3 md:hidden flex items-center gap-2 text-sm">
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 ring-1 ring-white/10">{modal.item.likes} like{modal.item.likes === 1 ? '' : 's'}</span>
-                </div>
-
-                {/* Conteúdo */}
-                <div className="grid gap-4 p-3 md:p-4 md:grid-cols-[1.1fr_1fr]">
-                  {/* Detalhes / Sinopse */}
-                  <div className="rounded-xl ring-1 ring-white/10 bg-white/5 p-4 order-2 md:order-1">
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
-                      <dt className="text-white/60">Duração</dt>
-                      <dd>{typeof (modal.details as any)?.runtime === 'number' ? `${(modal.details as any).runtime} min` : '—'}</dd>
-
-                      <dt className="text-white/60">Nota TMDB</dt>
-                      <dd>{typeof (modal.details as any)?.vote_average === 'number' ? (modal.details as any).vote_average.toFixed(1) : '—'}</dd>
-
-                      <dt className="text-white/60">Gêneros</dt>
-                      <dd>
-                        {(Array.isArray((modal.details as any)?.genres) && (modal.details as any).genres.length > 0)
-                          ? (modal.details as any).genres.map((g: any) => g.name).join(' • ')
-                          : '—'}
-                      </dd>
-                    </dl>
-
-                    <div className="mt-3 text-sm leading-relaxed max-h-56 md:max-h-64 overflow-auto pr-1">
-                      {(typeof (modal.details as any)?.overview === 'string' && (modal.details as any).overview.length > 0)
-                        ? (modal.details as any).overview
-                        : <span className="text-white/60">Sem sinopse disponível.</span>}
-                    </div>
-
-                    {/* Provedores de streaming (ícones + mensagens corretas para a região) */}
-                    {(() => {
-                      // Logs de diagnóstico — veja no Console para inspecionar o payload bruto
-                      console.log('details.providers:', (modal.details as any)?.providers);
-                      console.log('details.providers_keys:', (modal.details as any)?.providers_keys);                    
-
-                      const { providers, hasRegion, regionLink } = extractProviders(modal.details, watchRegion)
-
-                      // Link de busca no Google (título + ano + "onde assistir")
-                      const gq = encodeURIComponent(`${modal.item.title} ${modal.item.year ?? ''} onde assistir`)
-                      const gHref = `https://www.google.com/search?q=${gq}`
-
-                      // Caso 1: Há provedores na região selecionada (ex.: BR) → renderiza ícones normalmente
-                      if (providers.length > 0) {
-                        return (
-                          <div className="mt-4">
-                            <div className="mb-2 text-sm text-white/70">Disponível em</div>
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              {providers.map((p) => {
-                                // 1) deeplink do backend (p.url)
-                                // 2) fallback: busca do serviço
-                                const href =
-                                  p.url ||
-                                  providerSearchUrl(p.id, modal.item.title, watchRegion) ||
-                                  undefined
-
-                                const content = (
-                                  <div className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/15 bg-white/5">
-                                    <img
-                                      src={p.logoUrl || '/providers/generic.svg'}
-                                      alt={p.name}
-                                      className="h-6 w-6 object-contain opacity-90"
-                                      loading="lazy"
-                                      decoding="async"
-                                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/providers/generic.svg' }}
-                                    />
-                                  </div>
-                                )
-
-                                return href ? (
-                                  <a
-                                    key={p.id}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title={p.name}
-                                    className="inline-block"
-                                  >
-                                    {content}
-                                  </a>
-                                ) : (
-                                  <div key={p.id} title={p.name} className="inline-block opacity-80">
-                                    {content}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      }
-
-                      // Caso 2: A região consta no payload, mas sem ofertas listadas → mostra aviso + Google
-                      if (hasRegion) {
-                        return (
-                          <div className="mt-4 text-sm text-white/70">
-                            Disponível na região <span className="font-medium">{watchRegion}</span>, mas sem plataformas listadas no momento.
-                            {' '}
-                            {regionLink ? (
-                              <>
-                                Tente abrir no{' '}
-                                <a
-                                  href={regionLink}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="underline hover:text-white"
-                                >
-                                  agregador da região
-                                </a>
-                                {' '}ou
-                              </>
-                            ) : null}{' '}
-                            <a
-                              href={gHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 ring-1 ring-white/15 hover:bg-white/15"
-                            >
-                              🔎 Buscar no Google
-                            </a>
-                          </div>
-                        )
-                      }
-
-                      // Caso 3: nenhuma info de plataforma → apenas botão Google
-                      return (
-                        <div className="mt-4">
-                          <a
-                            href={gHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-sm ring-1 ring-white/15 hover:bg-white/15"
-                          >
-                            🔎 Buscar no Google
-                          </a>
-                        </div>
-                      )
-                    })()}
-                  </div>
-
-                  {/* Poster “cartão” (desktop) */}
-                  <div className="hidden md:block rounded-xl overflow-hidden ring-1 ring-white/10 bg-black min-h-[280px] order-1 md:order-2">
-                    {modal.item.poster_url
-                      ? <img src={modal.item.poster_url} alt={modal.item.title} className="w-full h-full object-contain bg-black" />
-                      : <div className="w-full h-full grid place-items-center text-white/60">Sem pôster</div>
-                    }
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+          <p className="matches-copy-status" role="status">{copyStatus}</p>
+          {loading ? <div className="matches-loading"><SessionLoader label="Reunindo as escolhas de vocês…" /></div>
+            : !sessionId ? <div className="matches-empty"><Film size={36} aria-hidden="true" /><h3>Sessão indisponível</h3><p>Confira o código da sessão. Ela pode ter expirado ou a conexão pode estar indisponível.</p><CinemaButton onClick={() => navigate('/')}>Ir para o início</CinemaButton></div>
+            : listError ? <div className="matches-load-error" role="alert"><p>Não foi possível atualizar a seleção. Tente novamente em instantes.</p><button onClick={() => void loadMatches(sessionId)}>Tentar novamente</button></div> : null}
+          {!loading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? 'Vamos tentar outro título' : 'O próximo sim está por vir'}</span><h3>{q.trim() ? 'Esse filme não está na seleção.' : 'Ainda não deu match.'}</h3><p>{q.trim() ? 'Busque outro título ou veja todos os filmes aprovados pelo grupo.' : 'Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.'}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? 'Limpar busca' : 'Continuar votando'}</CinemaButton></div> : null}
+          {!loading && sessionId && featured ? <>
+            <article className="matches-spotlight">
+              <button className="matches-spotlight-poster" onClick={() => void openDetails(featured)} aria-label={`Ver detalhes de ${featured.title}`}><MatchPoster title={featured.title} poster={featured.poster_url} priority /><span className="matches-poster-open"><ArrowUpRight size={20} aria-hidden="true" /></span></button>
+              <div className="matches-spotlight-copy"><p className="cinema-eyebrow"><Sparkles size={14} aria-hidden="true" />Em destaque</p><p className="matches-film-year">{featured.year ?? 'Ano não informado'} <span>· Escolha do grupo</span></p><h3>{featured.title}</h3><p className="matches-spotlight-description">Um filme em comum.<br />Uma boa razão para assistir juntos.</p><div className="matches-consensus"><span><Heart size={18} fill="currentColor" aria-hidden="true" /></span><div><strong>Todo mundo disse sim.</strong><p>{featured.likes} de {featured.member_count} participantes curtiram</p></div></div><CinemaButton direction="diagonal" onClick={() => void openDetails(featured)}>Explorar o filme</CinemaButton><p className="matches-detail-hint">Sinopse, trailer e onde assistir</p></div>
+            </article>
+            {visible.length > 1 ? <div className="matches-more-heading"><h3>Mais filmes para o seu play</h3><span>{visible.length - 1} {visible.length === 2 ? 'outra escolha' : 'outras escolhas'}</span></div> : null}
+            <ul className="matches-grid">{visible.slice(1).map(movie => <li key={movie.movie_id}><button className="matches-film-card" onClick={() => void openDetails(movie)} aria-label={`Ver detalhes de ${movie.title}`}><div className="matches-card-image"><MatchPoster title={movie.title} poster={movie.poster_url} /><span className="matches-card-consensus"><Check size={13} aria-hidden="true" />{movie.likes}/{movie.member_count} curtiram</span><span className="matches-poster-open"><ArrowUpRight size={19} aria-hidden="true" /></span></div><div className="matches-card-copy"><span>{movie.year ?? 'Ano não informado'}</span><h4>{movie.title}</h4><p>{movie.latestAt ? 'Match em ' + new Date(movie.latestAt).toLocaleDateString('pt-BR') : 'Escolha do grupo'}</p></div></button></li>)}</ul>
+          </> : null}
+        </section>
+        <footer className="matches-footer"><Clapperboard size={19} aria-hidden="true" /><p>Menos tempo escolhendo. Mais tempo assistindo juntos.</p><Link to={`/s/${code}`}>Continuar descobrindo <ArrowUpRight size={15} aria-hidden="true" /></Link></footer>
       </div>
+      {modal ? <MatchDetailsDialog key={modal.item.movie_id} item={modal.item} details={modal.details} loading={loadingDetails} region={watchRegion} onClose={closeDetails} /> : null}
     </main>
   )
-}
-
-function extractProviders(
-  details: any,
-  region: string
-): {
-  providers: Array<{ id: number; name: string; logoUrl: string | null; url: string | null }>
-  hasRegion: boolean
-  regionLink: string | null
-} {
-  const out = {
-    providers: [] as Array<{ id: number; name: string; logoUrl: string | null; url: string | null }>,
-    hasRegion: false,
-    regionLink: null as string | null,
-  }
-
-  const baseImg = 'https://image.tmdb.org/t/p/w45'
-  const R = String(region || 'BR').toUpperCase()
-
-  // Preferências por domínio (IDs TMDB)
-  const PROVIDER_HOSTS: Record<number, string[]> = {
-    8:   ['netflix.com'],
-    119: ['primevideo.com', 'amazon.com'],
-    337: ['disneyplus.com'],
-    384: ['max.com', 'hbomax.com'],
-    307: ['globoplay.com'],
-    350: ['tv.apple.com', 'apple.com'],
-    531: ['paramountplus.com'],
-    619: ['starplus.com'],
-  }
-
-  // Domínios que NÃO queremos abrir
-  const BAD_HOSTS = ['imdb.com', 'youtube.com', 'youtu.be', 'themoviedb.org', 'google.com']
-
-  const safeHost = (u: string) => {
-    try {
-      const h = new URL(u).hostname.replace(/^www\./, '')
-      return !BAD_HOSTS.some(bad => h.endsWith(bad))
-    } catch { return false }
-  }
-
-  const hostMatch = (u: string, providerId: number) => {
-    try {
-      const h = new URL(u).hostname.replace(/^www\./, '')
-      const allow = PROVIDER_HOSTS[providerId]
-      if (!allow || allow.length === 0) return safeHost(u)
-      return allow.some(dom => h.endsWith(dom))
-    } catch { return false }
-  }
-
-  // 1) Origem bruta
-  const wp =
-    (details as any)?.watch_providers ??
-    (details as any)?.watchProviders ??
-    (details as any)?.watchProvidersV2 ??
-    (details as any)?.providers ??
-    (details as any)?.providersByRegion ??
-    (details as any)?.watchProvidersByRegion ??
-    null
-
-  // 2) Pega o “bloco” da região
-  let area: any = null
-  if (wp) {
-    if (Array.isArray(wp)) {
-      area = wp
-    } else if (wp.results && typeof wp.results === 'object') {
-      area = wp.results[R] ?? null
-    } else if (wp[R]) {
-      area = wp[R]
-    }
-  }
-
-  if (area) out.hasRegion = true
-  if (area && typeof area.link === 'string' && area.link) out.regionLink = area.link
-
-  // 3) Junta ofertas
-  let offers: any[] = []
-  const pushAll = (arr?: any[]) => { if (Array.isArray(arr)) offers.push(...arr) }
-
-  if (Array.isArray(area)) {
-    offers = area
-  } else if (area && typeof area === 'object') {
-    pushAll(area.flatrate)
-    pushAll(area.ads)
-    pushAll(area.free)
-    pushAll(area.rent)
-    pushAll(area.buy)
-    pushAll((area as any).offers)
-    pushAll((area as any).streaming)
-  }
-
-  // fallbacks soltos (quando backend injeta do JustWatch)
-  pushAll((details as any)?.offers)
-  pushAll((details as any)?.providers)
-  pushAll((details as any)?.providers_list)
-  pushAll((details as any)?.providers_flat)
-  pushAll((details as any)?.justwatch?.offers)
-
-  // 4) Melhor URL por provider
-  const bestUrlForProvider = (providerId: number, list: any[]): string | null => {
-    const urls: string[] = []
-    for (const o of list) {
-      const pid = Number(o?.provider_id ?? o?.id ?? o?.providerId)
-      if (pid !== providerId) continue
-      const candidates = [
-        o?.urls?.standard_web,
-        o?.urls?.deeplink_web,
-        o?.url,
-        o?.deep_link,
-      ].filter(Boolean)
-      for (const c of candidates) {
-        const u = String(c)
-        if (safeHost(u)) urls.push(u)
-      }
-    }
-    if (urls.length === 0) return null
-    const preferred = urls.find(u => hostMatch(u, providerId))
-    return preferred || urls[0] || null
-  }
-
-  // 5) Dedup por provider_id + monta campos
-  const byId = new Map<number, { id: number; name: string; logoUrl: string | null; url: string | null }>()
-  for (const o of offers) {
-    const id = Number(o?.provider_id ?? o?.id ?? o?.providerId)
-    if (!Number.isFinite(id)) continue
-
-    const name = String(o?.provider_name ?? o?.name ?? 'Provider')
-    const rawLogo = o?.logo_path ?? o?.logo ?? o?.icon ?? o?.icon_path ?? null
-    const logoUrl =
-      !rawLogo ? null :
-      String(rawLogo).startsWith('http') ? String(rawLogo) :
-      `${baseImg}${rawLogo}`
-
-    if (!byId.has(id)) {
-      byId.set(id, { id, name, logoUrl, url: null })
-    }
-  }
-
-  // 6) Atribui melhor URL calculada
-  for (const [id, entry] of byId.entries()) {
-    const chosen = bestUrlForProvider(id, offers)
-    byId.set(id, { ...entry, url: chosen })
-  }
-
-  // 7) Ordena por nome e devolve
-  const providers = Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name))
-  out.providers = providers
-
-  return out
-}
-
-
-function providerSearchUrl(providerId: number, title: string, region?: string): string | undefined {
-  // Normaliza consulta
-  const q = encodeURIComponent(title)
-  const cc = String(region || 'BR').toLowerCase(); // país em minúsculas (ex.: 'br')
-
-  // Mapeamento dos principais provedores (IDs do TMDB)
-  switch (providerId) {
-    case 8:   // Netflix
-      return `https://www.netflix.com/search?q=${q}`
-    case 119: // Prime Video
-      return `https://www.primevideo.com/search?phrase=${q}`
-    case 337: // Disney+
-      return `https://www.disneyplus.com/search/${q}`
-    case 384: // Max (HBO Max)
-      return `https://www.max.com/search?q=${q}`
-    case 307: // Globoplay
-      return `https://globoplay.globo.com/busca/?q=${q}`
-    case 350: // Apple TV+
-      return `https://tv.apple.com/${cc}/search?term=${q}`
-    case 531: // Paramount+
-      return `https://www.paramountplus.com/search/?searchTerm=${q}`
-    case 619: // Star+
-      return `https://www.starplus.com/search/${q}`
-    default:
-      // Não mapeado: sem fallback para TMDB/JustWatch
-      return undefined;
-  }
 }

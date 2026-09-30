@@ -1,11 +1,10 @@
-// src/components/AdSlot.tsx
 import { useEffect, useRef, useState } from 'react'
 
 
 
 declare global {
   interface Window {
-    adsbygoogle?: any[];
+    adsbygoogle?: Array<Record<string, unknown>>
   }
 }
 let adsenseLoading: Promise<void> | null = null
@@ -58,51 +57,71 @@ export default function AdSlot({
   const ref = useRef<HTMLDivElement | null>(null)
   const [visible, setVisible] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
-  const insRef = useRef<HTMLDivElement | null>(null)
+  const insRef = useRef<HTMLModElement | null>(null)
   const pushedRef = useRef(false) // evita push duplicado
 
   // Lazy render quando entrar na viewport
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) setVisible(true)
-      })
-    }, { rootMargin: '120px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
-
-  useEffect(() => {
-      if (!visible) return
-
-      // sem IDs? vai direto para o fallback
-      if (!adClient || !adSlot) { setUseFallback(true); return }
-
-      // carrega a tag do AdSense sob demanda
-      ensureAdsense(adClient)
-        .then(() => {
-          try {
-            if (!pushedRef.current) {
-              (window.adsbygoogle = window.adsbygoogle || []).push({})
-              pushedRef.current = true
-            }
-          } catch {
-            setUseFallback(true)
-            return
-          }
-
-          // se o slot não preencher, troca para fallback
-          const t = setTimeout(() => {
-            const el = (insRef.current as unknown as HTMLElement | null)
-            const empty = !el || el.childElementCount === 0 || el.offsetHeight < 20
-            if (empty) setUseFallback(true)
-          }, 1800)
-          return () => clearTimeout(t)
+      const el = ref.current
+      if (!el) return
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) setVisible(true)
         })
-        .catch(() => { setUseFallback(true) })
-    }, [visible, adClient, adSlot])
+      }, { rootMargin: '120px' })
+      io.observe(el)
+      return () => io.disconnect()
+    }, [])
+
+    useEffect(() => {
+    if (!visible) return
+
+    // sem IDs? vai direto para o fallback
+    if (!adClient || !adSlot) {
+      setUseFallback(true)
+      return
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let cancelled = false
+
+    // carrega a tag do AdSense sob demanda
+    ensureAdsense(adClient)
+      .then(() => {
+        if (cancelled) return
+
+        try {
+          if (!pushedRef.current) {
+            (window.adsbygoogle = window.adsbygoogle || []).push({})
+            pushedRef.current = true
+          }
+        } catch {
+          setUseFallback(true)
+          return
+        }
+
+        // se o slot não preencher, troca para fallback
+        timeoutId = setTimeout(() => {
+          if (cancelled) return
+
+          const el = insRef.current
+          const empty =
+            !el ||
+            el.childElementCount === 0 ||
+            el.offsetHeight < 20
+
+          if (empty) setUseFallback(true)
+        }, 1800)
+      })
+      .catch(() => {
+        if (!cancelled) setUseFallback(true)
+      })
+
+    return () => {
+      cancelled = true
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+    }
+  }, [visible, adClient, adSlot])
 
   // Placeholder simpático (house-ad). Depois você pode trocar pelo script do provedor aqui.
   const Inner = useFallback ? (
@@ -133,7 +152,7 @@ export default function AdSlot({
       data-ad-slot={adSlot}
       data-ad-format={adFormat}
       data-full-width-responsive={fullWidthResponsive ? 'true' : 'false'}
-      ref={insRef as any}
+      ref={insRef}
     />
   )
   return (

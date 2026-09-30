@@ -1,13 +1,17 @@
 ﻿// src/pages/Swipe.tsx
-import { Component, type ReactNode } from 'react'
+import {
+  Component,
+  lazy,
+  Suspense,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react'
 import {
   useEffect,
   useRef,
   useState,
   useMemo,
   useCallback,
-  useImperativeHandle,
-  forwardRef,
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -16,228 +20,212 @@ import {
   getMovieDetails,
   type MovieDetails,
   type DiscoverFilters,
+  type MonetizationType,
 } from '../lib/functions'
-import MovieCarousel from '../components/MovieCarousel'
-import { Heart, X as XIcon, Share2, Star, Undo2, SlidersHorizontal } from 'lucide-react'
-import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls, animate } from 'framer-motion'
+import { Star, SlidersHorizontal } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+
 import { Toaster, toast } from 'sonner'
-import Select from '../components/Select'
 import AgeGateModal from '../components/AgeGateModal'
 import AdSlot from '../components/AdSlot'
 import AdblockWall from '../components/AdblockWall'
 import confetti from 'canvas-confetti'
+import { ensureAnonymousUser } from '../lib/auth'
+import SwipeCard, {
+  type SwipeCardHandle,
+  type SwipeMovie,
+} from '../components/swipe/SwipeCard'
+import AdSwipeCard from '../components/swipe/AdSwipeCard'
+import SwipeActionButtons from '../components/swipe/SwipeActionButtons'
+import ShareSessionButton from '../components/swipe/ShareSessionButton'
+import SessionLoader from '../components/ui/session-loader'
+import {
+  clearProgress,
+  filtersSig,
+  loadProgress,
+  saveProgress,
+} from '../lib/swipeProgress'
 
-type Movie = {
-  movie_id: number
-  tmdb_id: number
-  title: string
-  year: number | null
-  poster_url: string | null
-  genres: number[]
+import {
+  hash32,
+  shuffleWithinWindows,
+} from '../lib/swipeShuffle'
+
+const FilterModal = lazy(
+  () => import('../components/swipe/FilterModal'),
+)
+import { useSessionPresence } from '../hooks/useSessionPresence'
+import { usePageMeta } from '../hooks/usePageMeta'
+
+type Movie = SwipeMovie
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
-function isAdItem(m: any): boolean {
-  // cobre formatos comuns de sentinela de ad-card
-  return !!(m && (m.__ad === true || m.kind === 'ad' || m.type === 'ad'));
-}
-
-const DRAG_LIMIT = 160
-const SWIPE_DISTANCE = 120
-const SWIPE_VELOCITY = 800
-
-function hash32(str: string): number {
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
   }
-  return h >>> 0
-}
 
-// embaralha de forma determinística por usuário **dentro** de janelas pequenas
-const SHUFFLE_WINDOW = 10
-const SHUFFLE_WEIGHT = 0.85 // 0..1 (quanto maior, mais “anda” dentro da janela)
-function shuffleWithinWindows<T extends { tmdb_id: number }>(items: T[], baseSeed: string, win = SHUFFLE_WINDOW): T[] {
-  const out: T[] = []
-  for (let i = 0; i < items.length; i += win) {
-    const start = i
-    const slice = items.slice(i, i + win)
-      .map((m, j) => {
-        const noise = (hash32(`${baseSeed}:${m.tmdb_id}`) >>> 0) / 0xFFFFFFFF // 0..1
-        const score = start + j + (noise - 0.5) * (win - 1) * SHUFFLE_WEIGHT
-        return { m, score }
-      })
-      .sort((a, b) => a.score - b.score)
-      .map(x => x.m)
-    out.push(...slice)
+  if (isRecord(error)) {
+    const message = error.message
+
+    if (typeof message === 'string' && message.length > 0) {
+      return message
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return 'Erro desconhecido'
+    }
   }
-  return out
+
+  return String(error)
 }
 
+function toNumber(value: unknown, fallback: number): number {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim().length > 0
+        ? Number(value)
+        : Number.NaN
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : fallback
+}
+
+function toString(value: unknown, fallback: string): string {
+  return typeof value === 'string'
+    ? value
+    : fallback
+}
+
+function toNumberArray(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(Number)
+    .filter(Number.isFinite)
+}
+
+const MONETIZATION_TYPES = new Set<MonetizationType>([
+  'flatrate',
+  'free',
+  'ads',
+  'rent',
+  'buy',
+])
+
+function toMonetizationTypes(
+  value: unknown,
+): MonetizationType[] {
+  if (!Array.isArray(value)) {
+    return ['flatrate']
+  }
+
+  return value.filter(
+    (item): item is MonetizationType =>
+      typeof item === 'string' &&
+      MONETIZATION_TYPES.has(
+        item as MonetizationType,
+      ),
+  )
+}
+
+function sessionFiltersFromRow(
+  row: Record<string, unknown>,
+): DiscoverFilters {
+  return {
+    genres: toNumberArray(
+      row.genres,
+    ),
+
+    excludeGenres: toNumberArray(
+      row.exclude_genres,
+    ),
+
+    yearMin: toNumber(
+      row.year_min,
+      1990,
+    ),
+
+    yearMax: toNumber(
+      row.year_max,
+      new Date().getFullYear(),
+    ),
+
+    ratingMin: toNumber(
+      row.rating_min,
+      0,
+    ),
+
+    voteCountMin: toNumber(
+      row.vote_count_min,
+      0,
+    ),
+
+    runtimeMin: toNumber(
+      row.runtime_min,
+      60,
+    ),
+
+    runtimeMax: toNumber(
+      row.runtime_max,
+      220,
+    ),
+
+    language: toString(
+      row.language,
+      '',
+    ),
+
+    sortBy: toString(
+      row.sort_by,
+      'popularity.desc',
+    ),
+
+    includeAdult: Boolean(
+      row.include_adult,
+    ),
+
+    providers: toNumberArray(
+      row.providers,
+    ),
+
+    watchRegion: toString(
+      row.watch_region,
+      'BR',
+    ),
+
+    monetization:
+      toMonetizationTypes(
+        row.monetization,
+      ),
+  }
+}
 
 // tempo pro exit terminar antes de liberar clique
 const EXIT_DURATION_MS = 400
 
-// animação do swipe: tween (sem molinha), lenta e suave
-const TWEEN_SWIPE = {
-  type: 'tween' as const,
-  duration: 0.45,
-  ease: 'easeOut' as const,
-}
-
-// voltar ao centro quando não passa do limiar
-const TWEEN_SNAP = {
-  type: 'tween' as const,
-  duration: 0.38,
-  ease: 'easeOut' as const,
-}
-
-type OnlineUser = { id: string; name: string }
-
-// handle exposto pelo card para swipe imperativo (botões/teclas)
-export type SwipeCardHandle = { swipe: (value: 1 | -1) => void }
-
-function FilterChip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
-  const base = 'rounded-full px-3 py-1 text-xs font-medium transition'
-  const selected = 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-  const idle = 'bg-white/10 text-white/80 hover:bg-white/15'
-  return (
-    <button type="button" onClick={onClick} className={`${base} ${active ? selected : idle}`}>
-      {children}
-    </button>
-  )
-}
-
-type NumberFieldProps = {
-  label: string
-  value: number
-  min: number
-  max: number
-  step?: number
-  suffix?: string
-  onChange: (value: number) => void
-}
-
-function NumberField({ label, value, min, max, step = 1, suffix, onChange }: NumberFieldProps) {
-  const clamp = (val: number) => Math.min(max, Math.max(min, val))
-  const adjust = (delta: number) => {
-    const next = clamp(Number((value + delta).toFixed(3)))
-    onChange(next)
-  }
-  const inputPadding = suffix ? 'pr-9' : 'pr-2'
-
-  return (
-    <label className="flex flex-col gap-1 text-xs text-white/70">
-      <span>{label}</span>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => adjust(-step)}
-          disabled={value <= min}
-          className="h-8 w-8 rounded-md bg-white/10 text-white/80 transition hover:bg-white/15 disabled:opacity-40"
-        >
-          -
-        </button>
-        <div className="relative flex-1">
-          <input
-            type="number"
-            value={Number(value.toFixed(2))}
-            min={min}
-            max={max}
-            step={step}
-            onChange={(e) => {
-              const raw = Number(e.target.value)
-              if (Number.isNaN(raw)) return
-              onChange(clamp(raw))
-            }}
-            className={`w-full rounded-md bg-white/10 px-2 py-1 text-sm text-white outline-none focus:ring-2 focus:ring-emerald-500 ${inputPadding}`}
-          />
-          {suffix ? (
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-white/60">{suffix}</span>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          onClick={() => adjust(step)}
-          disabled={value >= max}
-          className="h-8 w-8 rounded-md bg-white/10 text-white/80 transition hover:bg-white/15 disabled:opacity-40"
-        >
-          +
-        </button>
-      </div>
-    </label>
-  )
-}
-
-const GENRES = [
-  { id: 28, name: 'Ação' }, { id: 12, name: 'Aventura' }, { id: 16, name: 'Animação' },
-  { id: 35, name: 'Comédia' }, { id: 80, name: 'Crime' }, { id: 99, name: 'Documentário' },
-  { id: 18, name: 'Drama' }, { id: 10751, name: 'Família' }, { id: 14, name: 'Fantasia' },
-  { id: 36, name: 'História' }, { id: 27, name: 'Terror' }, { id: 10402, name: 'Música' },
-  { id: 9648, name: 'Mistério' }, { id: 10749, name: 'Romance' }, { id: 878, name: 'Ficção científica' },
-  { id: 10770, name: 'TV Movie' }, { id: 53, name: 'Thriller' }, { id: 10752, name: 'Guerra' },
-  { id: 37, name: 'Faroeste' },
-]
-
-// Principais provedores (IDs TMDB)
-const PROVIDERS_BR = [
-  { id: 8,   name: 'Netflix' },
-  { id: 119, name: 'Prime Video' },
-  { id: 337, name: 'Disney+' },
-  { id: 384, name: 'Max' },
-  { id: 307, name: 'Globoplay' },
-  { id: 350, name: 'Apple TV+' },
-  { id: 531, name: 'Paramount+' },
-  { id: 619, name: 'Star+' },
-]
-
-const LANGUAGES = [
-  { value: '',  label: 'Qualquer' },
-  { value: 'pt', label: 'Português' }, { value: 'en', label: 'Inglês' }, { value: 'es', label: 'Espanhol' },
-  { value: 'fr', label: 'Francês' },   { value: 'de', label: 'Alemão' },  { value: 'it', label: 'Italiano' },
-  { value: 'ja', label: 'Japonês' },   { value: 'ko', label: 'Coreano' }, { value: 'zh', label: 'Chinês' },
-  { value: 'ru', label: 'Russo' },     { value: 'hi', label: 'Hindi' },   { value: 'ar', label: 'Árabe' },
-  { value: 'tr', label: 'Turco' },     { value: 'nl', label: 'Holandês' },{ value: 'sv', label: 'Sueco' },
-  { value: 'no', label: 'Norueguês' }, { value: 'fi', label: 'Finlandês'},{ value: 'da', label: 'Dinamarquês' },
-  { value: 'pl', label: 'Polonês' },   { value: 'cs', label: 'Tcheco' },  { value: 'uk', label: 'Ucraniano' },
-  { value: 'ro', label: 'Romeno' },    { value: 'el', label: 'Grego' },   { value: 'he', label: 'Hebraico' },
-  { value: 'th', label: 'Tailandês' }, { value: 'id', label: 'Indonésio' },{ value: 'vi', label: 'Vietnamita' },
-  { value: 'ms', label: 'Malaio' },    { value: 'ta', label: 'Tâmil' },   { value: 'fa', label: 'Persa' },
-]
-
-const REGIONS = [
-  { value: 'BR', label: 'Brasil (BR)' },
-  { value: 'US', label: 'Estados Unidos (US)' },
-  { value: 'GB', label: 'Reino Unido (GB)' },
-  { value: 'PT', label: 'Portugal (PT)' },
-  { value: 'ES', label: 'Espanha (ES)' },
-  { value: 'FR', label: 'França (FR)' },
-  { value: 'DE', label: 'Alemanha (DE)' },
-  { value: 'IT', label: 'Itália (IT)' },
-  { value: 'JP', label: 'Japão (JP)' },
-  { value: 'KR', label: 'Coreia do Sul (KR)' },
-  { value: 'AR', label: 'Argentina (AR)' },
-  { value: 'MX', label: 'México (MX)' },
-]
-
-const SORT_OPTIONS = [
-  { value: 'popularity.desc',           label: 'Popularidade (↓)' },
-  { value: 'popularity.asc',            label: 'Popularidade (↑)' },
-  { value: 'vote_average.desc',         label: 'Nota (↓)' },
-  { value: 'vote_average.asc',          label: 'Nota (↑)' },
-  { value: 'vote_count.desc',           label: 'Votos (↓)' },
-  { value: 'vote_count.asc',            label: 'Votos (↑)' },
-  { value: 'primary_release_date.desc', label: 'Lançamento (recente)' },
-  { value: 'primary_release_date.asc',  label: 'Lançamento (antigo)' },
-  { value: 'revenue.desc',              label: 'Bilheteria (↓)' },
-  { value: 'revenue.asc',               label: 'Bilheteria (↑)' },
-  { value: 'original_title.asc',        label: 'Título A→Z' },
-  { value: 'original_title.desc',       label: 'Título Z→A' },
-]
-
 function Swipe() {
   const { code } = useParams()
+
+  usePageMeta({
+    title: code
+      ? `Sessão ${code.toUpperCase()} — MovieMatch`
+      : 'Sessão — MovieMatch',
+    description:
+      'Vote em filmes com os participantes da sua sessão do MovieMatch.',
+    robots:
+      'noindex,nofollow,noarchive',
+  })
+
   const bootVersionRef = useRef(0)
+  const loadVersionRef = useRef(0)
 
   // estado
   const [movies, setMovies] = useState<Movie[]>([])
@@ -250,11 +238,13 @@ function Swipe() {
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [fatalError, setFatalError] = useState<string | null>(null)
+  const [sessionReady, setSessionReady] = useState(false)
 
   // sessão/usuário
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [displayName] = useState('Guest')
+  const onlineCount = useSessionPresence(sessionId, sessionReady)
 
   // cache TMDB
   const [detailsCache, setDetailsCache] = useState<Record<number, MovieDetails>>({})
@@ -264,9 +254,11 @@ function Swipe() {
   const seenRef = useRef(new Set<number>())
   const userIdRef = useRef<string | null>(null)
   const adsShown = useRef(0)
-  const filtersBusRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const consumedAdStepsRef = useRef(new Set<number>())
+  const suppressAdForMovieIndexRef = useRef<number | null>(null)
   const reactedTmdbRef = useRef(new Set<number>()) // tmdb_ids já swipados pelo usuário na sessão
-
+  const matchChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const matchPollInitializedRef = useRef(false)
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
@@ -279,9 +271,6 @@ function Swipe() {
 
   // guard para clicks rápidos
   const clickGuardRef = useRef(false)
-
-  // presença
-  const [online, setOnline] = useState<OnlineUser[]>([])
 
   // filtros
   const currentYear = new Date().getFullYear()
@@ -303,6 +292,12 @@ function Swipe() {
   }
 
   const [filters, setFilters] = useState<DiscoverFilters>({ ...DEFAULT_FILTERS })
+  const filtersRef =
+    useRef<DiscoverFilters>(filters)
+
+  useEffect(() => {
+    filtersRef.current = filters
+  }, [filters])
   const [openFilters, setOpenFilters] = useState(false)
 
   // verificação de idade
@@ -319,109 +314,366 @@ function Swipe() {
 
   const current = movies[i]
 
-  useEffect(() => {
-  if (!isPremium) return;
-  const m = movies[i];
-  if (isAdItem(m)) {
-    // pula o ad-card de forma transparente para premium
-        goNextRef.current();
-  }
-}, [isPremium, i, movies]);
 
   const adSeed = `${sessionId ?? 's'}:${userIdRef.current ?? 'u'}:${filtersSig(filters)}`
   const adInterval = 8 + (hash32(adSeed) % 5) // 8..12 por usuário/sessão/filtros
   const adOffset = hash32(adSeed + ':o') % adInterval
+  const totalSteps = i + adsShown.current
+  const isAdStep =
+    !isPremium &&
+    totalSteps > 0 &&
+    suppressAdForMovieIndexRef.current !== i &&
+    (
+      (totalSteps - adOffset) %
+        adInterval ===
+      0
+    ) &&
+    !consumedAdStepsRef.current.has(
+      totalSteps,
+    )
 
-  const filtersCount =
-    (filters.genres?.length ?? 0) +
-    (filters.excludeGenres?.length ?? 0) +
-    (filters.yearMin ? 1 : 0) +
-    (filters.yearMax ? 1 : 0) +
-    ((filters.ratingMin ?? 0) > 0 ? 1 : 0) +
-    (filters.language && filters.language !== '' ? 1 : 0) +
-    (filters.sortBy && filters.sortBy !== 'popularity.desc' ? 1 : 0) +
-    (filters.watchRegion ? 1 : 0) +
-    ((filters.providers?.length ?? 0) > 0 ? 1 : 0) +
-    ((filters.monetization?.length ?? 0) > 0 ? 1 : 0)
+  const filtersCount = [
+    (filters.genres?.length ?? 0) > 0,
 
-  const loadPage = useCallback(async (pageToLoad: number, f: DiscoverFilters = filters) => {
-    try {
-      const data = await discoverMovies({ page: pageToLoad, filters: f })
-      if (pageToLoad === 1) setDiscoverHint((data as any)?.hint ?? null)
+    (filters.excludeGenres?.length ?? 0) > 0,
 
-      const baseSeed = `${sessionId ?? 'nosess'}:${userIdRef.current ?? 'nouser'}`
+    filters.yearMin !==
+      DEFAULT_FILTERS.yearMin,
 
-      const filtered = (data?.results ?? []).filter((m: Movie) => {
-        const tmdb = Number(m.tmdb_id)
-        return !seenRef.current.has(m.movie_id) && !reactedTmdbRef.current.has(tmdb)
-      })
+    filters.yearMax !==
+      DEFAULT_FILTERS.yearMax,
 
-      const unique = shuffleWithinWindows(filtered, baseSeed)
+    filters.ratingMin !==
+      DEFAULT_FILTERS.ratingMin,
 
-      unique.forEach((m: Movie) => seenRef.current.add(m.movie_id))
-      if (unique.length > 0) {
-        setMovies(prev => [...prev, ...unique])
-        setPage(pageToLoad)
-      }
-      return unique.length
-    } catch (err: any) {
-      console.error('discoverMovies error:', err)
-      toast.error(`Falha ao buscar filmes: ${err?.message ?? err}`)
-      return 0
+    filters.voteCountMin !==
+      DEFAULT_FILTERS.voteCountMin,
+
+    filters.runtimeMin !==
+      DEFAULT_FILTERS.runtimeMin,
+
+    filters.runtimeMax !==
+      DEFAULT_FILTERS.runtimeMax,
+
+    filters.language !==
+      DEFAULT_FILTERS.language,
+
+    filters.sortBy !==
+      DEFAULT_FILTERS.sortBy,
+
+    filters.includeAdult !==
+      DEFAULT_FILTERS.includeAdult,
+
+    (filters.providers?.length ?? 0) > 0,
+
+    filters.watchRegion !==
+      DEFAULT_FILTERS.watchRegion,
+
+    [...(filters.monetization ?? [])]
+      .sort()
+      .join(',') !==
+      [...(DEFAULT_FILTERS.monetization ?? [])]
+        .sort()
+        .join(','),
+  ].filter(Boolean).length
+
+    type LoadPageResult = {
+      added: number
+      hasMore: boolean
     }
-  }, [filters])
 
-  const resetAndLoad = useCallback(async (resume = false, f?: DiscoverFilters, sessionRef?: string | null) => {
-    const effective = f ?? filters
-    const sid = sessionRef ?? sessionId
-    const myVersion = bootVersionRef.current
-    setLoading(true)
-    adsShown.current = 0
-    setNoResults(false)
-    setDiscoverHint(null)
-    setMovies([]); setI(0); setPage(1)
-    seenRef.current.clear()
-    try {
-      const target = resume ? loadProgress(sid, userIdRef.current, effective) : 0
-      let acc = 0
-      let pageToLoad = 1
-      let anyAdded = false
-
-      while (acc <= target) {
-        if (bootVersionRef.current !== myVersion) return
-        const added = await loadPage(pageToLoad, effective)
-        if (bootVersionRef.current !== myVersion) return
-        if (added > 0) {
-          anyAdded = true
-          acc += added
-          pageToLoad++
-        } else {
-          // se a página não trouxe nadinha, para o loop
-          break
+  const loadPage = useCallback(
+    async (
+      pageToLoad: number,
+      f: DiscoverFilters,
+      requestVersion: number,
+    ): Promise<LoadPageResult> => {
+      try {
+        const data = await discoverMovies({
+          page: pageToLoad,
+          filters: f,
+        })
+        // Se os filtros/sessão mudaram enquanto
+        // a requisição estava em andamento, ignora
+        // completamente o resultado antigo.
+        if (
+          requestVersion !==
+          loadVersionRef.current
+        ) {
+          return {
+            added: 0,
+            hasMore: false,
+          }
         }
-        if (pageToLoad > 30) break
+
+        if (pageToLoad === 1) {
+          setDiscoverHint(data?.hint ?? null)
+        }
+
+        const sourceResults = data?.results ?? []
+
+        const baseSeed =
+          `${sessionId ?? 'nosess'}:` +
+          `${userIdRef.current ?? 'nouser'}`
+
+        const filtered = sourceResults.filter(
+          (movie: Movie) => {
+            const tmdbId = Number(movie.tmdb_id)
+
+            return (
+              !seenRef.current.has(movie.movie_id) &&
+              !reactedTmdbRef.current.has(tmdbId)
+            )
+          },
+        )
+
+        const unique = shuffleWithinWindows(
+          filtered,
+          baseSeed,
+        )
+
+        unique.forEach((movie: Movie) => {
+          seenRef.current.add(movie.movie_id)
+        })
+
+        if (unique.length > 0) {
+          setMovies((previous) => [
+            ...previous,
+            ...unique,
+          ])
+
+          setPage(pageToLoad)
+        }
+
+        const totalPages = Number(
+          data?.total_pages,
+        )
+
+        const hasMore =
+          sourceResults.length > 0 &&
+          (
+            !Number.isFinite(totalPages) ||
+            pageToLoad < totalPages
+          )
+
+        return {
+          added: unique.length,
+          hasMore,
+        }
+      } catch (error: unknown) {
+        // Se esta busca já foi substituída por
+        // outra geração, o erro também é antigo
+        // e não deve interferir na interface atual.
+        if (
+          requestVersion !==
+          loadVersionRef.current
+        ) {
+          return {
+            added: 0,
+            hasMore: false,
+          }
+        }
+
+        console.error(
+          'discoverMovies error:',
+          error,
+        )
+
+        toast.error(
+          `Falha ao buscar filmes: ${getErrorMessage(error)}`,
+        )
+
+        return {
+          added: 0,
+          hasMore: false,
+        }
+      }
+    },
+    [sessionId],
+  )
+
+  const resetAndLoad = useCallback(
+    async (
+      resume = false,
+      f?: DiscoverFilters,
+      sessionRef?: string | null,
+    ) => {
+      const effective = f ?? filtersRef.current
+      const sid = sessionRef ?? sessionId
+
+      const myBootVersion =
+        bootVersionRef.current
+
+      const myLoadVersion =
+        ++loadVersionRef.current
+
+      const isCurrentLoad = () =>
+        bootVersionRef.current ===
+          myBootVersion &&
+        loadVersionRef.current ===
+          myLoadVersion
+
+      setLoading(true)
+
+      adsShown.current = 0
+      consumedAdStepsRef.current.clear()
+      suppressAdForMovieIndexRef.current = null
+
+      setNoResults(false)
+      setDiscoverHint(null)
+
+      setMovies([])
+      setI(0)
+      setPage(1)
+
+      seenRef.current.clear()
+
+      try {
+        const target = resume
+          ? loadProgress(
+              sid,
+              userIdRef.current,
+              effective,
+            )
+          : 0
+
+        let accumulated = 0
+        let pageToLoad = 1
+        let anyAdded = false
+
+        while (
+          accumulated <= target &&
+          pageToLoad <= 30
+        ) {
+          if (!isCurrentLoad()) {
+            return
+          }
+
+          const result = await loadPage(
+            pageToLoad,
+            effective,
+            myLoadVersion,
+          )
+
+          if (!isCurrentLoad()) {
+            return
+          }
+
+          if (result.added > 0) {
+            anyAdded = true
+            accumulated += result.added
+          }
+
+          // A API realmente não tem mais páginas.
+          if (!result.hasMore) {
+            break
+          }
+
+          // Mesmo que esta página tenha trazido
+          // zero filmes NOVOS, tenta a próxima.
+          pageToLoad += 1
+        }
+
+        if (!isCurrentLoad()) {
+          return
+        }
+
+        if (!anyAdded) {
+          setNoResults(true)
+          setI(0)
+          return
+        }
+
+        const safeMax = Math.max(
+          0,
+          accumulated - 1,
+        )
+
+        const resolved = resume
+          ? Math.min(target, safeMax)
+          : 0
+
+        setI(resolved)
+      } catch (error: unknown) {
+        console.error(error)
+
+        toast.error(
+          `Erro ao carregar filmes: ${getErrorMessage(error)}`,
+        )
+      } finally {
+        if (isCurrentLoad()) {
+          setLoading(false)
+        }
+      }
+    },
+    [sessionId, loadPage],
+  )
+
+  const applySharedFilters = useCallback(
+    async (
+      nextFilters: DiscoverFilters,
+    ) => {
+      const currentSignature =
+        filtersSig(
+          filtersRef.current,
+        )
+
+      const nextSignature =
+        filtersSig(
+          nextFilters,
+        )
+
+      if (
+        currentSignature ===
+        nextSignature
+      ) {
+        return
       }
 
-      if (!anyAdded) {
-        setNoResults(true)
-        setI(0)
-      } else {
-        // índice seguro: se não alcançou o target, fica no último disponível
-        const safeMax = Math.max(0, acc - 1)
-        const resolved = resume ? Math.min(target, safeMax) : 0
-        setI(resolved)
-      }
-    } catch (e: any) {
-      console.error(e)
-      toast.error(`Erro ao carregar filmes: ${e.message ?? e}`)
-    } finally {
-      if (bootVersionRef.current === myVersion) setLoading(false)
-    }
-  }, [filters, sessionId, loadPage])
+      // Atualiza a ref antes do estado.
+      // Isso evita que Realtime e polling
+      // apliquem a mesma alteração duas vezes.
+      filtersRef.current =
+        nextFilters
+
+      setFilters(nextFilters)
+
+      setDetailsCache({})
+
+      clearProgress(
+        sessionId,
+        userIdRef.current,
+        nextFilters,
+      )
+
+      await resetAndLoad(
+        false,
+        nextFilters,
+        sessionId,
+      )
+    },
+    [
+      sessionId,
+      resetAndLoad,
+    ],
+  )
 
   useEffect(() => {
     let cancelled = false
-    const myVersion = ++bootVersionRef.current
+
+    setLoading(true)
+    setFatalError(null)
+    setSessionReady(false)
+    setSessionId(null)
+    setMatchModal(null)
+    setLatestMatchAt(0)
+
+    const myVersion =
+      ++bootVersionRef.current
+
+    // Cancela imediatamente qualquer busca
+    // pertencente à sessão anterior.
+    loadVersionRef.current += 1
 
     ;(async () => {
       try {
@@ -433,20 +685,19 @@ function Swipe() {
           return
         }
 
-        // auth
-        let { data: userData } = await supabase.auth.getUser()
-        if (!userData?.user) {
-          // se seu projeto não habilitou "Anonymous Sign-in", isso falha
-          const { data: auth, error: authErr } = await supabase.auth.signInAnonymously()
-          if (authErr) throw authErr
-          userData = { user: auth.user! }
-        }
-        const uid = userData.user!.id
+        const authUser = await ensureAnonymousUser()
+        const uid = authUser.id
+
         userIdRef.current = uid
         if (bootVersionRef.current !== myVersion || cancelled) return
         setUserId(uid)
 
-        await supabase.from('users').upsert({ id: uid, display_name: displayName })
+        const { error: profileError } = await supabase
+          .from('users')
+          .update({ display_name: displayName })
+          .eq('id', uid)
+
+        if (profileError) throw profileError
 
         // ler se já é adulto
         const { data: prof } = await supabase
@@ -458,84 +709,106 @@ function Swipe() {
         setIsPremium(!!prof?.is_premium)
 
         // ⚠️ busca da sessão com single + limit(1)
-        const { data: sess, error: sessErr } = await supabase
-          .from('sessions')
-          .select('id, code')
-          .eq('code', CODE)
-          .limit(1)
-          .maybeSingle()
+        const { data: sessionRows, error: sessErr } = await supabase.rpc(
+          'join_session',
+          {
+            p_code: CODE,
+          },
+        )
 
-        if (sessErr) throw sessErr
-        if (!sess?.id) {
+        const sess = Array.isArray(sessionRows) ? sessionRows[0] : null
+
+        if (sessErr || !sess?.id) {
           setFatalError('Sessão não encontrada. Verifique o código.')
           setLoading(false)
           return
         }
 
         if (bootVersionRef.current !== myVersion || cancelled) return
+
         setSessionId(sess.id)
 
-        await supabase
-          .from('session_members')
-          .upsert({ session_id: sess.id, user_id: uid }, { onConflict: 'session_id,user_id' })
-          // carrega filmes já swipados pelo usuário nesta sessão (para não reaparecerem)
-          try {
-            const { data: rxRows } = await supabase
-              .from('reactions')
-              .select('movie_id')
-              .eq('session_id', sess.id)
-              .eq('user_id', uid)
+        // Limpa referências pertencentes à sessão anterior.
+        matchedRef.current.clear()
+        matchPollInitializedRef.current = false
+        historyRef.current = []
+        reactedTmdbRef.current = new Set()
 
-            const ids = (rxRows ?? []).map(r => r.movie_id)
-            if (ids.length) {
-              const { data: mvRows } = await supabase
-                .from('movies')
-                .select('id, tmdb_id')
-                .in('id', ids)
-
-              reactedTmdbRef.current = new Set((mvRows ?? []).map(m => Number(m.tmdb_id)))
-            }
-          } catch (e) {
-            console.warn('falha ao carregar reações antigas:', e)
-          }
-
-
-        // filtros salvos
-        let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
+        // Carrega filmes já avaliados pelo usuário nesta sessão
+        // para evitar que apareçam novamente.
         try {
-          const { data: sf } = await supabase
+          const { data: rxRows, error: reactionsError } = await supabase
+            .from('reactions')
+            .select('movie_id')
+            .eq('session_id', sess.id)
+            .eq('user_id', uid)
+
+          if (reactionsError) throw reactionsError
+
+          const ids = (rxRows ?? []).map((row) => row.movie_id)
+
+          if (ids.length) {
+            const { data: mvRows, error: moviesError } = await supabase
+              .from('movies')
+              .select('id, tmdb_id')
+              .in('id', ids)
+
+            if (moviesError) throw moviesError
+
+            reactedTmdbRef.current = new Set(
+              (mvRows ?? []).map((movie) => Number(movie.tmdb_id)),
+            )
+          }
+        } catch (error) {
+          console.warn('falha ao carregar reações antigas:', error)
+        }
+
+        // Filtros persistidos da sessão.
+        let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
+
+        try {
+          const {
+            data: savedFilters,
+            error: savedFiltersError,
+          } = await supabase
             .from('session_filters')
             .select('*')
             .eq('session_id', sess.id)
             .maybeSingle()
-          if (sf) {
-            effectiveFilters = {
-              genres: sf.genres ?? [],
-              excludeGenres: sf.exclude_genres ?? [],
-              yearMin: sf.year_min ?? 1990,
-              yearMax: sf.year_max ?? currentYear,
-              ratingMin: typeof sf.rating_min === 'number' ? Number(sf.rating_min) : 0,
-              voteCountMin: typeof sf.vote_count_min === 'number' ? Number(sf.vote_count_min) : 0,
-              runtimeMin: typeof sf.runtime_min === 'number' ? Number(sf.runtime_min) : 60,
-              runtimeMax: typeof sf.runtime_max === 'number' ? Number(sf.runtime_max) : 220,
-              language: sf.language ?? '',
-              sortBy: sf.sort_by ?? 'popularity.desc',
-              includeAdult: !!sf.include_adult,
-              providers: Array.isArray(sf.providers) ? sf.providers : [],
-              watchRegion: sf.watch_region ?? 'BR',
-              monetization: Array.isArray(sf.monetization) ? sf.monetization : ['flatrate'],
-            }
+
+          if (savedFiltersError) {
+            throw savedFiltersError
           }
-        } catch {}
+
+          if (savedFilters && isRecord(savedFilters)) {
+            effectiveFilters =
+              sessionFiltersFromRow(savedFilters)
+          }
+        } catch (error) {
+          console.warn(
+            'falha ao carregar filtros salvos:',
+            error,
+          )
+        }
 
         if (bootVersionRef.current !== myVersion || cancelled) return
+
+        filtersRef.current = effectiveFilters
         setFilters(effectiveFilters)
 
-        // retomar progresso de forma segura
-        await resetAndLoad(true, effectiveFilters, sess.id)
-      } catch (e: any) {
-        console.error(e)
-        const msg = e?.message ?? 'Erro desconhecido ao iniciar a sessão.'
+        // Retoma o progresso somente depois de sessão,
+        // reações e filtros estarem consistentes.
+        await resetAndLoad(
+          true,
+          effectiveFilters,
+          sess.id,
+        )
+
+        if (bootVersionRef.current !== myVersion || cancelled) return
+        setSessionReady(true)
+      } catch (error: unknown) {
+        console.error(error)
+        const msg = getErrorMessage(error)
         setFatalError(msg)
         toast.error(`Erro ao preparar a sessão: ${msg}`)
         setLoading(false)
@@ -592,111 +865,471 @@ function Swipe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i, movies])
 
-  // realtime de match
+  const checkMatch = useCallback(
+    async (movieId: number, notifyPeers = true) => {
+      if (!sessionId || matchedRef.current.has(movieId)) return
+
+      // A decisão de match fica no banco:
+      // todos os integrantes da sessão precisam ter dado like.
+      const {
+        data: matchRows,
+        error: matchError,
+      } = await supabase.rpc(
+        'check_session_match',
+        {
+          p_session_id: sessionId,
+          p_movie_id: movieId,
+        },
+      )
+
+      if (matchError) {
+        console.error(
+          'match check failed:',
+          matchError,
+        )
+        return
+      }
+
+      const matchResult = Array.isArray(matchRows)
+        ? matchRows[0]
+        : null
+
+      if (!matchResult?.is_match) return
+
+      // Evita duas chamadas concorrentes abrirem o mesmo match.
+      if (matchedRef.current.has(movieId)) return
+      matchedRef.current.add(movieId)
+
+      const { data: movie, error: movieError } = await supabase
+        .from('movies')
+        .select('title, year, poster_url')
+        .eq('id', movieId)
+        .maybeSingle()
+
+      if (movieError) {
+        matchedRef.current.delete(movieId)
+        console.error(
+          'match movie lookup failed:',
+          movieError,
+        )
+        return
+      }
+
+      setMatchModal({
+        title: movie?.title ?? `Filme #${movieId}`,
+        poster_url: movie?.poster_url ?? null,
+        year: movie?.year ?? null,
+      })
+
+      setLatestMatchAt(Date.now())
+
+      if (notifyPeers && matchChannelRef.current) {
+        void matchChannelRef.current.send({
+          type: 'broadcast',
+          event: 'match_found',
+          payload: {
+            movie_id: movieId,
+          },
+        })
+      }
+    },
+    [sessionId],
+  )
+
+  // Realtime continua como caminho rápido para matches.
+  // O polling abaixo funciona como fallback quando o WebSocket
+  // é suspenso ou bloqueado pelo navegador móvel.
   useEffect(() => {
-    if (!sessionId) return
+    if (!sessionId || !sessionReady) return
+
     const channel = supabase
       .channel(`sess-${sessionId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'reactions', filter: `session_id=eq.${sessionId}` },
-        async (payload) => {
-          if (payload.new?.value !== 1) return
-          const movieId = payload.new.movie_id as number
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reactions',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          if (!isRecord(payload.new)) return
 
-          const { count } = await supabase
-            .from('reactions')
-            .select('user_id', { count: 'exact', head: true })
-            .eq('session_id', sessionId)
-            .eq('movie_id', movieId)
-            .eq('value', 1)
+          if (Number(payload.new.value) !== 1) return
 
-          if ((count ?? 0) >= 2 && !matchedRef.current.has(movieId)) {
-            matchedRef.current.add(movieId)
-            const { data: mv } = await supabase
-              .from('movies')
-              .select('title, year, poster_url')
-              .eq('id', movieId)
-              .maybeSingle()
+          const movieId = Number(payload.new.movie_id)
 
-            const title = mv?.title ?? `Filme #${movieId}`
-            setMatchModal({ title, poster_url: mv?.poster_url ?? null, year: mv?.year ?? null })
-            setLatestMatchAt(Date.now())
-          }
-        }
+          if (!movieId) return
+
+          void checkMatch(movieId)
+        },
       )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [sessionId])
+      .on(
+        'broadcast',
+        {
+          event: 'match_found',
+        },
+        (message) => {
+          const payload =
+            isRecord(message) && isRecord(message.payload)
+              ? message.payload
+              : null
 
-  // presença
-  useEffect(() => {
-    if (!sessionId || !userId) return
-    const ch = supabase.channel(`presence-${sessionId}`, { config: { presence: { key: userId } } })
-    ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState() as Record<string, any[]>
-      const arr: OnlineUser[] = []
-      Object.values(state).forEach((metas) => {
-        metas.forEach((m: any) => arr.push({ id: String(m.user_id ?? m.key ?? ''), name: String(m.display_name ?? 'Guest') }))
-      })
-      const dedup = Array.from(new Map(arr.map(u => [u.id, u])).values())
-      setOnline(dedup)
-    })
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        ch.track({ user_id: userId, display_name: displayName, joined_at: new Date().toISOString() })
-      }
-    })
-    return () => { try { ch.untrack() } catch {} supabase.removeChannel(ch) }
-  }, [sessionId, userId, displayName])
+          if (!payload) return
 
-  // broadcast de filtros — replica para todos, mesmo sem realtime na tabela
-  useEffect(() => {
-    if (!sessionId) return
-    const ch = supabase
-      .channel(`filtersbus-${sessionId}`)
-      .on('broadcast', { event: 'filters_update' }, (payload: any) => {
-        try {
-          const row = payload?.payload || {}
-          // se fui eu quem enviou, ignora (evita loop)
-          if (row.updated_by && userId && String(row.updated_by) === String(userId)) return
+          const movieId = Number(payload.movie_id)
 
-          const f: DiscoverFilters = {
-            genres: row.genres ?? [],
-            excludeGenres: row.exclude_genres ?? [],
-            yearMin: row.yearMin ?? row.year_min ?? 1990,
-            yearMax: row.yearMax ?? row.year_max ?? new Date().getFullYear(),
-            ratingMin: typeof row.ratingMin === 'number' ? row.ratingMin : (typeof row.rating_min === 'number' ? row.rating_min : 0),
-            voteCountMin: typeof row.voteCountMin === 'number' ? row.voteCountMin : (typeof row.vote_count_min === 'number' ? row.vote_count_min : 0),
-            runtimeMin: typeof row.runtimeMin === 'number' ? row.runtimeMin : (typeof row.runtime_min === 'number' ? row.runtime_min : 60),
-            runtimeMax: typeof row.runtimeMax === 'number' ? row.runtimeMax : (typeof row.runtime_max === 'number' ? row.runtime_max : 220),
-            language: row.language ?? '',
-            sortBy: row.sortBy ?? row.sort_by ?? 'popularity.desc',
-            includeAdult: Boolean(row.includeAdult ?? row.include_adult),
-            providers: Array.isArray(row.providers) ? row.providers : [],
-            watchRegion: row.watchRegion ?? row.watch_region ?? 'BR',
-            monetization: Array.isArray(row.monetization) ? row.monetization : ['flatrate'],
-          }
+          if (!movieId) return
 
-          setFilters(f)
-          clearProgress(sessionId, userIdRef.current, f)
-          resetAndLoad(false, f, sessionId)
-        } catch (e) {
-          console.error('erro ao aplicar filtros via broadcast:', e)
+          // Confirma no banco antes de mostrar o match recebido.
+          void checkMatch(movieId, false)
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          matchChannelRef.current = channel
+          return
+        }
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.warn(
+            'realtime de match indisponível:',
+            status,
+          )
         }
       })
-
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        filtersBusRef.current = ch
-      }
-    })
 
     return () => {
-      try { filtersBusRef.current = null } catch {}
-      try { supabase.removeChannel(ch) } catch {}
+      if (matchChannelRef.current === channel) {
+        matchChannelRef.current = null
+      }
+
+      void supabase.removeChannel(channel)
     }
-  }, [sessionId, userId, resetAndLoad])
+  }, [sessionId, sessionReady, checkMatch])
+
+  // Fallback de match pelo próprio banco.
+  //
+  // Na primeira consulta apenas registramos os matches que já
+  // existiam quando este cliente entrou. Nas consultas seguintes,
+  // qualquer novo match ainda não visto abre o mesmo modal usado
+  // pelo caminho Realtime.
+  useEffect(() => {
+    if (!sessionId || !sessionReady) {
+      matchPollInitializedRef.current = false
+      return
+    }
+
+    let cancelled = false
+    let running = false
+
+    const syncMatchesFromDatabase = async () => {
+      if (running) return
+      running = true
+
+      try {
+        const { data, error } = await supabase.rpc(
+          'list_session_matches',
+          {
+            p_session_id: sessionId,
+          },
+        )
+
+        if (cancelled) return
+
+        if (error) {
+          console.error(
+            'match polling failed:',
+            error,
+          )
+          return
+        }
+
+        const rows = Array.isArray(data)
+          ? data.filter(isRecord)
+          : []
+
+        if (!matchPollInitializedRef.current) {
+          rows.forEach((row) => {
+            const movieId = Number(row.movie_id)
+            if (movieId) {
+              matchedRef.current.add(movieId)
+            }
+          })
+
+          matchPollInitializedRef.current = true
+          return
+        }
+
+        const freshRow = rows.find((row) => {
+          const movieId = Number(row.movie_id)
+
+          return (
+            movieId > 0 &&
+            !matchedRef.current.has(movieId)
+          )
+        })
+
+        // Marca todos os matches retornados como conhecidos.
+        // Assim, se vários surgirem enquanto o cliente estiver
+        // suspenso, exibimos somente o mais recente.
+        rows.forEach((row) => {
+          const movieId = Number(row.movie_id)
+          if (movieId) {
+            matchedRef.current.add(movieId)
+          }
+        })
+
+        if (!freshRow) return
+
+        const latestAt = Date.parse(
+          toString(freshRow.latest_at, ''),
+        )
+
+        setMatchModal({
+          title: toString(
+            freshRow.title,
+            `Filme #${Number(freshRow.movie_id)}`,
+          ),
+          poster_url:
+            typeof freshRow.poster_url === 'string'
+              ? freshRow.poster_url
+              : null,
+          year:
+            freshRow.year != null &&
+            Number.isFinite(Number(freshRow.year))
+              ? Number(freshRow.year)
+              : null,
+        })
+
+        setLatestMatchAt(
+          Number.isFinite(latestAt)
+            ? latestAt
+            : Date.now(),
+        )
+      } finally {
+        running = false
+      }
+    }
+
+    void syncMatchesFromDatabase()
+
+    const timer = window.setInterval(
+      () => {
+        void syncMatchesFromDatabase()
+      },
+      6_000,
+    )
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void syncMatchesFromDatabase()
+      }
+    }
+
+    const refreshOnFocus = () => {
+      void syncMatchesFromDatabase()
+    }
+
+    document.addEventListener(
+      'visibilitychange',
+      refreshWhenVisible,
+    )
+    window.addEventListener(
+      'focus',
+      refreshOnFocus,
+    )
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+
+      document.removeEventListener(
+        'visibilitychange',
+        refreshWhenVisible,
+      )
+      window.removeEventListener(
+        'focus',
+        refreshOnFocus,
+      )
+    }
+  }, [sessionId, sessionReady])
+
+  // Sincronização dos filtros pelo próprio banco.
+  //
+  // session_filters faz parte da publicação
+  // supabase_realtime. Assim, a alteração persistida
+  // no PostgreSQL é também a fonte do evento enviado
+  // aos outros participantes.
+  useEffect(() => {
+    if (!sessionId || !sessionReady) return
+
+    const channel = supabase
+      .channel(`filters-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'session_filters',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => {
+          try {
+            if (!isRecord(payload.new)) return
+
+            const row = payload.new
+
+            // Quem fez a alteração já aplicará os
+            // filtros localmente após o upsert.
+            // Ignorar o próprio evento evita um
+            // segundo reset desnecessário.
+            if (
+              row.updated_by &&
+              userId &&
+              String(row.updated_by) ===
+                String(userId)
+            ) {
+              return
+            }
+
+            const nextFilters =
+              sessionFiltersFromRow(row)
+
+            void applySharedFilters(
+              nextFilters,
+            )
+          } catch (error) {
+            console.error(
+              'erro ao aplicar filtros via realtime:',
+              error,
+            )
+          }
+        },
+      )
+      .subscribe((status) => {
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT'
+        ) {
+          console.warn(
+            'realtime de filtros indisponível:',
+            status,
+          )
+        }
+      })
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [
+    sessionId,
+    sessionReady,
+    userId,
+    applySharedFilters,
+  ])
+
+  // Fallback de filtros via polling.
+  //
+  // Realtime continua sendo o caminho mais rápido, mas esta
+  // consulta garante sincronização mesmo quando o navegador
+  // móvel suspende ou perde o WebSocket.
+  useEffect(() => {
+    if (!sessionId || !sessionReady) return
+
+    let cancelled = false
+    let running = false
+
+    const syncFiltersFromDatabase = async () => {
+      if (running) return
+      running = true
+
+      try {
+        const { data, error } = await supabase
+          .from('session_filters')
+          .select('*')
+          .eq('session_id', sessionId)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        if (error) {
+          console.error(
+            'filter polling failed:',
+            error,
+          )
+          return
+        }
+
+        if (!data || !isRecord(data)) return
+
+        const nextFilters =
+          sessionFiltersFromRow(data)
+
+        if (
+          filtersSig(nextFilters) ===
+          filtersSig(filtersRef.current)
+        ) {
+          return
+        }
+
+        await applySharedFilters(
+          nextFilters,
+        )
+      } finally {
+        running = false
+      }
+    }
+
+    void syncFiltersFromDatabase()
+
+    const timer = window.setInterval(
+      () => {
+        void syncFiltersFromDatabase()
+      },
+      6_000,
+    )
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void syncFiltersFromDatabase()
+      }
+    }
+
+    const refreshOnFocus = () => {
+      void syncFiltersFromDatabase()
+    }
+
+    document.addEventListener(
+      'visibilitychange',
+      refreshWhenVisible,
+    )
+    window.addEventListener(
+      'focus',
+      refreshOnFocus,
+    )
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+
+      document.removeEventListener(
+        'visibilitychange',
+        refreshWhenVisible,
+      )
+      window.removeEventListener(
+        'focus',
+        refreshOnFocus,
+      )
+    }
+  }, [
+    sessionId,
+    sessionReady,
+    applySharedFilters,
+  ])
 
   useEffect(() => {
     if (!matchModal) return
@@ -708,132 +1341,411 @@ function Swipe() {
 
   // ===== animação imperativa p/ botões/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
-  const goNextRef = useRef<() => Promise<void>>(async () => {})
 
   // ============== FUNÇÕES ESTÁVEIS ==============
   const goNext = useCallback(async () => {
+    const myLoadVersion =
+      loadVersionRef.current
+
     const nextIndex = i + 1
+
     if (nextIndex < movies.length) {
       setI(nextIndex)
-      saveProgress(sessionId, userIdRef.current, filters, nextIndex)
+
+      saveProgress(
+        sessionId,
+        userIdRef.current,
+        filters,
+        nextIndex,
+      )
+
       return
     }
-    if (loadingMore) return
-    setLoadingMore(true)
-    try {
-      let added = await loadPage(page + 1)
-      let tries = 0
-      while (added === 0 && tries < 2) { tries++; added = await loadPage(page + 1 + tries) }
-      if (added > 0) {
-        const newIndex = movies.length
-        setI(newIndex)
-        saveProgress(sessionId, userIdRef.current, filters, newIndex)
-      }
-    } finally { setLoadingMore(false) }
-  }, [i, movies.length, sessionId, filters, loadingMore, loadPage, page])
-  useEffect(() => { goNextRef.current = goNext }, [goNext])
 
-  const react = useCallback(async (value: 1 | -1, options?: { skipAnimation?: boolean }) => {
-    if (!sessionId || !userId || !current) return
-    // ——— AD STEP: se for hora do anúncio, só consome o ad e NÃO grava reação —
-    const totalSteps = i + adsShown.current
-    const isAdStep = !isPremium && totalSteps > 0 && ((totalSteps - adOffset) % adInterval === 0)
-    if (isAdStep) {
-      if (!options?.skipAnimation) { cardRef.current?.swipe(value) }
+    if (loadingMore) return
+
+    setLoadingMore(true)
+
+    try {
+      let nextPage = page + 1
+
+      let result = await loadPage(
+        nextPage,
+        filters,
+        myLoadVersion,
+      )
+
+      if (
+        loadVersionRef.current !==
+        myLoadVersion
+      ) {
+        return
+      }
+
+      let attempts = 0
+
+      while (
+        result.added === 0 &&
+        result.hasMore &&
+        attempts < 10
+      ) {
+        attempts += 1
+        nextPage += 1
+
+        result = await loadPage(
+          nextPage,
+          filters,
+          myLoadVersion,
+        )
+
+        if (
+          loadVersionRef.current !==
+          myLoadVersion
+        ) {
+          return
+        }
+      }
+
+      if (result.added > 0) {
+        const newIndex = movies.length
+
+        setI(newIndex)
+
+        saveProgress(
+          sessionId,
+          userIdRef.current,
+          filters,
+          newIndex,
+        )
+
+        return
+      }
+
+      // Nenhum filme novo foi encontrado.
+      //
+      // O card atual já saiu da tela pela animação,
+      // então precisamos avançar o índice para fora
+      // da lista atual. Isso faz a interface renderizar
+      // corretamente o estado de fim da lista em vez
+      // de deixar apenas o fundo vazio.
+      setI(movies.length)
+      setNoResults(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [
+    i,
+    movies.length,
+    sessionId,
+    filters,
+    loadingMore,
+    loadPage,
+    page,
+  ])
+
+  const react = useCallback(
+    async (
+      value: 1 | -1,
+      options?: { skipAnimation?: boolean },
+    ) => {
+      if (!sessionId || !userId || !current) return
+
+      // ===== CARD DE ANÚNCIO =====
+      if (isAdStep) {
+        if (!options?.skipAnimation) {
+          cardRef.current?.swipe(value)
+        }
+
+        clickGuardRef.current = true
+        setBusy(true)
+
+        const releaseDelay = options?.skipAnimation
+          ? 360
+          : EXIT_DURATION_MS
+
+        try {
+          // Anúncio não gera reação no banco.
+        } finally {
+          await new Promise((res) =>
+            setTimeout(res, 16),
+          )
+
+          consumedAdStepsRef.current.add(
+            totalSteps,
+          )
+
+          adsShown.current += 1
+
+          setTimeout(() => {
+            clickGuardRef.current = false
+            setBusy(false)
+          }, releaseDelay + 60)
+        }
+
+        return
+      }
+
+      // ===== CARD DE FILME =====
+      if (clickGuardRef.current || busy) return
+
+      if (!options?.skipAnimation) {
+        cardRef.current?.swipe(value)
+      }
+
       clickGuardRef.current = true
       setBusy(true)
-      const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
+
+      const releaseDelay = options?.skipAnimation
+        ? 360
+        : EXIT_DURATION_MS
+
+      // Só vamos avançar para o próximo filme
+      // se a reação realmente for salva.
+      let reactionSaved = false
+
       try {
-        // nada de DB aqui — anúncio não vira reação
+        const {
+          data: insertedMovie,
+          error: movieErr,
+        } = await supabase
+          .from('movies')
+          .upsert(
+            {
+              tmdb_id: current.tmdb_id,
+              title: current.title,
+              year: current.year ?? null,
+              poster_url:
+                current.poster_url ?? null,
+            },
+            {
+              onConflict: 'tmdb_id',
+              ignoreDuplicates: true,
+            },
+          )
+          .select('id')
+          .maybeSingle()
+
+        if (movieErr) throw movieErr
+
+        let movieId = Number(
+          insertedMovie?.id,
+        )
+
+        // Se o filme já existia, o upsert com
+        // ignoreDuplicates pode não retornar o ID.
+        if (!movieId) {
+          const {
+            data: existingMovie,
+            error: existingMovieError,
+          } = await supabase
+            .from('movies')
+            .select('id')
+            .eq(
+              'tmdb_id',
+              current.tmdb_id,
+            )
+            .maybeSingle()
+
+          if (existingMovieError) {
+            throw existingMovieError
+          }
+
+          movieId = Number(
+            existingMovie?.id,
+          )
+        }
+
+        if (!movieId) {
+          throw new Error(
+            'Falha ao obter movie.id',
+          )
+        }
+
+        const { error: rxErr } =
+          await supabase
+            .from('reactions')
+            .upsert(
+              {
+                session_id: sessionId,
+                user_id: userId,
+                movie_id: movieId,
+                value,
+              },
+              {
+                onConflict:
+                  'session_id,user_id,movie_id',
+              },
+            )
+
+        if (rxErr) throw rxErr
+
+        // A partir daqui sabemos que a reação
+        // realmente foi gravada no banco.
+        reactionSaved = true
+
+        if (value === 1) {
+          await checkMatch(movieId)
+        }
+
+        historyRef.current.push(movieId)
+
+        reactedTmdbRef.current.add(
+          Number(current.tmdb_id),
+        )
+      } catch (error: unknown) {
+        console.error(
+          'reactions upsert error:',
+          error,
+        )
+
+        toast.error(
+          `Erro ao salvar reação: ${getErrorMessage(error)}`,
+        )
+
+        // Se a reação não foi salva, traz o
+        // card de volta para o centro.
+        cardRef.current?.reset()
       } finally {
-        await new Promise(res => setTimeout(res, 16))
-        // marca o anúncio como “consumido” e mantém o índice do filme
-        adsShown.current += 1
-        setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
+        if (reactionSaved) {
+          // Se este filme veio de um Undo,
+          // a supressão de anúncio termina
+          // somente após a reação ser salva.
+          if (
+            suppressAdForMovieIndexRef.current ===
+            i
+          ) {
+            suppressAdForMovieIndexRef.current =
+              null
+          }
+
+          await new Promise((res) =>
+            setTimeout(res, 16),
+          )
+
+          await goNext()
+        }
+
+        setTimeout(() => {
+          clickGuardRef.current = false
+          setBusy(false)
+        }, releaseDelay + 60)
       }
-      return
-    }
-    if (clickGuardRef.current || busy) return
-
-    if (!options?.skipAnimation) {
-      // anima o card saindo devagar (mesma animação do drag)
-      cardRef.current?.swipe(value)
-    }
-
-    clickGuardRef.current = true
-    setBusy(true)
-    const releaseDelay = options?.skipAnimation ? 360 : EXIT_DURATION_MS
-
-    try {
-      const { data: upserted, error: movieErr } = await supabase
-        .from('movies')
-        .upsert(
-          {
-            tmdb_id: current.tmdb_id,
-            title: current.title,
-            year: current.year ?? null,
-            poster_url: current.poster_url ?? null,
-          },
-          { onConflict: 'tmdb_id' }
-        )
-        .select('id')
-        .single()
-
-      if (movieErr) throw movieErr
-      const movieId = Number(upserted?.id)
-      if (!movieId) throw new Error('Falha ao obter movie.id')
-
-      const { error: rxErr } = await supabase
-        .from('reactions')
-        .upsert(
-          { session_id: sessionId, user_id: userId, movie_id: movieId, value },
-          { onConflict: 'session_id,user_id,movie_id' }
-        )
-      if (rxErr) throw rxErr
-
-      historyRef.current.push(movieId)
-      reactedTmdbRef.current.add(Number(current.tmdb_id))
-
-    } catch (e: any) {
-      console.error('reactions upsert error:', e)
-      toast.error(`Erro ao salvar reação: ${e.message ?? e}`)
-    } finally {
-      // deixa 1 frame pra animação de exit engatar
-      await new Promise(res => setTimeout(res, 16))
-      await goNext()
-      setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, releaseDelay + 60)
-    }
-  }, [sessionId, userId, current, busy, goNext, i, isPremium, adOffset, adInterval])
+    },
+    [
+      sessionId,
+      userId,
+      current,
+      busy,
+      goNext,
+      i,
+      isAdStep,
+      totalSteps,
+      checkMatch,
+    ],
+  )
 
   const undo = useCallback(async () => {
-    if (!sessionId || !userId || busy) return
-    const last = historyRef.current.pop()
+    if (
+      !sessionId ||
+      !userId ||
+      busy ||
+      isAdStep
+    ) {
+      return
+    }
+
+    // IMPORTANTE:
+    // aqui NÃO usamos pop() ainda.
+    // Primeiro verificamos qual foi a última
+    // reação.
+    const last =
+      historyRef.current[
+        historyRef.current.length - 1
+      ]
+
     if (!last) return
+
     setBusy(true)
+
     try {
-      setI(idx => { const v = Math.max(0, idx - 1); saveProgress(sessionId, userIdRef.current, filters, v); return v })
+      // Primeiro apagamos a reação do banco.
       const { error } = await supabase
         .from('reactions')
         .delete()
         .eq('session_id', sessionId)
         .eq('user_id', userId)
         .eq('movie_id', last)
+
       if (error) throw error
+
+      // Somente depois de confirmar que o
+      // banco apagou a reação retiramos do
+      // histórico local.
+      historyRef.current.pop()
+
+      setI((index) => {
+        const previousIndex =
+          Math.max(0, index - 1)
+
+        // Garante que o filme restaurado
+        // pelo Undo não vire um anúncio.
+        suppressAdForMovieIndexRef.current =
+          previousIndex
+
+        saveProgress(
+          sessionId,
+          userIdRef.current,
+          filters,
+          previousIndex,
+        )
+
+        return previousIndex
+      })
+
       try {
-        const { data: mv } = await supabase
-          .from('movies')
-          .select('tmdb_id')
-          .eq('id', last)
-          .maybeSingle()
-        if (mv?.tmdb_id != null) reactedTmdbRef.current.delete(Number(mv.tmdb_id))
-      } catch {}
-      setUndoMsg('Último swipe desfeito')
-      setTimeout(() => setUndoMsg(null), 1800)
-    } catch (e: any) {
-      console.error(e)
-      toast.error(`Não foi possível desfazer: ${e.message ?? e}`)
-    } finally { setBusy(false) }
-  }, [sessionId, userId, busy, filters])
+        const { data: mv } =
+          await supabase
+            .from('movies')
+            .select('tmdb_id')
+            .eq('id', last)
+            .maybeSingle()
+
+        if (mv?.tmdb_id != null) {
+          reactedTmdbRef.current.delete(
+            Number(mv.tmdb_id),
+          )
+        }
+      } catch (error) {
+        console.error(
+          'failed to restore reacted movie state:',
+          error,
+        )
+      }
+
+      setUndoMsg(
+        'Último swipe desfeito',
+      )
+
+      setTimeout(
+        () => setUndoMsg(null),
+        1800,
+      )
+    } catch (error: unknown) {
+      console.error(error)
+
+      toast.error(
+        `Não foi possível desfazer: ${getErrorMessage(error)}`,
+      )
+    } finally {
+      setBusy(false)
+    }
+  }, [
+    sessionId,
+    userId,
+    busy,
+    filters,
+    isAdStep,
+  ])
 
   // atalhos de teclado
   const reactRef = useRef(react)
@@ -843,6 +1755,8 @@ function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging) return
+      if (document.querySelector('.cinema-share-panel')) return
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
       if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }
       else if (e.key === 'Backspace') { e.preventDefault(); undoRef.current?.() }
@@ -852,79 +1766,214 @@ function Swipe() {
   }, [busy, dragging])
   // ===============================================
 
-  async function shareInvite() {
-  const invite = `${window.location.origin}/join?code=${(code ?? '').toUpperCase()}`
-  const title = 'MovieMatch — junte-se à minha sessão'
-  const text = `Entre com o código ${String(code ?? '').toUpperCase()} no MovieMatch`
-
-  try {
-    if (navigator.share) {
-      await navigator.share({ title, text, url: invite })
-      return
-    }
-    await navigator.clipboard.writeText(invite)
-    toast('Link copiado!', { description: invite })
-  } catch {
-    try { await navigator.clipboard.writeText(invite) } catch {}
-    toast('Link copiado!', { description: invite })
-  }
-}
-
-  // aceita birthdate obrigatório — sem data não libera adulto
-const confirmAdult = async (birthdateISO?: string) => {
-    // 1) Sem data -> não permite ativar
+  // A verificação apenas autoriza o usuário a selecionar conteúdo adulto.
+  // O filtro só é efetivamente aplicado pelo FilterModal ao clicar em Aplicar.
+  const confirmAdult = async (birthdateISO?: string) => {
     if (!birthdateISO) {
-      toast.error('Informe sua data de nascimento para ativar conteúdo adulto.')
+      toast.error(
+        'Informe sua data de nascimento para ativar conteúdo adulto.',
+      )
       setIsAdult(false)
-      setFilters(f => ({ ...f, includeAdult: false }))
-      setShowAgeGate(true) // mantém o modal aberto
+      setShowAgeGate(true)
       return
     }
 
-    // 2) Valida idade
     const age = calcAge(birthdateISO)
+
     if (age < 18) {
-      toast.error('Você precisa ter 18+ para ver esse conteúdo.')
+      toast.error(
+        'Você precisa ter 18+ para ver esse conteúdo.',
+      )
       setIsAdult(false)
-      setFilters(f => ({ ...f, includeAdult: false }))
-      setShowAgeGate(false) // fecha o modal
+      setShowAgeGate(false)
       return
     }
 
-    // 3) Marca como adulto (com data)
     try {
       if (userId) {
-        await supabase
+        const { error } = await supabase
           .from('users')
-          .update({ is_adult: true, birthdate: birthdateISO })
+          .update({ is_adult: true })
           .eq('id', userId)
+
+        if (error) throw error
       } else {
-        // fallback local se ainda não houver userId (ainda assim exige a data)
-        try { localStorage.setItem('mm:isAdult', '1') } catch {}
+        try {
+          localStorage.setItem('mm:isAdult', '1')
+        } catch (error) {
+          console.error(
+            'failed to persist adult status locally:',
+            error,
+          )
+        }
       }
 
       setIsAdult(true)
-      setFilters(f => ({ ...f, includeAdult: true }))
       setShowAgeGate(false)
-      toast.success('Verificação concluída. Conteúdo adulto ativado.')
-    } catch (e: any) {
-      toast.error(`Falha ao confirmar maioridade: ${e?.message ?? e}`)
+
+      toast.success(
+        'Verificação concluída. Conteúdo adulto autorizado.',
+      )
+    } catch (error: unknown) {
+      toast.error(
+        `Falha ao confirmar maioridade: ${getErrorMessage(error)}`,
+      )
       setIsAdult(false)
-      setFilters(f => ({ ...f, includeAdult: false }))
       setShowAgeGate(true)
     }
   }
 
   const cancelAdult = () => {
     setShowAgeGate(false)
-    setFilters(f => ({ ...f, includeAdult: false }))
+  }
+
+  async function applyFilters(
+    filterSnapshot: DiscoverFilters,
+  ) {
+    const nextFilters: DiscoverFilters = {
+      ...filterSnapshot,
+
+      genres: [
+        ...(filterSnapshot.genres ?? []),
+      ],
+
+      excludeGenres: [
+        ...(filterSnapshot.excludeGenres ?? []),
+      ],
+
+      providers: [
+        ...(filterSnapshot.providers ?? []),
+      ],
+
+      monetization: [
+        ...(filterSnapshot.monetization ?? []),
+      ],
+    }
+
+    // Em uma sessão ativa precisamos conseguir
+    // identificar tanto a sessão quanto o usuário
+    // antes de alterar os filtros compartilhados.
+    if (!sessionId || !userId) {
+      toast.error(
+        'Não foi possível identificar a sessão para salvar os filtros.',
+      )
+      return
+    }
+
+    try {
+      // Primeiro salva no banco.
+      //
+      // Somente depois de o Supabase confirmar
+      // a gravação vamos alterar a interface local.
+      const { error: filtersError } =
+        await supabase
+          .from('session_filters')
+          .upsert(
+            {
+              session_id: sessionId,
+
+              genres:
+                nextFilters.genres ?? [],
+
+              exclude_genres:
+                nextFilters.excludeGenres ?? [],
+
+              year_min:
+                nextFilters.yearMin ?? 1990,
+
+              year_max:
+                nextFilters.yearMax ??
+                currentYear,
+
+              rating_min:
+                nextFilters.ratingMin ?? 0,
+
+              vote_count_min:
+                nextFilters.voteCountMin ?? 0,
+
+              runtime_min:
+                nextFilters.runtimeMin ?? 60,
+
+              runtime_max:
+                nextFilters.runtimeMax ?? 220,
+
+              language:
+                nextFilters.language ?? '',
+
+              sort_by:
+                nextFilters.sortBy ??
+                'popularity.desc',
+
+              include_adult:
+                !!nextFilters.includeAdult,
+
+              updated_by: userId,
+
+              providers:
+                nextFilters.providers ?? [],
+
+              watch_region:
+                nextFilters.watchRegion ?? 'BR',
+
+              monetization:
+                nextFilters.monetization ?? [],
+            },
+            {
+              onConflict: 'session_id',
+            },
+          )
+
+      if (filtersError) {
+        throw filtersError
+      }
+
+      // Somente depois do sucesso no banco
+      // alteramos o estado local.
+      // A ref é atualizada primeiro para impedir que o
+      // polling interprete esta mudança como remota.
+      filtersRef.current = nextFilters
+      setFilters(nextFilters)
+      setOpenFilters(false)
+
+      // Alguns detalhes dependem da região
+      // e do catálogo selecionado.
+      setDetailsCache({})
+
+      clearProgress(
+        sessionId,
+        userIdRef.current,
+        nextFilters,
+      )
+
+      // Recarrega usando exatamente os filtros
+      // que acabaram de ser persistidos.
+      await resetAndLoad(
+        false,
+        nextFilters,
+        sessionId,
+      )
+    } catch (error: unknown) {
+      console.error(
+        'failed to save session filters:',
+        error,
+      )
+
+      toast.error(
+        `Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`,
+      )
+
+      // IMPORTANTE:
+      // não fecha o modal,
+      // não troca os filtros locais
+      // e não recarrega a lista.
+    }
   }
 
   // —— estados de carregamento / erro —— 
   if (loading) {
     return (
       <main className="min-h-dvh grid place-items-center p-6 bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-        <p className="text-white/90">Carregando sessão…</p>
+        <SessionLoader />
         {/* Anti-adblock — só mostra para não-premium */}
         <AdblockWall enabled={!isPremium} />
         <Toaster richColors position="bottom-center" />
@@ -951,77 +2000,88 @@ const confirmAdult = async (birthdateISO?: string) => {
   }
 
   const det = current ? detailsCache[current.tmdb_id] : undefined
-  const [yearMinLocal, yearMaxLocal] = [filters.yearMin ?? 1990, filters.yearMax ?? currentYear]
-  const runtimeMinLocal = filters.runtimeMin ?? 60
-  const runtimeMaxLocal = filters.runtimeMax ?? 220
-  const voteCountMinLocal = filters.voteCountMin ?? 0
-  const ratingMinLocal = filters.ratingMin ?? 0
-
-  const yearPresets = [
-    { label: 'Clássicos', range: [1950, 1979] },
-    { label: 'Anos 90', range: [1990, 1999] },
-    { label: '2000+', range: [2000, currentYear] },
-    { label: 'Últimos 5 anos', range: [Math.max(1900, currentYear - 5), currentYear] },
-  ]
-
-  const runtimePresets = [
-    { label: '≤ 100 min', range: [40, 100] },
-    { label: '100–140 min', range: [100, 140] },
-    { label: '≥ 140 min', range: [140, 300] },
-  ]
-
-  const voteCountPresets = [0, 50, 100, 250, 500, 1000]
-  const ratingPresets = [0, 6, 7, 8]
 
   return (
-    <main className="min-h-dvh flex flex-col bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800 overflow-hidden">
-      {/* Top bar (compacta) */}
-      <div className="shrink-0 px-3 pt-2">
-        <div className="max-w-md mx-auto flex items-center justify-between rounded-xl bg-white/5 backdrop-blur px-2.5 py-1.5 ring-1 ring-white/10">
-          <div className="flex items-center gap-2 min-w-0 text-xs text-white/80">
-            <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-white">
-              Sessão <span className="font-semibold">{code}</span>
+    <main className="h-dvh max-h-dvh flex flex-col overflow-hidden overscroll-none bg-gradient-to-b from-neutral-900 via-neutral-900 to-neutral-800">
+      {/* Top bar */}
+      <div className="relative z-20 shrink-0 px-3 pt-[calc(env(safe-area-inset-top,0px)+8px)] pb-2">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-2 rounded-xl bg-white/5 px-2.5 py-1.5 ring-1 ring-white/10 backdrop-blur">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs text-white/80">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-white">
+              <span className="hidden sm:inline">
+                Sessão
+              </span>
+
+              <span className="font-semibold tracking-wide">
+                {code}
+              </span>
             </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              {online.length} online
+
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              {onlineCount} online
             </span>
-            {filtersCount > 0 && (
-              <button onClick={() => setOpenFilters(true)} className="ml-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] hover:bg-white/15" title="Editar filtros">
+
+            {filtersCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setOpenFilters(true)}
+                className="min-w-0 truncate rounded-full bg-white/10 px-2 py-1 text-[11px] transition hover:bg-white/15"
+                title="Editar filtros"
+              >
                 {filtersCount} filtros
               </button>
-            )}
+            ) : null}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => setOpenFilters(true)} title="Filtros" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-              <SlidersHorizontal className="w-4 h-4" />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setOpenFilters(true)}
+              title="Filtros"
+              aria-label="Abrir filtros"
+              className="grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
+            >
+              <SlidersHorizontal className="h-[18px] w-[18px]" />
             </button>
-            <button onClick={shareInvite} title="Compartilhar link" className="p-1.5 rounded-md bg-white/10 hover:bg-white/15 text-white">
-              <Share2 className="w-4 h-4" />
-            </button>
+
+            <ShareSessionButton code={code ?? ''} />
+
             <Link
               to={`/s/${code}/matches`}
-              onClick={() => { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) }}
-              data-new-match={hasNewMatch ? '1' : undefined}
+              onClick={() => {
+                if (LS_KEY) {
+                  localStorage.setItem(
+                    LS_KEY,
+                    String(Date.now()),
+                  )
+                }
+              }}
+              data-new-match={
+                hasNewMatch ? '1' : undefined
+              }
               title="Ver matches"
-              className="relative p-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
+              aria-label={
+                hasNewMatch
+                  ? 'Ver matches, há novos matches'
+                  : 'Ver matches'
+              }
+              className="relative grid h-10 w-10 touch-manipulation place-items-center rounded-lg bg-emerald-500 text-white transition hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900"
             >
-              <Star className="w-4 h-4" />
+              <Star className="h-[18px] w-[18px]" />
             </Link>
           </div>
         </div>
       </div>
 
       {/* centro */}
-      <div className="flex-1 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+168px)] sm:pb-28 overflow-hidden">
-        <div className="w-full max-w-md mx-auto h-[calc(100dvh-112px)]">
+      <div className="relative z-0 flex-1 min-h-0 overflow-hidden px-3 sm:px-4">
+        <div className="mx-auto h-full min-h-0 w-full max-w-md">
           <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0">
-              <AnimatePresence mode="wait" initial={false}>
+            <div className="relative flex-1 min-h-0 overflow-hidden">
                 {current ? (
                   // se for hora do anúncio, mostra AdSwipeCard; senão, o SwipeCard normal
-                  (!isPremium && (i + adsShown.current) > 0 && (((i + adsShown.current) - adOffset) % adInterval === 0)) ? (
+                  isAdStep ? (
                     <AdSwipeCard
                       ref={cardRef}
                       key={`ad-${i}-${adsShown.current}`}
@@ -1031,7 +2091,7 @@ const confirmAdult = async (birthdateISO?: string) => {
                   ) :
                   <SwipeCard
                     ref={cardRef}
-                    key={current.movie_id}
+                    key={`movie-${current.tmdb_id}`}
                     movie={current}
                     details={det}
                     onDragState={setDragging}
@@ -1079,7 +2139,6 @@ const confirmAdult = async (birthdateISO?: string) => {
                     </div>
                   </motion.div>
                 )}
-              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -1110,42 +2169,28 @@ const confirmAdult = async (birthdateISO?: string) => {
       ) : null}
 
       {/* Ações */}
-      <div className="fixed left-1/2 -translate-x-1/2 z-30 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)]">
-        <div className="flex items-center justify-center gap-4 sm:gap-5">
-          <motion.button
-            onClick={() => react(-1)}
-            disabled={busy || dragging || !current}
-            className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-red-500 text-white shadow-xl disabled:opacity-60"
-            aria-label="Deslike"
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92, rotate: -6 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-          >
-            <XIcon className="w-7 h-7 sm:w-8 sm:h-8" />
-          </motion.button>
-
-          <motion.button
-            onClick={() => undo()}
-            disabled={busy || dragging || historyRef.current.length === 0}
-            className="w-10 h-10 sm:w-12 sm:h-12 grid place-items-center rounded-full bg-white/10 text-white shadow-lg disabled:opacity-40"
-            aria-label="Desfazer"
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            title="Desfazer (Backspace)"
-          >
-            <Undo2 className="w-5 h-5 sm:w-6 sm:h-6" />
-          </motion.button>
-
-          <motion.button
-            onClick={() => react(1)}
-            disabled={busy || dragging || !current}
-            className="w-12 h-12 sm:w-16 sm:h-16 grid place-items-center rounded-full bg-emerald-500 text-white shadow-xl disabled:opacity-60"
-            aria-label="Like"
-            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92, rotate: 6 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-          >
-            <Heart className="w-7 h-7 sm:w-8 sm:h-8" />
-          </motion.button>
-        </div>
+      <div className="relative z-30 shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-2.5">
+        <SwipeActionButtons
+          onDislike={() => react(-1)}
+          onUndo={() => undo()}
+          onLike={() => react(1)}
+          dislikeDisabled={
+            busy ||
+            dragging ||
+            !current
+          }
+          undoDisabled={
+            busy ||
+            dragging ||
+            isAdStep ||
+            historyRef.current.length === 0
+          }
+          likeDisabled={
+            busy ||
+            dragging ||
+            !current
+          }
+        />
       </div>
 
       {/* Banner UNDO */}
@@ -1160,427 +2205,22 @@ const confirmAdult = async (birthdateISO?: string) => {
         )}
       </AnimatePresence>
 
-      {/* Modal Filtros */}
-      <AnimatePresence>
-        {openFilters && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          >
-            <div className="absolute inset-0 bg-black/60" onClick={() => setOpenFilters(false)} />
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-              className="relative z-10 w-[min(92vw,44rem)] max-h-[92dvh] overflow-auto rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-5 text-white"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold">Filtros</h3>
-                  <p className="text-white/70 text-sm">Refine as recomendações com mais controle.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="text-sm px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-                    onClick={() => setFilters({ ...DEFAULT_FILTERS })}
-                    title="Limpar todos os filtros"
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    className="text-sm px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-                    onClick={() => setOpenFilters(false)}
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
-
-              {/* Grid de seções */}
-              <div className="space-y-4">
-                {/* Gêneros incluir/excluir */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Gêneros</h4>
-                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {/* Incluir */}
-                    <div>
-                      <div className="text-xs text-white/70 mb-1">Incluir</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {GENRES.map(g => {
-                          const checked = filters.genres?.includes(g.id) ?? false
-                          return (
-                            <button
-                              key={`inc-${g.id}`}
-                              onClick={() => {
-                                setFilters(f => {
-                                  const s = new Set<number>(f.genres ?? [])
-                                  if (checked) s.delete(g.id); else s.add(g.id)
-                                  return { ...f, genres: Array.from(s) }
-                                })
-                              }}
-                              className={`px-2.5 py-1 rounded-full border text-xs ${checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                              type="button"
-                            >
-                              {g.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                    {/* Excluir */}
-                    <div>
-                      <div className="text-xs text-white/70 mb-1">Excluir</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {GENRES.map(g => {
-                          const checked = filters.excludeGenres?.includes(g.id) ?? false
-                          return (
-                            <button
-                              key={`exc-${g.id}`}
-                              onClick={() => {
-                                setFilters(f => {
-                                  const s = new Set<number>(f.excludeGenres ?? [])
-                                  if (checked) s.delete(g.id); else s.add(g.id)
-                                  return { ...f, excludeGenres: Array.from(s) }
-                                })
-                              }}
-                              className={`px-2.5 py-1 rounded-full border text-xs ${checked ? 'bg-rose-600/30 border-rose-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                              type="button"
-                            >
-                              {g.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Catálogos de streaming */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Catálogos de streaming</h4>
-
-                  {/* Provedores */}
-                  <div className="mt-3">
-                    <div className="text-xs text-white/70 mb-1">Provedores (OR)</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PROVIDERS_BR.map(p => {
-                        const checked = (filters.providers ?? []).includes(p.id)
-                        return (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => {
-                              setFilters(f => {
-                                const s = new Set<number>(f.providers ?? [])
-                                if (checked) s.delete(p.id); else s.add(p.id)
-                                return { ...f, providers: Array.from(s) }
-                              })
-                            }}
-                            className={`px-2.5 py-1 rounded-full border text-xs ${
-                              checked ? 'bg-sky-600/30 border-sky-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                            }`}
-                          >
-                            {p.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className="text-xs text-white/60 mt-1">
-                      Dica: seleção é combinada com <strong>OU</strong> (ex.: Netflix <em>ou</em> Prime Video).
-                    </div>
-                  </div>
-
-                  {/* Monetização */}
-                  <div className="mt-4">
-                    <div className="text-xs text-white/70 mb-1">Tipo de oferta</div>
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      {[
-                        { k: 'flatrate', label: 'Assinatura' },
-                        { k: 'free',     label: 'Gratuito' },
-                        { k: 'ads',      label: 'Com anúncios' },
-                        { k: 'rent',     label: 'Aluguel' },
-                        { k: 'buy',      label: 'Compra' },
-                      ].map(({ k, label }) => {
-                        const checked = (filters.monetization ?? []).includes(k as any)
-                        return (
-                          <label key={k} className={`px-2 py-1 rounded-md border cursor-pointer ${
-                            checked ? 'bg-emerald-600/30 border-emerald-400/50' : 'bg-white/5 border-white/10 hover:bg-white/10'
-                          }`}>
-                            <input
-                              type="checkbox"
-                              className="accent-emerald-500 mr-1"
-                              checked={checked}
-                              onChange={(e) => {
-                                setFilters(f => {
-                                  const s = new Set<string>(f.monetization ?? [])
-                                  if (e.target.checked) s.add(k); else s.delete(k)
-                                  return { ...f, monetization: Array.from(s) as any }
-                                })
-                              }}
-                            />
-                            {label}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Região */}
-                  <div className="mt-4">
-                    <label className="block text-sm mb-1">Região do catálogo</label>
-                    <Select
-                      value={filters.watchRegion ?? 'BR'}
-                      onChange={(v: string) => setFilters(f => ({ ...f, watchRegion: v }))}
-                      options={REGIONS}
-                    />
-                    <div className="text-xs text-white/60 mt-1">Afeta disponibilidade por país (ex.: BR para Brasil).</div>
-                  </div>
-                </section>
-
-                {/* Ano + Duração + Popularidade + Adulto */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Período, duração e relevância</h4>
-
-                  {/* Ano */}
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Ano (intervalo)</span>
-                      <span className="text-xs text-white/70">{yearMinLocal} - {yearMaxLocal}</span>
-                    </div>
-                    {/* chips de atalho */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {yearPresets.map(({ label, range }) => (
-                        <FilterChip
-                          key={label}
-                          active={(filters.yearMin ?? 1990) === range[0] && (filters.yearMax ?? currentYear) === range[1]}
-                          onClick={() => setFilters(f => ({ ...f, yearMin: range[0], yearMax: range[1] }))}
-                        >
-                          {label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <NumberField
-                        label="De"
-                        value={yearMinLocal}
-                        min={1900}
-                        max={yearMaxLocal}
-                        step={1}
-                        onChange={(value) => setFilters(f => ({ ...f, yearMin: Math.min(value, f.yearMax ?? currentYear) }))}
-                      />
-                      <NumberField
-                        label="Até"
-                        value={yearMaxLocal}
-                        min={yearMinLocal}
-                        max={currentYear}
-                        step={1}
-                        onChange={(value) => setFilters(f => ({ ...f, yearMax: Math.max(value, f.yearMin ?? 1900) }))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Duração */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Duração (mín–máx, em min)</span>
-                      <span className="text-xs text-white/70">
-                        {runtimeMinLocal} - {runtimeMaxLocal} min
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {runtimePresets.map(({ label, range }) => (
-                        <FilterChip
-                          key={label}
-                          active={(filters.runtimeMin ?? 60) === range[0] && (filters.runtimeMax ?? 220) === range[1]}
-                          onClick={() => setFilters(f => ({ ...f, runtimeMin: range[0], runtimeMax: range[1] }))}
-                        >
-                          {label}
-                        </FilterChip>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <NumberField
-                        label="Mínimo"
-                        value={runtimeMinLocal}
-                        min={40}
-                        max={runtimeMaxLocal}
-                        step={5}
-                        suffix="min"
-                        onChange={(value) => setFilters(f => ({ ...f, runtimeMin: Math.min(value, f.runtimeMax ?? 300) }))}
-                      />
-                      <NumberField
-                        label="Máximo"
-                        value={runtimeMaxLocal}
-                        min={runtimeMinLocal}
-                        max={300}
-                        step={5}
-                        suffix="min"
-                        onChange={(value) => setFilters(f => ({ ...f, runtimeMax: Math.max(value, f.runtimeMin ?? 40) }))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Popularidade + Adulto */}
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm mb-1">Popularidade (mín. votos)</label>
-                      <div className="flex flex-wrap gap-2">
-                        {voteCountPresets.map((value) => (
-                          <FilterChip
-                            key={value}
-                            active={voteCountMinLocal === value}
-                            onClick={() => setFilters(f => ({ ...f, voteCountMin: value }))}
-                          >
-                            {value === 0 ? 'Sem mínimo' : value + '+'}
-                          </FilterChip>
-                        ))}
-                      </div>
-                      <div className="mt-3">
-                        <NumberField
-                          label="Personalizado"
-                          value={voteCountMinLocal}
-                          min={0}
-                          max={5000}
-                          step={50}
-                          onChange={(value) => setFilters(f => ({ ...f, voteCountMin: value }))}
-                        />
-                      </div>
-                    </div>
-                    <label className="inline-flex items-center gap-2 text-sm" data-interactive="true">
-                      <input
-                        type="checkbox"
-                        className="accent-emerald-500"
-                        checked={!!filters.includeAdult}
-                        onChange={(e) => {
-                          const wantAdult = e.target.checked
-                          if (wantAdult) {
-                            if (!isAdult) {
-                              // NÃO deixa ativar antes de validar
-                              setFilters(f => ({ ...f, includeAdult: false }))
-                              setShowAgeGate(true)
-                              return
-                            }
-                            setFilters(f => ({ ...f, includeAdult: true }))
-                          } else {
-                            setFilters(f => ({ ...f, includeAdult: false }))
-                          }
-                        }}
-                      />
-                      Permitir conteúdo adulto
-                    </label>
-                  </div>
-                </section>
-
-                {/* Nota / Idioma / Ordenar */}
-                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
-                  <h4 className="font-medium">Qualidade e idioma</h4>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm mb-1">Nota mínima</label>
-                      <div className="flex flex-wrap gap-2">
-                        {ratingPresets.map((value) => (
-                          <FilterChip
-                            key={value}
-                            active={Math.abs(ratingMinLocal - value) < 0.01}
-                            onClick={() => setFilters(f => ({ ...f, ratingMin: value }))}
-                          >
-                            {value === 0 ? 'Sem mínimo' : value.toString().replace('.', ',') + '+'}
-                          </FilterChip>
-                        ))}
-                      </div>
-                      <div className="mt-3">
-                        <NumberField
-                          label="Personalizado"
-                          value={ratingMinLocal}
-                          min={0}
-                          max={10}
-                          step={0.5}
-                          suffix="/10"
-                          onChange={(value) => setFilters(f => ({ ...f, ratingMin: value }))}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-1">Idioma original</label>
-                      <Select
-                        value={filters.language ?? ''}
-                        onChange={(v: string) => setFilters(f => ({ ...f, language: v }))}
-                        options={LANGUAGES}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm mb-1">Ordenar por</label>
-                      <Select
-                        value={filters.sortBy ?? 'popularity.desc'}
-                        onChange={(v: string) => setFilters(f => ({ ...f, sortBy: v }))}
-                        options={SORT_OPTIONS}
-                      />
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              {/* Footer fixo (Aplicar) */}
-              <div className="sticky bottom-0 -mx-5 mt-5 bg-neutral-900/80 backdrop-blur border-t border-white/10 px-5 py-3">
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15"
-                    onClick={() => setOpenFilters(false)}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white"
-                    onClick={async () => {
-                      setOpenFilters(false)
-                      const fSnap = { ...filters }
-                      if (sessionId && userId) {
-                        try {
-                          await supabase.from('session_filters').upsert({
-                            session_id: sessionId,
-                            genres: fSnap.genres ?? [],
-                            exclude_genres: fSnap.excludeGenres ?? [],
-                            year_min: fSnap.yearMin ?? 1990,
-                            year_max: fSnap.yearMax ?? currentYear,
-                            rating_min: fSnap.ratingMin ?? 0,
-                            vote_count_min: fSnap.voteCountMin ?? 0,
-                            runtime_min: fSnap.runtimeMin ?? 60,
-                            runtime_max: fSnap.runtimeMax ?? 220,
-                            language: fSnap.language ?? '',
-                            sort_by: fSnap.sortBy ?? 'popularity.desc',
-                            include_adult: !!fSnap.includeAdult,
-                            updated_by: userId,
-                            ...(fSnap.providers ? { providers: fSnap.providers } : {}),
-                            ...(fSnap.watchRegion ? { watch_region: fSnap.watchRegion } : {}),
-                            ...(fSnap.monetization ? { monetization: fSnap.monetization } : {}),
-                          }, { onConflict: 'session_id' })
-                          // broadcast p/ todos os membros da sessão
-                          try {
-                            await filtersBusRef.current?.send({
-                              type: 'broadcast',
-                              event: 'filters_update',
-                              payload: { ...fSnap, updated_by: userId },
-                            })
-                          } catch (e) {
-                            console.warn('broadcast filtros falhou', e)
-                          }
-                        } catch {}
-                      }
-                      clearProgress(sessionId, userIdRef.current, fSnap)
-                      await resetAndLoad(false, fSnap, sessionId)
-                    }}
-                  >
-                    Aplicar filtros
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {openFilters ? (
+        <Suspense fallback={null}>
+          <FilterModal
+            open
+            filters={filters}
+            defaultFilters={DEFAULT_FILTERS}
+            currentYear={currentYear}
+            isAdult={isAdult}
+            onRequestAdultVerification={() =>
+              setShowAgeGate(true)
+            }
+            onClose={() => setOpenFilters(false)}
+            onApply={applyFilters}
+          />
+        </Suspense>
+      ) : null}
 
       {/* Modal Match */}
       <AnimatePresence>
@@ -1647,288 +2287,37 @@ function calcAge(birthdateISO: string): number {
   return age
 }
 
-/* ========= Persistência de progresso ========= */
-function filtersSig(f: DiscoverFilters) {
-  return [(f.genres ?? []).join(','), f.yearMin ?? '', f.yearMax ?? '', f.ratingMin ?? '', f.language ?? '', f.sortBy ?? ''].join('|')
-}
-function progressKey(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
-  return sessionId && userId ? `mm_prog:v2:${sessionId}:${userId}:${filtersSig(f)}` : ''
-}
-function saveProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters, idx: number) {
-  try { const k = progressKey(sessionId, userId, f); if (!k) return; localStorage.setItem(k, JSON.stringify({ i: idx })) } catch {}
-}
-function loadProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters): number {
-  try {
-    const k = progressKey(sessionId, userId, f); if (!k) return 0
-    const raw = localStorage.getItem(k); if (!raw) return 0
-    const obj = JSON.parse(raw); return Number.isFinite(obj?.i) ? obj.i : 0
-  } catch { return 0 }
-}
-function clearProgress(sessionId: string | null, userId: string | null, f: DiscoverFilters) {
-  try { const k = progressKey(sessionId, userId, f); if (k) localStorage.removeItem(k) } catch {}
-}
-
-/** Card com motionValue próprio */
-const SwipeCard = forwardRef<SwipeCardHandle, {
-  movie: Movie
-  details?: MovieDetails
-  onDragState: (dragging: boolean) => void
-  onDecision: (value: 1 | -1) => void
-}>(function SwipeCard(
-  { movie, details, onDragState, onDecision },
-  ref
-) {
-  const x = useMotionValue(0)
-  // rotação sutil só durante o arrasto
-  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-6, 0, 6])
-  const likeOpacity = useTransform(x, [32, DRAG_LIMIT], [0, 1], { clamp: true })
-  const dislikeOpacity = useTransform(x, [-DRAG_LIMIT, -32], [1, 0], { clamp: true })
-  useEffect(() => { x.set(0) }, [x])
-
-  // controla quando o drag pode iniciar
-  const dragControls = useDragControls()
-  function handlePointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    const target = e.target as HTMLElement
-    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
-    dragControls.start(e)
-  }
-
-  // permite “swipe” imperativo (botões/teclas)
-  useImperativeHandle(ref, () => ({
-    swipe: (value: 1 | -1) => {
-      const dir = value === 1 ? 1 : -1
-      const endX = dir * (window.innerWidth + 180)
-      try { navigator.vibrate?.(10) } catch {}
-      const controls = animate(x, endX, TWEEN_SWIPE)
-      controls.then(() => onDecision(value))
-    },
-  }), [onDecision, x])
-
-  return (
-    <motion.div
-      className="h-full will-change-transform relative"
-      // sem balanço: só um fade curtinho ao montar
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.12 }}
-      style={{ x, rotate, touchAction: 'pan-y' }}
-      drag="x"
-      dragControls={dragControls}
-      dragListener={false}
-      dragElastic={0.18}
-      dragMomentum={false}
-      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onPointerDownCapture={handlePointerDown}
-      onTouchStartCapture={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
-      onDragStart={() => onDragState(true)}
-      onDragEnd={(_, info) => {
-        onDragState(false)
-
-        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
-        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        const shouldSwipe = passDistance || passVelocity
-
-        if (shouldSwipe) {
-          try { navigator.vibrate?.(10) } catch {}
-          const dir = info.offset.x > 0 ? 1 : -1
-          const endX = dir * (window.innerWidth + 180)
-
-          // tween lento e suave
-          const controls = animate(x, endX, TWEEN_SWIPE)
-          controls.then(() => onDecision(dir === 1 ? 1 : -1))
-        } else {
-          // volta ao centro com tween curto (sem molinha)
-          animate(x, 0, TWEEN_SNAP)
-        }
-      }}
-    >
-      {/* Overlay feedback */}
-      <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-between p-4">
-        <motion.div
-          style={{ opacity: dislikeOpacity }}
-          className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-6deg] bg-black/20"
-        >
-          NOPE
-        </motion.div>
-        <motion.div
-          style={{ opacity: likeOpacity }}
-          className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[6deg] bg-black/20"
-        >
-          LIKE
-        </motion.div>
-      </div>
-
-      {/* Conteúdo: pôster ocupa 1fr; meta abaixo (auto) */}
-      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        {/* Pôster / Carousel */}
-        <div className="relative min-h-0 h-full">
-          {details ? (
-          <MovieCarousel
-            key={movie.tmdb_id}
-            title={movie.title}
-            year={movie.year}
-            poster_url={movie.poster_url || ''}
-            details={details}
-            fullHeight
-          />
-        ) : (
-          <div className="relative min-h-0 h-full">
-            <div className="w-full h-full grid place-items-center">
-              {movie.poster_url ? (
-                <img
-                  src={movie.poster_url}
-                  alt={movie.title}
-                  className="max-h-full w-auto object-contain rounded-lg ring-1 ring-white/10"
-                  loading="eager"
-                  decoding="async"
-                />
-              ) : (
-                <div className="text-white/70 text-sm">Carregando…</div>
-              )}
-            </div>
-          </div>
-        )}
-        </div>
-
-        {/* Meta abaixo */}
-        <div className="text-white shrink-0 select-text" data-interactive="true">
-          {/* linha 1: título + nota */}
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[15px] font-semibold leading-tight line-clamp-1">
-              {movie.title} {movie.year ? <span className="text-white/60">({movie.year})</span> : null}
-            </h3>
-            <div className="ml-3 inline-flex items-center gap-1 rounded-md bg-white/10 px-1.5 py-0.5 text-[13px]">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="tabular-nums">{(details?.vote_average ?? null) ? details!.vote_average!.toFixed(1) : '—'}</span>
-            </div>
-          </div>
-
-          {/* linha 2: gêneros */}
-          {details?.genres?.length ? (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {details.genres.slice(0, 3).map(g => (
-                <span key={g.id} className="text-[11px] rounded-full bg-white/10 px-2 py-0.5 text-white/90">{g.name}</span>
-              ))}
-            </div>
-          ) : null}
-
-          {/* linha 3: classificação indicativa */}
-          <div className="mt-1">
-            <span className="text-[11px] text-white/70 mr-1.5">Classificação:</span>
-            <span className="text-[11px] inline-flex items-center rounded-md bg-white/10 px-2 py-0.5">
-              {details?.age_rating?.trim() || '—'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  )
-})
-
-/** Card de anúncio intercalado (swipe para pular; não grava reação) */
-const AdSwipeCard = forwardRef<SwipeCardHandle, {
-  onDragState: (dragging: boolean) => void
-  onDecision: (value: 1 | -1) => void
-}>(function AdSwipeCard(
-  { onDragState, onDecision },
-  ref
-) {
-  const x = useMotionValue(0)
-  const rotate = useTransform(x, [-DRAG_LIMIT, 0, DRAG_LIMIT], [-4, 0, 4])
-  useEffect(() => { x.set(0) }, [x])
-
-  const dragControls = useDragControls()
-  function handlePointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    const target = e.target as HTMLElement
-    if (target.closest('a,button,input,select,textarea,video,iframe,[data-interactive="true"]')) return
-    dragControls.start(e)
-  }
-
-  useImperativeHandle(ref, () => ({
-    swipe: (value: 1 | -1) => {
-      const dir = value === 1 ? 1 : -1
-      const endX = dir * (window.innerWidth + 180)
-      try { navigator.vibrate?.(6) } catch {}
-      const controls = animate(x, endX, TWEEN_SWIPE)
-      controls.then(() => onDecision(value))
-    },
-  }), [onDecision, x])
-
-  return (
-    <motion.div
-      className="h-full will-change-transform relative"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.12 }}
-      style={{ x, rotate, touchAction: 'pan-y' }}
-      drag="x"
-      dragControls={dragControls}
-      dragListener={false}
-      dragElastic={0.18}
-      dragMomentum={false}
-      dragConstraints={{ left: -DRAG_LIMIT, right: DRAG_LIMIT }}
-      onPointerDownCapture={handlePointerDown}
-      onTouchStartCapture={(e) => handlePointerDown(e as unknown as React.PointerEvent)}
-      onDragStart={() => onDragState(true)}
-      onDragEnd={(_, info) => {
-        onDragState(false)
-        const passDistance = Math.abs(info.offset.x) > SWIPE_DISTANCE
-        const passVelocity = Math.abs(info.velocity.x) > SWIPE_VELOCITY
-        const shouldSwipe = passDistance || passVelocity
-        if (shouldSwipe) {
-          try { navigator.vibrate?.(6) } catch {}
-          const dir = info.offset.x > 0 ? 1 : -1
-          const endX = dir * (window.innerWidth + 180)
-          const controls = animate(x, endX, TWEEN_SWIPE)
-          controls.then(() => onDecision(dir === 1 ? 1 : -1))
-        } else {
-          animate(x, 0, TWEEN_SNAP)
-        }
-      }}
-    >
-      {/* Conteúdo visual do ad */}
-      <div className="h-full grid grid-rows-[1fr_auto] gap-2">
-        <div className="relative min-h-0 h-full">
-          <div className="w-full h-full grid place-items-center">
-            {/* placeholder/house ad — depois pode integrar provedor */}
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-700/20 to-cyan-600/20 ring-1 ring-white/10 p-5 text-white w-[min(92vw,22rem)]">
-              <div className="text-[11px] uppercase tracking-wide text-white/70 mb-1">Publicidade</div>
-              <div className="text-lg font-semibold">Dica de hoje 🍿</div>
-              <p className="text-sm text-white/80 mt-1">
-                Aproveite filmes sem anúncios futuramente com o plano simbólico.
-              </p>
-              <div className="mt-3 text-xs text-white/60">Deslize para continuar</div>
-            </div>
-          </div>
-        </div>
-        <div className="text-white shrink-0 text-center text-xs opacity-70" data-interactive="true">
-          Este card não conta como like/dislike
-        </div>
-      </div>
-    </motion.div>
-  )
-})
-
 // === ErrorBoundary local p/ esta página ===
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unknown | undefined; stack?: string }> {
   constructor(props: { children: ReactNode }) {
   super(props)
   this.state = { error: undefined, stack: undefined }
 }
-  static getDerivedStateFromError(error: any) {
+  static getDerivedStateFromError(error: unknown) {
     return { error }
   }
-  componentDidCatch(error: any, info: { componentStack?: string }) {
-  console.error('Render error (Swipe):', error, info)
-  this.setState({ stack: info?.componentStack })
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Render error (Swipe):', error, info)
+
+    this.setState({
+      stack: info.componentStack ?? undefined,
+    })
   }
-    private toMessage(e: unknown): string {
-    if (typeof e === 'object' && e && 'message' in (e as any)) return String((e as any).message)
-    try { return JSON.stringify(e) } catch { /* noop */ }
-    return String(e)
-  }
+    private toMessage(error: unknown): string {
+      if (error instanceof Error) {
+        return error.message
+      }
+
+      try {
+        const serialized = JSON.stringify(error)
+        if (serialized) return serialized
+      } catch {
+        // Usa a conversão simples abaixo caso a serialização falhe.
+      }
+
+      return String(error)
+    }
 
   render() {
     if (this.state.error) {

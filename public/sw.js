@@ -1,5 +1,5 @@
 /* MovieMatch Service Worker (cache app-shell + assets) */
-const CACHE_NAME = "mm-v1";
+const CACHE_NAME = "mm-v2";
 
 /** URLs essenciais do app-shell */
 const APP_SHELL = [

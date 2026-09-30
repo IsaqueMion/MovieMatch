@@ -1,4 +1,5 @@
-import { supabase } from '../lib/supabase'
+import { supabase } from './supabase'
+import { ensureAnonymousUser } from './auth'
 
 export type MonetizationType = 'flatrate' | 'free' | 'ads' | 'rent' | 'buy'
 
@@ -48,10 +49,10 @@ function sleep(ms: number) {
 
 async function invokeWithRetry<T>(
   name: string,
-  body: any,
+  body: Record<string, unknown>,
   tries = 3,
 ): Promise<T> {
-  let lastErr: any = null
+  let lastErr: unknown = null
   for (let i = 0; i < tries; i++) {
     const { data, error } = await supabase.functions.invoke(name, { body })
     if (!error) return data as T
@@ -63,7 +64,7 @@ async function invokeWithRetry<T>(
 }
 
 async function fetchWithRetry(input: RequestInfo, init?: RequestInit, tries = 3): Promise<Response> {
-  let lastErr: any = null
+  let lastErr: unknown = null
   for (let i = 0; i < tries; i++) {
     try {
       const res = await fetch(input, init)
@@ -103,6 +104,7 @@ const MD_CACHE_PREFIX = 'mm:md:v3:'
 const MD_TTL = 1000 * 60 * 60 * 3 // 3 horas
 
 export async function getMovieDetails(tmdb_id: number, opts?: { region?: string }): Promise<MovieDetails> {
+  
   const region = (opts?.region || 'BR').toUpperCase()
   const key = `${MD_CACHE_PREFIX}${tmdb_id}:${region}`
   try {
@@ -113,22 +115,47 @@ export async function getMovieDetails(tmdb_id: number, opts?: { region?: string 
         return obj.data as MovieDetails
       }
     }
-  } catch {}
+  } catch {
+    // Cache indisponível ou inválido: continua buscando os dados normalmente.
+  }
+
+  await ensureAnonymousUser()
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    throw sessionError
+  }
+
+  if (!session?.access_token) {
+    throw new Error('Sessão Supabase indisponível.')
+  }
 
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}&region=${region}`
-  const res = await fetchWithRetry(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+
+  const res = await fetchWithRetry(
+    url,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
     },
-  }, 3)
+    3,
+  )
 
   if (!res.ok) throw new Error(`movie_details ${res.status}`)
+    
   const data = await res.json()
 
   try {
     localStorage.setItem(key, JSON.stringify({ t: Date.now(), data }))
-  } catch {}
+  } catch {
+    // Falha ao salvar o cache não deve impedir o retorno dos dados.
+  }
 
   return data
 }

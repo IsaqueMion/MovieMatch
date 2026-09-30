@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build
+        env:
+          VITE_SUPABASE_URL: https://moviematch-browser-tests.supabase.co
+          VITE_SUPABASE_ANON_KEY: browser-test-key
+
+      - name: Install browser for UI tests
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser regression tests (mocked APIs)
+        run: |
+          pnpm test:browser
+          node --test tests/matches.browser.mjs
+          node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/matchProviders.test.ts
