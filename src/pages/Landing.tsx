@@ -43,7 +43,7 @@ export default function Landing() {
   const [failed, setFailed] = useState(false)
   const [busyAction, setBusyAction] = useState<'create' | 'join' | null>(null)
   const [paused, setPaused] = useState(false)
-  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [reducedMotion, setReducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const inputRef = useRef<HTMLInputElement>(null)
   const actionPending = useRef(false)
   const complete = code.length === 6

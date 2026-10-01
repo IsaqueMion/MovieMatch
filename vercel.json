@@ -1,8 +1,16 @@
 {
   "rewrites": [
-    { "source": "/join", "destination": "/" },
-    { "source": "/s/(.*)", "destination": "/" },
-    { "source": "/swipe/(.*)", "destination": "/" },
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/join", "destination": "/session.html" },
+    { "source": "/s/:code", "destination": "/session.html" },
+    { "source": "/s/:code/matches", "destination": "/session.html" },
+    { "source": "/s/:code/assistidos", "destination": "/session.html" },
+    { "source": "/assistidos", "destination": "/session.html" }
+  ],
+  "headers": [
+    { "source": "/s/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/assistidos", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/join", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/session.html", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/offline.html", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] }
   ]
 }

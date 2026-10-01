@@ -1992,8 +1992,8 @@ function Swipe() {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />
       <div className="swipe-deck">
-        <div className="swipe-stage-heading"><h1>Uma escolha de cada vez</h1><span><ArrowLeftRight size={14} aria-hidden="true" />Arraste o pôster para votar</span></div>
-        <h1 className="sr-only min-[900px]:hidden">Escolha o próximo filme</h1>
+        <div className="swipe-stage-heading"><p>Uma escolha de cada vez</p><span><ArrowLeftRight size={14} aria-hidden="true" />Arraste o pôster para votar</span></div>
+        <h1 className="sr-only">Escolha o próximo filme</h1>
         <div className="swipe-card-stage">
           {current ? (isAdStep ? <AdSwipeCard ref={cardRef} key={`ad-${i}-${adsShown.current}`} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />
             : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onReviews={() => setReviewMovie(current)} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)

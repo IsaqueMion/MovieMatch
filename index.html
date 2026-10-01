@@ -8,28 +8,37 @@
     <!-- SEO -->
     <meta name="description" content="Crie uma sessão, convide seu grupo e encontre um filme que todos querem assistir. Sem cadastro, no celular ou no computador.">
     <link rel="canonical" href="https://moviematch-three.vercel.app/">
+    <meta name="robots" content="index,follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="MovieMatch">
     <meta property="og:title" content="MovieMatch — o próximo filme, a escolha de todos">
     <meta property="og:description" content="Crie uma sessão, vote nos filmes e encontre a escolha de todo o grupo.">
-    <meta property="og:image" content="/og-image-v2.png">
+    <meta property="og:url" content="https://moviematch-three.vercel.app/">
+    <meta property="og:locale" content="pt_BR">
+    <meta property="og:image" content="https://moviematch-three.vercel.app/og-image-v2.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="MovieMatch — encontre um filme para assistir em grupo">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="MovieMatch — o próximo filme, a escolha de todos">
     <meta name="twitter:description" content="Crie uma sessão, vote nos filmes e encontre a escolha de todo o grupo.">
-    <meta name="twitter:image" content="/og-image-v2.png">
+    <meta name="twitter:image" content="https://moviematch-three.vercel.app/og-image-v2.png">
 
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Organization",
+        "@type": "WebApplication",
         "name": "MovieMatch",
         "url": "https://moviematch-three.vercel.app/",
-        "logo": "https://moviematch-three.vercel.app/favicon.png",
-        "sameAs": []
+        "description": "Aplicação para escolher filmes em grupo: crie uma sessão, compartilhe filtros e vote até todos os participantes atuais curtirem o mesmo filme.",
+        "applicationCategory": "EntertainmentApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "pt-BR",
+        "isAccessibleForFree": true
       }
     </script>
 
@@ -85,6 +94,7 @@
 
   </head>
   <body>
+    <noscript><p>Ative o JavaScript para criar ou entrar em uma sessão do MovieMatch e votar nos filmes.</p></noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
