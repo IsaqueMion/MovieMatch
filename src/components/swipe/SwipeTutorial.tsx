@@ -8,11 +8,14 @@ export type SwipeTutorialHandle = { open: () => void }
 type Props = { sessionId: string; code: string }
 const keyFor = (sessionId: string) => `mm:swipe-tutorial:v1:${sessionId}`
 function shouldShow(sessionId: string) {
-  try { return localStorage.getItem(keyFor(sessionId)) !== '1' } catch { return true }
+  try { return sessionStorage.getItem('mm:created-session') === sessionId && localStorage.getItem(keyFor(sessionId)) !== '1' } catch { return false }
 }
 
 const SwipeTutorial = forwardRef<SwipeTutorialHandle, Props>(function SwipeTutorial({ sessionId, code }, ref) {
   const [open, setOpen] = useState(() => shouldShow(sessionId))
+  useEffect(() => {
+    try { if (sessionStorage.getItem('mm:created-session') === sessionId) sessionStorage.removeItem('mm:created-session') } catch { /* The help button remains available. */ }
+  }, [sessionId])
   useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), [])
   function close() {
     try { localStorage.setItem(keyFor(sessionId), '1') } catch { /* Dismissal still works for the current visit. */ }

@@ -35,6 +35,7 @@ async function context(options = {}) {
   if (!tutorial) await ctx.addInitScript(() => localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1'))
   // Every test intercepts Supabase, including failures, so this suite never writes live data.
   const state = { requests: [], reactions: [], creates: 0 }
+  const publicMembers = ['Luna','Leo','Ana'].map((display_name,index)=>({id:String(index+1),handle:display_name.toLowerCase(),display_name,bio:'Histórias que ficam.',avatar_path:null,cover_path:null}))
   const uid = '11111111-1111-4111-8111-111111111111'
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, created_at: new Date().toISOString(), app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.test'
@@ -53,7 +54,9 @@ async function context(options = {}) {
     } else if (path.includes('/rpc/join_session')) {
       if (['BAD001', 'OLD001'].includes(body?.p_code)) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'P0002', message: 'Session not found or expired' }) })
       result = [{ id: '22222222-2222-4222-8222-222222222222', code: 'DEMO01' }]
-    } else if (path.includes('/rpc/touch_session_presence')) result = 2
+    } else if (path.includes('/rpc/community_profiles')) result = publicMembers
+    else if (path.includes('/rpc/session_participants')) result = [{...publicMembers[0],member_key:1,online:true},{member_key:2,id:null,handle:null,display_name:'Convidado',bio:null,avatar_path:null,cover_path:null,online:false},{member_key:3,id:null,handle:null,display_name:'Perfil privado',bio:null,avatar_path:null,cover_path:null,online:true}]
+    else if (path.includes('/rpc/touch_session_presence')) result = 2
     else if (path.includes('/rpc/check_session_match')) result = [{ is_match: false, member_count: 2, like_count: 1 }]
     else if (path.includes('/rpc/list_session_matches')) result = []
     else if (path.includes('/rest/v1/users')) result = { id: uid, is_adult: false, is_premium: false }
@@ -87,7 +90,7 @@ for (const width of [320, 390, 768, 1440]) {
       const sources = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src))
       assert.equal(sources.length, 18)
       assert.equal(new Set(sources).size, 18)
-      assert.equal(state.requests.length, 0)
+      assert.equal(state.requests.filter(request => !request.path.includes('/rpc/community_profiles')).length, 0)
       assert.deepEqual(errors, [])
       await page.keyboard.press('Tab')
       assert.equal(await page.locator('.cinema-skip-link').evaluate(element => element === document.activeElement), true)
@@ -96,7 +99,7 @@ for (const width of [320, 390, 768, 1440]) {
       assert.equal(await page.locator('#session-code').evaluate(element => element === document.activeElement), true)
       await page.locator('#session-code').fill('abc')
       await page.locator('#session-code').press('Enter')
-      assert.equal(state.requests.length, 0)
+      assert.equal(state.requests.filter(request => !request.path.includes('/rpc/community_profiles')).length, 0)
       assert.equal(await page.getByRole('button', { name: 'Entrar', exact: true }).isDisabled(), true)
       await page.locator('#session-code').press('Backspace')
       assert.equal(await page.locator('#session-code').inputValue(), 'AB')
@@ -230,7 +233,7 @@ test('rede lenta e recarga mostram miniaturas locais antes da imagem nítida, se
       })
       assert.deepEqual(dimensions, [24, 36])
       assert.equal(await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).isEnabled(), true)
-      assert.equal(state.requests.length, 0)
+      assert.equal(state.requests.filter(request => !request.path.includes('/rpc/community_profiles')).length, 0)
       if (process.env.VISUAL_CAPTURE_DIR && visit === 0) {
         await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).click()
         await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/cinema-loading-390.png' })
@@ -532,10 +535,12 @@ test('pôster, trailer e sinopse usam clique/Tab; as setas votam mesmo com foco 
   } finally { await ctx.close() }
 })
 
-test('tutorial de três etapas bloqueia atalhos, lembra conclusão e permite reabrir', async () => {
+test('tutorial ao criar sala bloqueia atalhos, não reaparece ao retomar e permite reabrir', async () => {
   const { ctx, page, state } = await context({ tutorial: true, viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   try {
-    await page.goto(sessionUrl.href)
+    await page.goto(baseUrl)
+    await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
+    await page.waitForURL(sessionUrl.href)
     const dialog = page.getByRole('dialog', { name: 'Como votar no MovieMatch' })
     await dialog.waitFor()
     await page.getByRole('heading', { name: /Seu gosto entra/ }).waitFor()
@@ -752,3 +757,44 @@ for (const width of [390, 1101]) {
     } finally { await ctx.close() }
   })
 }
+
+for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, prévia após ampliação e sala existente sem tutorial`, async () => {
+  const {ctx,page,state}=await context({viewport:{width,height:900}})
+  try {
+    await ctx.addInitScript(() => localStorage.removeItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222'))
+    await page.goto(baseUrl)
+    await page.locator('.cinema-match-example').scrollIntoViewIfNeeded()
+    const community=page.getByRole('group',{name:'Perfis públicos da comunidade'})
+    await community.getByRole('button',{name:/Luna/}).waitFor()
+    assert.equal(await community.getByRole('button').count(),3)
+    assert.equal(state.requests.some(request=>request.path.includes('/auth/v1/')),false)
+    const avatar=community.getByRole('button',{name:/Luna/})
+    await avatar.hover()
+    assert.equal(await page.getByRole('region',{name:'Perfil de Luna'}).count(),0)
+    const preview=page.getByRole('region',{name:'Perfil de Luna'})
+    await preview.waitFor();assert.equal(await preview.getByRole('link',{name:'Ver perfil'}).getAttribute('href'),'/p/luna')
+    assert.equal(await avatar.locator('span').evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).a>1),true)
+    const bounds=await preview.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width&&bounds.y>=0&&bounds.y+bounds.height<=900)
+    await page.keyboard.press('Escape');await preview.waitFor({state:'detached'})
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
+    assert.equal(await page.getByRole('dialog',{name:'Como votar no MovieMatch'}).count(),0)
+    const participants=page.getByRole('group',{name:'Participantes da sessão'})
+    await participants.getByRole('button',{name:/Luna/}).waitFor()
+    assert.equal(await participants.getByRole('button').count(),3)
+    const guest=participants.getByRole('button',{name:/Convidado/});await guest.click()
+    const guestPreview=page.getByRole('region',{name:'Perfil de Convidado'});await guestPreview.waitFor();assert.equal(await guestPreview.getByRole('link').count(),0)
+    await page.keyboard.press('Escape');await guestPreview.waitFor({state:'detached'})
+    await participants.getByRole('button',{name:/Perfil privado/}).focus()
+    const privatePreview=page.getByRole('region',{name:'Perfil de Perfil privado'});await privatePreview.waitFor();await page.keyboard.press('ArrowRight');assert.equal(state.reactions.length,0);assert.equal(await privatePreview.getByRole('link').count(),0)
+    const privateBounds=await privatePreview.boundingBox();assert.ok(privateBounds.x>=0&&privateBounds.x+privateBounds.width<=width&&privateBounds.y>=0&&privateBounds.y+privateBounds.height<=900)
+    await page.keyboard.press('Escape');await privatePreview.waitFor({state:'detached'})
+    await page.emulateMedia({reducedMotion:'reduce'});await participants.getByRole('button',{name:/Luna/}).hover()
+    await page.getByRole('region',{name:'Perfil de Luna'}).waitFor()
+    assert.equal(await participants.getByRole('button',{name:/Luna/}).locator('span').evaluate(el=>getComputedStyle(el).transform),'none')
+    await page.keyboard.press('Escape');await page.getByRole('region',{name:'Perfil de Luna'}).waitFor({state:'detached'})
+    assert.equal(state.reactions.length,0)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/swipe-participants-${width}.png`})
+  } finally { await ctx.close() }
+})

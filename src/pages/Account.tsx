@@ -8,7 +8,8 @@ import { usePageMeta } from '../hooks/usePageMeta'
 import CinemaButton from '../components/ui/cinema-button'
 import FloatingPaths from '../components/account/FloatingPaths'
 import PasswordStrength from '../components/account/PasswordStrength'
-import PasswordConfirmation from '../components/account/PasswordConfirmation'
+import PasswordConfirmation, { PasswordMatchDots } from '../components/account/PasswordConfirmation'
+import { passwordStrength } from '../lib/passwordStrength'
 import '../styles/account.css'
 
 export default function Account() {
@@ -19,12 +20,14 @@ export default function Account() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const assisted = confirming && passwordStrength(password).complete && (mode === 'signup' || mode === 'password')
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   function changeMode(next: typeof mode) {
-    setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmation(''); setShowPassword(false)
+    setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmation(''); setShowPassword(false); setConfirming(false)
     const search = new URLSearchParams(params)
     search.delete('recuperar')
     if (next === 'signup') search.set('modo', 'cadastro'); else search.delete('modo')
@@ -91,8 +94,8 @@ export default function Account() {
       {error || account.error ? <p className="account-auth-error" role="alert">{error || account.error}</p> : null}{message ? <p className="account-auth-message" role="status">{message}</p> : null}
       {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>Continuar para o início</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm('Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.')) { discardGuestTransfer(); window.location.replace('/') } }}>Continuar apenas com o histórico da conta</button> : null}<Link to="/perfil">Personalizar meu perfil</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>Este link não está ativo. <button onClick={() => changeMode('reset')}>Solicitar novo link de recuperação</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? 'Criar conta' : mode === 'login' ? 'Entrar' : 'Recuperar senha'}>
         {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">E-mail</label><div className="account-input-group"><Mail size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
-        {mode !== 'reset' ? <div className="account-field"><label htmlFor="account-password">Senha</label><div className="account-input-group"><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 8 caracteres'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} /><button className="account-password-toggle" type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode === 'login' ? <button className="account-forgot-password" type="button" disabled={busy} onClick={() => changeMode('reset')}>Esqueci minha senha</button> : <><small id="account-password-hint">Use pelo menos 8 caracteres.</small><PasswordStrength value={password} /></>}</div> : null}
-        {mode === 'signup' || mode === 'password' ? <PasswordConfirmation password={password} value={confirmation} onChange={setConfirmation} disabled={busy} /> : null}
+        {mode !== 'reset' ? <div className="account-field"><label htmlFor="account-password">Senha</label><div className="account-input-group" data-assisted={assisted}><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" onFocus={() => setConfirming(false)} type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 8 caracteres'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} />{assisted ? <PasswordMatchDots password={password} value={confirmation} /> : null}<button className="account-password-toggle" type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy} onClick={() => { setConfirming(false); setShowPassword(!showPassword) }}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode === 'login' ? <button className="account-forgot-password" type="button" disabled={busy} onClick={() => changeMode('reset')}>Esqueci minha senha</button> : <div hidden={assisted}><small id="account-password-hint">Use pelo menos 8 caracteres.</small><PasswordStrength value={password} /></div>}</div> : null}
+        {mode === 'signup' || mode === 'password' ? <PasswordConfirmation password={password} value={confirmation} onChange={setConfirmation} onFocus={() => setConfirming(true)} disabled={busy} /> : null}
         <CinemaButton type="submit" disabled={busy || account.loading}>{busy ? 'Aguarde…' : mode === 'signup' ? 'Criar conta' : mode === 'reset' ? 'Enviar link' : mode === 'password' ? 'Salvar senha' : 'Entrar'}</CinemaButton>
         {mode === 'login' ? <p className="account-switch-copy">Novo por aqui? <button type="button" disabled={busy} onClick={() => changeMode('signup')}>Ainda não tenho conta</button></p> : <p className="account-switch-copy"><button type="button" disabled={busy} onClick={() => changeMode('login')}>Voltar para entrar</button></p>}
       </form>}

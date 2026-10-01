@@ -115,6 +115,7 @@ export default function Landing() {
         setStatus('Não foi possível criar a sessão. Tente novamente.')
         return
       }
+      try { sessionStorage.setItem('mm:created-session', String(session.id)) } catch { /* Tutorial remains available through Help. */ }
       navigate('/s/' + String(session.code))
     } catch {
       setFailed(true)

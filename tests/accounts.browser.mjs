@@ -35,6 +35,7 @@ async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn
     else if(u.pathname.includes('/auth/v1/')){if(state.fail&&u.pathname.includes('/logout'))return error();result={}}
     else if(u.pathname.includes('/rpc/prepare_guest_transfer'))result='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
     else if(u.pathname.includes('/rpc/claim_guest_transfer'))result=null
+    else if(u.pathname.includes('/rpc/community_profiles'))result=state.profile.is_public?[state.profile]:[]
     else if(u.pathname.includes('/rpc/my_profile'))result=state.profile
     else if(u.pathname.includes('/rpc/my_saved_sessions')){if(state.fail)return error();result=state.rooms}
     else if(u.pathname.includes('/rpc/profile_reviews'))result=[]
@@ -123,13 +124,13 @@ test('confirmação acompanha cada caractere, bloqueia divergência e aceita oit
     await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test')
     assert.equal(await page.locator('.account-input-group .lucide-mail').count(),1)
     const password=page.getByLabel('Senha',{exact:true}),confirm=page.getByLabel('Confirmar senha',{exact:true}),submit=page.getByRole('form',{name:'Criar conta'}).getByRole('button',{name:'Criar conta',exact:true})
-    await password.fill('qwerty12');assert.equal(await page.getByRole('meter',{name:'Força da senha'}).getAttribute('aria-valuenow'),'1')
+    await password.fill('qwerty12');await confirm.focus();assert.equal(await page.getByRole('meter',{name:'Força da senha'}).isVisible(),true);assert.equal(await page.locator('.password-confirmation-dots').count(),0);assert.equal(await page.getByRole('meter',{name:'Força da senha'}).getAttribute('aria-valuenow'),'1')
     await password.fill('Mm!7zQp8');assert.equal(await page.getByRole('meter',{name:'Força da senha'}).getAttribute('aria-valuenow'),'4')
-    await confirm.fill('Mm!7xQp8');await page.getByText('As senhas não coincidem.',{exact:true}).waitFor();await submit.click();assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/signup')),false)
+    await confirm.focus();assert.equal(await page.getByRole('meter',{name:'Força da senha'}).count(),0);assert.equal(await page.locator('#account-password').evaluate(el=>el.parentElement.dataset.assisted),'true');assert.equal(await confirm.evaluate(el=>el===document.activeElement),true);await confirm.fill('Mm!7xQp8');await page.getByText('As senhas não coincidem.',{exact:true}).waitFor();await submit.click();assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/signup')),false)
     assert.equal(await page.locator('.password-confirmation-dots span[data-state=mismatch]').count(),1)
     await confirm.fill('Mm!7z');await page.getByText('Continue para confirmar a senha.',{exact:true}).waitFor();await confirm.pressSequentially('Qp8');await page.getByText('As senhas coincidem.',{exact:true}).waitFor()
     assert.equal(await page.locator('.password-confirmation-dots span[data-state=matched]').count(),8)
-    await password.fill('Mm!7zQp9');await page.getByText('As senhas não coincidem.',{exact:true}).waitFor();await submit.click();assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/signup')),false)
+    await password.fill('Mm!7zQp9');assert.equal(await page.getByRole('meter',{name:'Força da senha'}).isVisible(),true);assert.equal(await page.locator('.password-confirmation-dots').count(),0);await page.getByText('As senhas não coincidem.',{exact:true}).waitFor();await submit.click();assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/signup')),false)
     await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.password-confirmation .account-input-group').evaluate(el=>getComputedStyle(el).animationName),'none')
     await confirm.fill('Mm!7zQp9');await submit.click();await page.getByText(/Confira seu e-mail/).waitFor()
     assert.equal(state.requests.filter(x=>x.path.includes('/auth/v1/signup')).length,1)
