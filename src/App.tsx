@@ -22,6 +22,9 @@ const Matches = lazy(
   () => import('./pages/Matches'),
 )
 const Watched = lazy(() => import('./pages/Watched'))
+const Account = lazy(() => import('./pages/Account'))
+const Profile = lazy(() => import('./pages/Profile'))
+const SavedRooms = lazy(() => import('./pages/SavedRooms'))
 
 function RouteLoading() {
   return (
@@ -59,6 +62,10 @@ export default function App() {
           />
           <Route path="/assistidos" element={<Watched />} />
           <Route path="/s/:code/assistidos" element={<Watched />} />
+          <Route path="/conta" element={<Account />} />
+          <Route path="/perfil" element={<Profile />} />
+          <Route path="/p/:handle" element={<Profile />} />
+          <Route path="/salas" element={<SavedRooms />} />
           <Route
             path="*"
             element={<NotFound />}

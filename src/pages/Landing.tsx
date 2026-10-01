@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Clapperboard, Heart, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
@@ -7,6 +7,7 @@ import LandingSwipePreview from '../components/landing/LandingSwipePreview'
 import catalogue from '../data/landingMovies.json'
 import { selectLandingMovies } from '../lib/landingSelection'
 import CinemaButton from '../components/ui/cinema-button'
+const AccountMenu = lazy(() => import('../components/account/AccountMenu'))
 
 const FEATURED_KEY = 'mm:landing-featured:v1'
 
@@ -139,6 +140,7 @@ export default function Landing() {
           <a href="#como-funciona">Como funciona</a>
           <a href="#recursos">A experiência</a>
         </nav>
+        <Suspense fallback={<a href="/conta">Entrar</a>}><AccountMenu /></Suspense>
         <CinemaButton compact tone="secondary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
           {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}
         </CinemaButton>

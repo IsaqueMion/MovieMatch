@@ -1,12 +1,13 @@
 import { supabase } from './supabase'
 import { ensureAnonymousUser } from './auth'
+import { requireAccount } from './account'
 
 export type LibraryMovie = { tmdb_id: number; title: string; year: number | null; poster_url: string | null }
-export type MovieReview = { id: string; tmdb_id: number; display_name: string; rating: number; comment: string; contains_spoilers: boolean; created_at: string; updated_at: string }
+export type MovieReview = { id: string; tmdb_id: number; display_name: string; rating: number; comment: string; contains_spoilers: boolean; created_at: string; updated_at: string; profiles?: { handle: string; avatar_path: string | null } | null }
 export type WatchedMovie = LibraryMovie & { id: string; watched_at: string; review?: MovieReview }
 export type ReviewDraft = Pick<MovieReview, 'display_name' | 'rating' | 'comment' | 'contains_spoilers'>
 export const REVIEW_PAGE_SIZE = 20
-const reviewFields = 'id,tmdb_id,display_name,rating,comment,contains_spoilers,created_at,updated_at'
+const reviewFields = 'id,tmdb_id,display_name,rating,comment,contains_spoilers,created_at,updated_at,profiles(handle,avatar_path)'
 const watchFields = 'id,tmdb_id,title,year,poster_url,watched_at'
 const changed = () => window.dispatchEvent(new Event('moviematch:watched-changed'))
 
@@ -28,13 +29,16 @@ export async function listWatchedMovies(): Promise<WatchedMovie[]> {
   for (let i = 0; i < movies.length; i += 100) {
     const response = await supabase.from('movie_reviews').select(reviewFields).in('id', movies.slice(i, i + 100).map(movie => movie.id))
     if (response.error) throw response.error
-    reviews.push(...(response.data ?? []) as MovieReview[])
+    reviews.push(...(response.data ?? []) as unknown as MovieReview[])
   }
   const byId = new Map(reviews.map(review => [review.id, review]))
   return movies.map(movie => ({ ...movie, review: byId.get(movie.id) }))
 }
 
 export async function getMyWatchedMovie(tmdbId: number): Promise<WatchedMovie | null> {
+  const { data: { session }, error: authError } = await supabase.auth.getSession()
+  if (authError) throw authError
+  if (!session) return null
   const { data, error } = await supabase.from('watched_movies').select(watchFields).eq('tmdb_id', tmdbId).maybeSingle()
   if (error) throw error
   if (!data) return null
@@ -65,7 +69,7 @@ export async function removeWatchedMovie(id: string) {
 export async function getMovieReviewPage(tmdbId: number, offset = 0) {
   const { data, error, count } = await supabase.from('movie_reviews').select(reviewFields, { count: 'exact' }).eq('tmdb_id', tmdbId).order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + REVIEW_PAGE_SIZE - 1)
   if (error) throw error
-  return { reviews: (data ?? []) as MovieReview[], total: count ?? 0 }
+  return { reviews: (data ?? []) as unknown as MovieReview[], total: count ?? 0 }
 }
 
 export async function getMovieReviewSummary(tmdbId: number) {
@@ -76,6 +80,7 @@ export async function getMovieReviewSummary(tmdbId: number) {
 }
 
 export async function saveMovieReview(movie: WatchedMovie, draft: ReviewDraft) {
+  await requireAccount()
   const values = { ...draft, display_name: draft.display_name.trim(), comment: draft.comment.trim() }
   let response = movie.review
     ? await supabase.from('movie_reviews').update(values).eq('id', movie.id).select(reviewFields).single()
@@ -83,7 +88,7 @@ export async function saveMovieReview(movie: WatchedMovie, draft: ReviewDraft) {
   if (response.error?.code === '23505') response = await supabase.from('movie_reviews').update(values).eq('id', movie.id).select(reviewFields).single()
   if (response.error) throw response.error
   changed()
-  return response.data as MovieReview
+  return response.data as unknown as MovieReview
 }
 
 export async function deleteMovieReview(id: string) {

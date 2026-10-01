@@ -51,4 +51,5 @@ jobs:
           node --test tests/seo.browser.mjs
           node --test tests/matches.browser.mjs
           node --test tests/movieLibrary.browser.mjs
+          node --test tests/accounts.browser.mjs
           node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/matchProviders.test.ts

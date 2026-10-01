@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { ensureAnonymousUser } from './auth'
+import { requireAccount } from './account'
 
 export type ReviewVote = { review_id: string; upvotes: number; downvotes: number; my_vote: -1 | 0 | 1 }
 export const emptyReviewVote = (id: string): ReviewVote => ({ review_id: id, upvotes: 0, downvotes: 0, my_vote: 0 })
@@ -17,7 +17,7 @@ export async function getReviewVotes(ids: string[]): Promise<ReviewVote[]> {
 }
 
 export async function setReviewVote(id: string, value: ReviewVote['my_vote']) {
-  const user = await ensureAnonymousUser()
+  const user = await requireAccount()
   if (value === 0) {
     const { error } = await supabase.from('review_votes').delete().eq('review_id', id).eq('user_id', user.id)
     if (error) throw error

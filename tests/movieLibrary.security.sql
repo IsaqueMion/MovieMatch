@@ -2,13 +2,13 @@
 begin;
 select set_config('mm.test_user_a', gen_random_uuid()::text, true);
 select set_config('mm.test_user_b', gen_random_uuid()::text, true);
-insert into auth.users(id, aud, role, is_anonymous, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-select current_setting(key)::uuid, 'authenticated', 'authenticated', true, '{}'::jsonb, '{}'::jsonb, now(), now()
+insert into auth.users(id, aud, role, is_anonymous, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+select current_setting(key)::uuid, 'authenticated', 'authenticated', false, now(), '{}'::jsonb, '{}'::jsonb, now(), now()
 from unnest(array['mm.test_user_a', 'mm.test_user_b']) as key;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', current_setting('mm.test_user_a'), true);
-select set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('mm.test_user_a'), 'role', 'authenticated', 'is_anonymous', true)::text, true);
+select set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('mm.test_user_a'), 'role', 'authenticated', 'is_anonymous', false)::text, true);
 with row as (insert into public.watched_movies(user_id, tmdb_id, title, year) values (auth.uid(), 900000001, 'MovieMatch transactional security fixture', 2000) returning id)
 select set_config('mm.test_watch_a', id::text, true) from row;
 insert into public.movie_reviews(id, tmdb_id, display_name, rating, comment, contains_spoilers)
@@ -36,7 +36,7 @@ do $$ begin
 end $$;
 
 select set_config('request.jwt.claim.sub', current_setting('mm.test_user_b'), true);
-select set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('mm.test_user_b'), 'role', 'authenticated', 'is_anonymous', true)::text, true);
+select set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('mm.test_user_b'), 'role', 'authenticated', 'is_anonymous', false)::text, true);
 do $$ declare affected integer; begin
   assert (select count(*) from public.watched_movies) = 0, 'Another person saw private history';
   assert (select count(*) from public.movie_reviews where tmdb_id=900000001) = 1, 'Public review must be readable by another user';
@@ -93,7 +93,7 @@ end $$;
 set local role anon;
 do $$ begin
   begin perform id from public.watched_movies; raise exception 'Unauthenticated history access accepted'; exception when insufficient_privilege then null; end;
-  begin perform id from public.movie_reviews; raise exception 'Unauthenticated review access accepted'; exception when insufficient_privilege then null; end;
+  assert (select review_count from public.movie_review_summary(900000001))=1, 'Public review unavailable to logged-out visitor';
 end $$;
 reset role;
 rollback;

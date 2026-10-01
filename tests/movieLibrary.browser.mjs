@@ -34,9 +34,9 @@ before(async () => {
 })
 after(async () => { await browser?.close(); server?.kill() })
 
-async function fixture({ state = shared(), uid = owner, width = 1440, path = '/s/DEMO01/matches' } = {}) {
+async function fixture({ state = shared(), uid = owner, width = 1440, guest = false, path = '/s/DEMO01/matches' } = {}) {
   const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
-  const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
+  const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: guest, email_confirmed_at: guest ? undefined : '2026-10-01T12:00:00Z', app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
   const requests = [], reactions = [], errors = []
   await ctx.addInitScript(() => localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1'))
@@ -48,6 +48,7 @@ async function fixture({ state = shared(), uid = owner, width = 1440, path = '/s
     const fail = (status = 503, code = 'fixture') => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ code, message: 'Fixture failure' }) })
     let result = [], headers = {}
     if (pathname.includes('/auth/v1/')) result = pathname.endsWith('/user') ? user : { access_token: token, token_type: 'bearer', expires_in: 3600, refresh_token: 'fixture', user }
+    else if (pathname.includes('/rpc/my_profile')) result = {id:uid,handle:'cine-fixture',display_name:'Luna',avatar_path:null,cover_path:null}
     else if (pathname.includes('/rpc/join_session')) result = [{ id: '22222222-2222-4222-8222-222222222222', code: 'DEMO01' }]
     else if (pathname.includes('/rpc/list_session_matches')) result = movies
     else if (pathname.includes('/rpc/is_demo_session')) result = !!state.demo
@@ -146,7 +147,6 @@ test('marcar, avaliar e desmarcar altera apenas os meus matches; nota e comentá
     await a.page.getByRole('button', { name: 'Já assisti', exact: true }).click()
     await a.page.getByRole('dialog', { name: /O que ficou/ }).waitFor()
     await a.page.getByRole('radio', { name: '4 de 5 estrelas' }).click()
-    await a.page.getByLabel('Apelido público').fill('Luna')
     await a.page.getByLabel('Seu comentário').fill('O final merece outra sessão. <b>Sem HTML</b>')
     await a.page.getByLabel('Meu comentário contém spoilers').check()
     await a.page.getByRole('button', { name: 'Salvar avaliação' }).click()
@@ -208,7 +208,6 @@ test('falhas preservam matches e comentário; avaliar é opcional e excluir aval
     await page.getByText('Você ainda não avaliou', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Avaliar filme' }).click()
     await page.getByRole('radio', { name: '3 de 5 estrelas' }).click()
-    await page.getByLabel('Apelido público').fill('Noah')
     await page.getByLabel('Seu comentário').fill('Uma bela experiência.')
     state.failReview = true
     await page.getByRole('button', { name: 'Salvar avaliação' }).click()
@@ -257,7 +256,6 @@ test('avaliações no swipe: média inclui todas as páginas e estrelas/edição
     await star.focus()
     await page.keyboard.press('ArrowRight')
     assert.equal(await page.getByRole('radio', { name: '2 de 5 estrelas' }).getAttribute('aria-checked'), 'true')
-    await page.getByLabel('Apelido público').fill('Mila')
     await page.getByLabel('Seu comentário').fill('Texto em edição')
     await page.getByLabel('Seu comentário').press('ArrowLeft')
     await page.getByLabel('Seu comentário').press('ArrowRight')
@@ -386,4 +384,22 @@ for(const width of [390,768,1440])test(`atalhos centralizados na ordem dos contr
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/vote-shortcuts-${width}.png`})
   }finally{await ctx.close()}
+})
+
+
+test('visitante lê avaliações e marca assistidos, mas precisa de conta para publicar ou votar',async()=>{
+  const state=shared(),row=watch(state,peer)
+  state.reviews.push({id:row.id,tmdb_id:157336,display_name:'Pessoa B',rating:4,comment:'Review pública',contains_spoilers:false,created_at:'2026-10-01T12:00:00Z'})
+  const {ctx,page,requests}=await fixture({state,guest:true})
+  try {
+    await page.getByRole('button',{name:'Explorar o filme'}).click()
+    await page.getByRole('button',{name:'Ver avaliações',exact:true}).click()
+    await page.getByRole('link',{name:'Entrar ou criar conta'}).waitFor()
+    assert.equal(await page.getByRole('radio').count(),0)
+    assert.equal(await page.getByRole('button',{name:'Upvote: 0'}).isDisabled(),true)
+    await page.getByRole('button',{name:'Já assisti',exact:true}).click()
+    await page.getByText('Este filme está nos seus assistidos.').waitFor()
+    assert.equal(state.watches.filter(w=>w.user_id===owner).length,1)
+    assert.equal(requests.some(r=>r.path.includes('movie_reviews')&&r.method==='POST'),false)
+  } finally {await ctx.close()}
 })

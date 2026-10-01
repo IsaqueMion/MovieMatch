@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAccount } from '../../hooks/useAccount'
+import { accountHref, mediaUrl, myProfile } from '../../lib/account'
 import { Check, MessageSquare, Star, X } from 'lucide-react'
 import CinemaButton from '../ui/cinema-button'
 import MatchPoster from '../matches/MatchPoster'
@@ -16,6 +19,7 @@ const emptyDraft = (): ReviewDraft => {
 }
 
 export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryMovie; onClose: () => void }) {
+  const account = useAccount()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const requestRef = useRef(0)
   const [myMovie, setMyMovie] = useState<WatchedMovie | null>(null)
@@ -44,7 +48,7 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
     setVotingBusy(null)
     setError('')
     try {
-      const [mine, feed, average] = await Promise.all([getMyWatchedMovie(movie.tmdb_id), getMovieReviewPage(movie.tmdb_id), getMovieReviewSummary(movie.tmdb_id)])
+      const [mine, feed, average, profile] = await Promise.all([getMyWatchedMovie(movie.tmdb_id), getMovieReviewPage(movie.tmdb_id), getMovieReviewSummary(movie.tmdb_id), account.registered ? myProfile() : Promise.resolve(null)])
       let totals: ReviewVote[] = []
       try { totals = await getReviewVotes(feed.reviews.map(review => review.id)) }
       catch { if (request === requestRef.current) setVotesError('Não foi possível consultar os votos. Tente novamente.') }
@@ -55,10 +59,10 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
       setHasLoaded(true)
       setReviews(feed.reviews)
       setSummary(average)
-      setDraft(mine?.review ? { display_name: mine.review.display_name, rating: mine.review.rating, comment: mine.review.comment, contains_spoilers: mine.review.contains_spoilers } : emptyDraft())
+      setDraft({ ...(mine?.review ? { display_name: mine.review.display_name, rating: mine.review.rating, comment: mine.review.comment, contains_spoilers: mine.review.contains_spoilers } : emptyDraft()), ...(profile ? { display_name: profile.display_name } : {}) })
     } catch { if (request === requestRef.current) { setLoadFailed(true); setError('Não foi possível carregar as avaliações. Tente novamente.') } }
     finally { if (request === requestRef.current) setLoading(false) }
-  }, [movie.tmdb_id])
+  }, [movie.tmdb_id, account.registered])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -153,10 +157,10 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
     <p className="library-status" role="status">{status}</p>
     {loading ? <p className="library-loading" role="status">Reunindo as avaliações…</p> : hasLoaded ? <>
       <section className="library-review-editor" aria-label="Sua avaliação">
-        {!myMovie ? <><h3>Já viu esse filme?</h3><p>Adicione aos seus assistidos para dar uma nota e compartilhar o que achou.</p><CinemaButton compact direction="right" onClick={() => void mark()} disabled={busy}>Já assisti</CinemaButton></> : <>
+        {!account.registered ? <><h3>Seu olhar merece uma conta.</h3><p>Entre para dar estrelas, publicar comentários e votar nas avaliações. Ler a comunidade e marcar seus assistidos continuam livres.</p><Link className="account-link" to={accountHref()}>Entrar ou criar conta</Link>{!myMovie ? <CinemaButton compact onClick={() => void mark()} disabled={busy}>Já assisti</CinemaButton> : <p>Este filme está nos seus assistidos.</p>}</> : !myMovie ? <><h3>Já viu esse filme?</h3><p>Adicione aos seus assistidos para dar uma nota e compartilhar o que achou.</p><CinemaButton compact direction="right" onClick={() => void mark()} disabled={busy}>Já assisti</CinemaButton></> : <>
           <p className="cinema-eyebrow"><Check size={13} aria-hidden="true" />Na sua lista de assistidos</p><h3>{myMovie.review ? 'Sua opinião pode mudar.' : 'Que nota merece?'}</h3>
           <div className="library-star-input"><PeekRating value={draft.rating} count={5} labels={['Ruim', 'Regular', 'Bom', 'Ótimo', 'Excelente']} activeColor="#f5b400" idleColor="#52525b" tipColor="#27272a" tipTextColor="#f5f5f5" size={32} lift={7} magnify={1.15} riseDuration={320} popScale={1.3} showTip allowClear disabled={busy} ariaLabel="Sua nota de 1 a 5 estrelas" onChange={rating => setDraft(previous => ({ ...previous, rating }))} /><span className="library-star-caption">{draft.rating ? `${draft.rating}/5` : 'Escolha sua nota'}</span></div>
-          <label className="library-field">Apelido público<input value={draft.display_name} onChange={event => setDraft(previous => ({ ...previous, display_name: event.target.value }))} minLength={2} maxLength={32} placeholder="Como quer aparecer?" disabled={busy} autoComplete="nickname" /></label>
+          <p className="library-public-note">Publicando como <strong>{draft.display_name}</strong> · <Link to="/perfil">Editar perfil</Link></p>
           <label className="library-field">Seu comentário <small>opcional</small><textarea value={draft.comment} onChange={event => setDraft(previous => ({ ...previous, comment: event.target.value }))} maxLength={1000} rows={3} placeholder="O que fez esse filme valer o play?" disabled={busy} /><span className="library-character-count">{draft.comment.length}/1000</span></label>
           <label className="library-spoiler-choice"><input type="checkbox" checked={draft.contains_spoilers} onChange={event => setDraft(previous => ({ ...previous, contains_spoilers: event.target.checked }))} disabled={busy} />Meu comentário contém spoilers</label>
           <p className="library-public-note">Seu apelido, nota e comentário ficam visíveis para todos os usuários. Sua lista de assistidos é pessoal.</p>
@@ -164,7 +168,7 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
           {confirmDelete ? <div className="library-delete-confirm"><p>Excluir sua nota e comentário públicos?</p><button type="button" disabled={busy} onClick={() => void remove()}>Confirmar exclusão</button><button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Cancelar</button></div> : null}
         </>}
       </section>
-      <section className="library-community" aria-label="Avaliações da comunidade"><h3>Outros olhares.</h3>{votesError ? <p className="library-error" role="alert">{votesError}<button type="button" onClick={() => void refreshVotes()}>Atualizar contagens</button></p> : null}{reviews.length ? <ul>{reviews.map(review => <ReviewCard key={review.id} review={review} mine={review.id === myMovie?.id} totals={votes[review.id]} votingBusy={votingBusy !== null || busy} onVote={direction => vote(review.id, direction)} />)}</ul> : <p>Ninguém avaliou ainda. O primeiro olhar pode ser o seu.</p>}{reviews.length < summary.total ? <button type="button" className="library-text-button" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? 'Carregando…' : 'Ver mais avaliações'}</button> : null}</section>
+      <section className="library-community" aria-label="Avaliações da comunidade"><h3>Outros olhares.</h3>{votesError ? <p className="library-error" role="alert">{votesError}<button type="button" onClick={() => void refreshVotes()}>Atualizar contagens</button></p> : null}{reviews.length ? <ul>{reviews.map(review => <ReviewCard key={review.id} review={review} mine={review.id === myMovie?.id} totals={votes[review.id]} votingBusy={votingBusy !== null || busy || !account.registered} onVote={direction => vote(review.id, direction)} />)}</ul> : <p>Ninguém avaliou ainda. O primeiro olhar pode ser o seu.</p>}{reviews.length < summary.total ? <button type="button" className="library-text-button" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? 'Carregando…' : 'Ver mais avaliações'}</button> : null}</section>
     </> : null}
   </dialog>
 }
@@ -172,5 +176,5 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
 function ReviewCard({ review, mine, totals, votingBusy, onVote }: { review: MovieReview; mine: boolean; totals?: ReviewVote; votingBusy: boolean; onVote: (direction: 1 | -1) => Promise<boolean> }) {
   const [showSpoiler, setShowSpoiler] = useState(false)
   const votes = totals ?? emptyReviewVote(review.id)
-  return <li className="library-public-review"><header><strong>{review.display_name}{mine ? <small>Sua avaliação</small> : null}</strong><span><Star size={14} fill="currentColor" aria-hidden="true" />{review.rating}/5</span></header><time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString('pt-BR')}</time>{review.comment ? review.contains_spoilers && !showSpoiler ? <button type="button" className="library-spoiler-reveal" onClick={() => setShowSpoiler(true)}>Mostrar comentário com spoilers</button> : <p>{review.comment}</p> : <p className="library-rating-only">Avaliação sem comentário.</p>}<div className="library-review-votes" role="group" aria-label={`Votos na avaliação de ${review.display_name}`}><ReviewVoteButton direction="up" active={votes.my_vote === 1} count={votes.upvotes} disabled={mine || votingBusy || !totals} busy={votingBusy} onVote={() => onVote(1)} /><ReviewVoteButton direction="down" active={votes.my_vote === -1} count={votes.downvotes} disabled={mine || votingBusy || !totals} busy={votingBusy} onVote={() => onVote(-1)} />{mine ? <small>Outras pessoas podem votar na sua avaliação.</small> : null}</div></li>
+  return <li className="library-public-review"><header><strong>{review.profiles ? <Link className="library-author" to={`/p/${review.profiles.handle}`}>{review.profiles.avatar_path ? <img src={mediaUrl(review.profiles.avatar_path)} alt="" width={28} height={28} /> : null}{review.display_name}</Link> : review.display_name}{mine ? <small>Sua avaliação</small> : null}</strong><span><Star size={14} fill="currentColor" aria-hidden="true" />{review.rating}/5</span></header><time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString('pt-BR')}</time>{review.comment ? review.contains_spoilers && !showSpoiler ? <button type="button" className="library-spoiler-reveal" onClick={() => setShowSpoiler(true)}>Mostrar comentário com spoilers</button> : <p>{review.comment}</p> : <p className="library-rating-only">Avaliação sem comentário.</p>}<div className="library-review-votes" role="group" aria-label={`Votos na avaliação de ${review.display_name}`}><ReviewVoteButton direction="up" active={votes.my_vote === 1} count={votes.upvotes} disabled={mine || votingBusy || !totals} busy={votingBusy} onVote={() => onVote(1)} /><ReviewVoteButton direction="down" active={votes.my_vote === -1} count={votes.downvotes} disabled={mine || votingBusy || !totals} busy={votingBusy} onVote={() => onVote(-1)} />{mine ? <small>Outras pessoas podem votar na sua avaliação.</small> : null}</div></li>
 }

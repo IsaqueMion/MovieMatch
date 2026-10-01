@@ -1,8 +1,8 @@
 -- Administrator-run checks; every generated user, room and reaction rolls back.
 begin;
 select set_config('mm.vote_a',gen_random_uuid()::text,true), set_config('mm.vote_b',gen_random_uuid()::text,true), set_config('mm.vote_c',gen_random_uuid()::text,true);
-insert into auth.users(id,aud,role,is_anonymous,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
-select current_setting(key)::uuid,'authenticated','authenticated',true,'{}','{}',now(),now()
+insert into auth.users(id,aud,role,is_anonymous,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+select current_setting(key)::uuid,'authenticated','authenticated',false,now(),'{}','{}',now(),now()
 from unnest(array['mm.vote_a','mm.vote_b','mm.vote_c']) key;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',current_setting('mm.vote_a'),true);
@@ -59,7 +59,7 @@ do $$ begin assert not public.is_demo_session(current_setting('mm.demo')::uuid),
 set local role anon;
 do $$ begin
   begin perform * from public.review_votes; raise exception 'Anonymous vote access'; exception when insufficient_privilege then null; end;
-  begin perform * from public.movie_review_votes(array[current_setting('mm.review')::uuid]); raise exception 'Anonymous aggregate access'; exception when insufficient_privilege then null; end;
+  perform * from public.movie_review_votes(array[current_setting('mm.review')::uuid]);
 end $$;
 reset role;
 rollback;

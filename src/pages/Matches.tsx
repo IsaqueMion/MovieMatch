@@ -16,6 +16,8 @@ import { useWatchedMovies } from '../hooks/useWatchedMovies'
 import { useDemoSession } from '../hooks/useDemoSession'
 import { markMovieWatched, type LibraryMovie } from '../lib/movieLibrary'
 import '../styles/library.css'
+import AccountMenu from '../components/account/AccountMenu'
+import SaveRoomButton from '../components/account/SaveRoomButton'
 const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviewsDialog'))
 
 
@@ -375,6 +377,8 @@ export default function Matches() {
       <header className="cinema-container matches-header">
         <Link className="cinema-brand" to="/" aria-label="MovieMatch, página inicial"><span className="cinema-brand-mark"><Clapperboard size={23} aria-hidden="true" /></span>MovieMatch<span className="cinema-brand-dot">.</span></Link>
         <div className="matches-session"><span>Sessão <strong>{code.toUpperCase()}</strong></span>{sessionId ? <span className="matches-online"><i aria-hidden="true" />{onlineCount} online</span> : null}</div>
+        <SaveRoomButton sessionId={sessionId} code={code} />
+        <AccountMenu />
         <CinemaButton compact tone="secondary" direction="right" onClick={() => navigate(`/s/${code}`)}>Voltar a votar</CinemaButton>
       </header>
       <div className="cinema-container">
