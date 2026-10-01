@@ -27,7 +27,7 @@ Entregar conteúdo pronto evita depender exclusivamente da renderização por Ja
 
 - Lint, build de produção e 79 testes aprovados: 15 de lógica e 64 de navegador.
 - Os testes de SEO leem as páginas com JavaScript desativado, verificam sitemap, canonical, títulos, descrições, Open Graph e o HTML privado.
-- Scripts atrasados não escondem o conteúdo da home nem criam usuário anônimo. A navegação da tela privada de volta à home restaura os metadados públicos.
+- Scripts atrasados não escondem o conteúdo da home nem criam usuário anônimo. O HTML inicial usa apenas miniaturas embutidas, para não baixar um segundo conjunto de pôsteres antes do sorteio do visitante. A navegação da tela privada de volta à home restaura os metadados públicos.
 - As suítes existentes verificam sessão, votação, filtros, matches, assistidos e avaliações com APIs simuladas, sem gravar dados de visitantes reais.
 - A conferência remota usa o preview para validar os cabeçalhos da Vercel e o status 404. Preview protegido não é uma URL a enviar ao Google.
 

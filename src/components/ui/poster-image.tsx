@@ -17,8 +17,9 @@ export function PosterImage({ src, preview, alt, corridor = false, priority = fa
   const style: CSSProperties = preview ? { backgroundImage: `url("${preview}")` } : {}
 
   return (
-    <div className={`cinema-poster ${ready ? 'is-ready' : ''}`} style={style}>
-      <picture>
+    <div className={`cinema-poster ${ready ? 'is-ready' : ''}`} style={style} role={import.meta.env.SSR && alt ? 'img' : undefined} aria-label={import.meta.env.SSR && alt ? alt : undefined}>
+      {/* The static home paints embedded previews; only the visitor's chosen set downloads full posters. */}
+      {!import.meta.env.SSR ? <picture>
         {corridor && tmdb ? <>
           <source media="(min-width: 1024px) and (min-resolution: 1.5dppx)" srcSet={src.replace('/w500/', '/original/')} />
           <source media="(max-width: 639px) and (max-resolution: 2dppx)" srcSet={src} />
@@ -32,7 +33,7 @@ export function PosterImage({ src, preview, alt, corridor = false, priority = fa
             if (image.isConnected && image.currentSrc === source) setReady(true)
           }}
           onError={() => { setFailed(true); setReady(false) }} />
-      </picture>
+      </picture> : null}
       {failed && alt ? <div className="cinema-poster-unavailable" role="img" aria-label={alt.replace('Pôster de ', 'Pôster indisponível de ')}><span>{alt.replace('Pôster de ', '')}</span><small>Pôster indisponível</small></div> : null}
     </div>
   )

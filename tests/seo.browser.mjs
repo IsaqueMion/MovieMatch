@@ -24,7 +24,11 @@ after(async () => { await browser?.close(); server?.kill() })
 
 test('public HTML has content, unique headings, canonical and share metadata without JavaScript', async () => {
   const ctx = await browser.newContext({ javaScriptEnabled: false, serviceWorkers: 'block' })
-  await ctx.route(/fundingchoicesmessages|image\.tmdb\.org/, route => route.abort())
+  const posterRequests = []
+  await ctx.route(/fundingchoicesmessages|image\.tmdb\.org/, route => {
+    if (route.request().url().includes('image.tmdb.org')) posterRequests.push(route.request().url())
+    return route.abort()
+  })
   const page = await ctx.newPage()
   try {
     for (const path of ['/', '/privacy.html', '/terms.html', '/ads.html']) {
@@ -41,6 +45,8 @@ test('public HTML has content, unique headings, canonical and share metadata wit
     }
     await page.goto(url('/'))
     assert.match(await page.locator('main').innerText(), /pelo menos duas pessoas/)
+    assert.equal(posterRequests.length, 0, 'prerender must not download a second, unused poster set')
+    assert.match(await page.locator('.cinema-poster').first().evaluate(el => getComputedStyle(el).backgroundImage), /data:image/)
     const structured = JSON.parse(await page.locator('script[type="application/ld+json"]').textContent())
     assert.equal(structured['@type'], 'WebApplication')
     assert.equal(structured.url, origin + '/')
