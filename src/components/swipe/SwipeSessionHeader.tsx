@@ -1,4 +1,4 @@
-import { Clapperboard, Heart, CircleHelp, SlidersHorizontal } from 'lucide-react'
+import { BookCheck, Clapperboard, Heart, CircleHelp, SlidersHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import ShareSessionButton from './ShareSessionButton'
 
@@ -15,7 +15,7 @@ type Props = {
 export default function SwipeSessionHeader({ code, onlineCount, filtersCount, hasNewMatch, onFilters, onMatches, onHelp }: Props) {
   return <header className="swipe-header">
     <Link className="cinema-brand" to="/" aria-label="MovieMatch, página inicial"><span className="cinema-brand-mark"><Clapperboard size={22} aria-hidden="true" /></span>MovieMatch<span className="cinema-brand-dot">.</span></Link>
-    <div className="swipe-session"><span>Sessão <strong>{code.toUpperCase()}</strong></span><span className="swipe-online"><i aria-hidden="true" />{onlineCount} online</span><button type="button" className="swipe-help" aria-label="Abrir tutorial de votação" title="Como votar" onClick={onHelp}><CircleHelp size={17} aria-hidden="true" /></button></div>
+    <div className="swipe-session"><span>Sessão <strong>{code.toUpperCase()}</strong></span><span className="swipe-online"><i aria-hidden="true" />{onlineCount} online</span><Link className="swipe-help" to={`/s/${code}/assistidos`} aria-label="Meus assistidos" title="Meus assistidos"><BookCheck size={17} aria-hidden="true" /></Link><button type="button" className="swipe-help" aria-label="Abrir tutorial de votação" title="Como votar" onClick={onHelp}><CircleHelp size={17} aria-hidden="true" /></button></div>
     <nav className="swipe-navigation" aria-label="Sua sessão">
       <button type="button" onClick={onFilters} className="swipe-tool" aria-label="Abrir filtros" title="Abrir filtros"><SlidersHorizontal size={18} aria-hidden="true" /><span>Filtros</span>{filtersCount > 0 ? <small aria-label={`${filtersCount} filtros ativos`}>{filtersCount}</small> : null}</button>
       <ShareSessionButton code={code} />

@@ -1,5 +1,5 @@
 // src/pages/Matches.tsx
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { lazy, Suspense, useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Check, ChevronDown, Clapperboard, Copy, Film, Heart, Search, ArrowLeftRight } from 'lucide-react'
 import CinemaButton from '../components/ui/cinema-button'
@@ -12,6 +12,10 @@ import { getMovieDetails, type MovieDetails } from '../lib/functions'
 import { ensureAnonymousUser } from '../lib/auth'
 import { useSessionPresence } from '../hooks/useSessionPresence'
 import { usePageMeta } from '../hooks/usePageMeta'
+import { useWatchedMovies } from '../hooks/useWatchedMovies'
+import { markMovieWatched, type LibraryMovie } from '../lib/movieLibrary'
+import '../styles/library.css'
+const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviewsDialog'))
 
 
 type MatchItem = {
@@ -31,6 +35,10 @@ export default function Matches() {
   const { code = '' } = useParams()
   const navigate = useNavigate()
   const [copyStatus, setCopyStatus] = useState('')
+  const library = useWatchedMovies()
+  const [reviewMovie, setReviewMovie] = useState<LibraryMovie | null>(null)
+  const [markingWatched, setMarkingWatched] = useState(false)
+  const [watchedError, setWatchedError] = useState('')
   const [listError, setListError] = useState(false)
   const detailsRequest = useRef(0)
 
@@ -60,6 +68,7 @@ export default function Matches() {
   const [loadingDetails, setLoadingDetails] = useState(false)
 
   async function openDetails(item: MatchItem) {
+    setWatchedError('')
     const request = ++detailsRequest.current
     setModal({ item, details: null })
     setLoadingDetails(true)
@@ -297,12 +306,33 @@ export default function Matches() {
     setItems(list)
   }
 
+  const watchedIds = useMemo(() => new Set(library.movies.map(movie => movie.tmdb_id)), [library.movies])
+  const pending = useMemo(() => items.filter(item => item.tmdb_id == null || !watchedIds.has(item.tmdb_id)), [items, watchedIds])
+  const pageLoading = loading || library.loading
+  function openReviews(item: MatchItem) {
+    if (item.tmdb_id == null) return
+    closeDetails()
+    setReviewMovie({ tmdb_id: item.tmdb_id, title: item.title, year: item.year, poster_url: item.poster_url })
+  }
+  async function markWatched(item: MatchItem) {
+    if (markingWatched || item.tmdb_id == null) return
+    setMarkingWatched(true)
+    setWatchedError('')
+    try {
+      const watched = await markMovieWatched({ tmdb_id: item.tmdb_id, title: item.title, year: item.year, poster_url: item.poster_url })
+      library.remember(watched)
+      setCopyStatus('Filme adicionado aos seus assistidos. Os matches dos outros participantes continuam iguais.')
+      openReviews(item)
+    } catch { setWatchedError('Não foi possível marcar o filme. Tente novamente.') }
+    finally { setMarkingWatched(false) }
+  }
+
   // View filtrada/ordenada
   const visible = useMemo(() => {
     const term =
       q.trim().toLowerCase()
 
-    let arr = items.filter(
+    let arr = pending.filter(
       (item) =>
         term === '' ||
         item.title
@@ -324,7 +354,7 @@ export default function Matches() {
     }
 
     return arr
-  }, [items, q, sort])
+  }, [pending, q, sort])
 
   async function copyList() {
     const text = visible.map(movie => `${movie.title}${movie.year ? ` (${movie.year})` : ''} — ${movie.likes}/${movie.member_count} curtiram`).join('\n')
@@ -347,24 +377,24 @@ export default function Matches() {
       </header>
       <div className="cinema-container">
         <section className="matches-hero" aria-labelledby="matches-title">
-          <div><p className="cinema-eyebrow"><Heart size={13} aria-hidden="true" />A escolha é de vocês</p><h1 id="matches-title">Gostos diferentes.<br /><span>O mesmo sim.</span></h1><p className="matches-intro">{items.length ? 'Todos curtiram. Agora, só falta escolher qual filme vai ganhar o play.' : 'Quando os gostos se encontram, os filmes aparecem aqui. A próxima escolha é de vocês.'}</p></div>
-          <div className="matches-total" aria-live="polite"><span>{loading ? '—' : String(items.length).padStart(2, '0')}</span><p>{items.length === 1 ? 'filme em comum' : 'filmes em comum'}<small>Aprovados por todos os<br />participantes atuais.</small></p></div>
+          <div><p className="cinema-eyebrow"><Heart size={13} aria-hidden="true" />A escolha é de vocês</p><h1 id="matches-title">Gostos diferentes.<br /><span>O mesmo sim.</span></h1><p className="matches-intro">{pending.length ? 'Todos curtiram. Agora, só falta escolher qual filme vai ganhar o play.' : 'Quando os gostos se encontram, os filmes aparecem aqui. A próxima escolha é de vocês.'}</p></div>
+          <div className="matches-total" aria-live="polite"><span>{pageLoading ? '—' : String(pending.length).padStart(2, '0')}</span><p>{pending.length === 1 ? 'filme em comum' : 'filmes em comum'}<small>Aprovados por todos os<br />participantes atuais.</small></p></div>
         </section>
-        <section id="matches-selection" className="matches-selection" aria-labelledby="matches-selection-title" aria-busy={loading}>
+        <section id="matches-selection" className="matches-selection" aria-labelledby="matches-selection-title" aria-busy={pageLoading}>
           <div className="matches-toolbar">
-            <div><p className="cinema-eyebrow">Sua próxima sessão</p><h2 id="matches-selection-title">A seleção do grupo</h2></div>
+            <div><p className="cinema-eyebrow">Sua próxima sessão</p><h2 id="matches-selection-title">A seleção do grupo</h2><Link className="matches-library-link" to={`/s/${code}/assistidos`}>Meus assistidos · {library.movies.length}</Link></div>
             <div className="matches-controls">
-              <label className="matches-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Buscar filme</span><input type="search" value={q} onChange={event => setQ(event.target.value)} placeholder="Buscar um filme" disabled={loading || !sessionId} /></label>
-              <label className="matches-sort"><span className="sr-only">Ordenar filmes</span><select value={sort} onChange={event => setSort(event.target.value as SortKey)} disabled={loading || !sessionId}><option value="recent">Mais recentes</option><option value="oldest">Mais antigos</option><option value="title">Título (A→Z)</option></select><ChevronDown size={14} aria-hidden="true" /></label>
+              <label className="matches-search"><Search size={17} aria-hidden="true" /><span className="sr-only">Buscar filme</span><input type="search" value={q} onChange={event => setQ(event.target.value)} placeholder="Buscar um filme" disabled={pageLoading || !sessionId} /></label>
+              <label className="matches-sort"><span className="sr-only">Ordenar filmes</span><select value={sort} onChange={event => setSort(event.target.value as SortKey)} disabled={pageLoading || !sessionId}><option value="recent">Mais recentes</option><option value="oldest">Mais antigos</option><option value="title">Título (A→Z)</option></select><ChevronDown size={14} aria-hidden="true" /></label>
               <button className="matches-copy" onClick={copyList} disabled={!visible.length} title="Copiar lista"><Copy size={16} aria-hidden="true" /><span>Copiar lista</span></button>
             </div>
           </div>
-          <p className="matches-copy-status" role="status">{copyStatus}</p>
-          {loading ? <div className="matches-loading"><SessionLoader label="Reunindo as escolhas de vocês…" /></div>
+          <p className="matches-copy-status" role="status">{copyStatus}</p>{library.error ? <p className="library-error" role="alert">Não foi possível verificar seus assistidos.<button type="button" onClick={library.refresh}>Tentar novamente</button></p> : null}
+          {pageLoading ? <div className="matches-loading"><SessionLoader label="Reunindo as escolhas de vocês…" /></div>
             : !sessionId ? <div className="matches-empty"><Film size={36} aria-hidden="true" /><h3>Sessão indisponível</h3><p>Confira o código da sessão. Ela pode ter expirado ou a conexão pode estar indisponível.</p><CinemaButton onClick={() => navigate('/')}>Ir para o início</CinemaButton></div>
             : listError ? <div className="matches-load-error" role="alert"><p>Não foi possível atualizar a seleção. Tente novamente em instantes.</p><button onClick={() => void loadMatches(sessionId)}>Tentar novamente</button></div> : null}
-          {!loading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? 'Vamos tentar outro título' : 'O próximo sim está por vir'}</span><h3>{q.trim() ? 'Esse filme não está na seleção.' : 'Ainda não deu match.'}</h3><p>{q.trim() ? 'Busque outro título ou veja todos os filmes aprovados pelo grupo.' : 'Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.'}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? 'Limpar busca' : 'Continuar votando'}</CinemaButton></div> : null}
-          {!loading && sessionId && featured ? <>
+          {!pageLoading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? 'Vamos tentar outro título' : 'O próximo sim está por vir'}</span><h3>{q.trim() ? 'Esse filme não está na seleção.' : items.length && !pending.length ? 'Você já viu todos esses filmes.' : 'Ainda não deu match.'}</h3><p>{q.trim() ? 'Busque outro título ou veja todos os filmes aprovados pelo grupo.' : items.length && !pending.length ? 'Suas histórias estão em Meus assistidos. Continue votando para descobrir novas opções.' : 'Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.'}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? 'Limpar busca' : 'Continuar votando'}</CinemaButton></div> : null}
+          {!pageLoading && sessionId && featured ? <>
             <article className="matches-spotlight matches-coverflow">
               <p className="matches-carousel-intro"><ArrowLeftRight size={14} aria-hidden="true" />{visible.length > 1 ? 'Deslize pelos filmes que conquistaram o grupo' : 'O filme que conquistou o grupo'}</p>
               <CoverflowCarousel
@@ -385,7 +415,8 @@ export default function Matches() {
         </section>
         <footer className="matches-footer"><Clapperboard size={19} aria-hidden="true" /><p>Menos tempo escolhendo. Mais tempo assistindo juntos.</p><Link to={`/s/${code}`}>Continuar descobrindo <ArrowUpRight size={15} aria-hidden="true" /></Link></footer>
       </div>
-      {modal ? <MatchDetailsDialog key={modal.item.movie_id} item={modal.item} details={modal.details} loading={loadingDetails} region={watchRegion} onClose={closeDetails} /> : null}
+      {modal ? <MatchDetailsDialog key={modal.item.movie_id} item={modal.item} details={modal.details} loading={loadingDetails} region={watchRegion} onClose={closeDetails} onMarkWatched={modal.item.tmdb_id != null ? () => void markWatched(modal.item) : undefined} onReviews={() => openReviews(modal.item)} markingWatched={markingWatched} watchedError={watchedError} /> : null}
+      {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
     </main>
   )
 }

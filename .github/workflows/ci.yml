@@ -49,4 +49,5 @@ jobs:
         run: |
           pnpm test:browser
           node --test tests/matches.browser.mjs
+          node --test tests/movieLibrary.browser.mjs
           node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/matchProviders.test.ts

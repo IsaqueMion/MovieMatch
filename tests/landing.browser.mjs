@@ -71,7 +71,7 @@ async function context(options = {}) {
   return { ctx, page, state }
 }
 
-for (const width of [390, 768, 1440]) {
+for (const width of [320, 390, 768, 1440]) {
   test('home em ' + width + 'px: layout, fontes locais e pôsteres distintos, sem autenticação', async () => {
     const { ctx, page, state } = await context({ viewport: { width, height: 1000 } })
     try {
@@ -258,9 +258,9 @@ test('novos controles permitem curtir, desfazer e recusar; foco e movimento redu
     await page.goto(baseUrl)
     await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
     await page.waitForURL('**/s/DEMO01')
-    const like = page.getByRole('button', { name: 'Like', exact: true })
+    const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
     const undo = page.getByRole('button', { name: 'Desfazer', exact: true })
-    const dislike = page.getByRole('button', { name: 'Dislike', exact: true })
+    const dislike = page.getByRole('button', { name: 'Passo', exact: true })
     await like.waitFor()
     await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-like').disabled)
     assert.equal(await undo.isDisabled(), true)
@@ -463,7 +463,7 @@ for (const [width, height] of [[390, 844], [768, 1024], [1101, 884], [1440, 900]
       const errors = []
       page.on('pageerror', error => errors.push(error.message))
       await page.goto(sessionUrl.href)
-      await page.getByRole('button', { name: 'Like', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.swipe-poster-image')?.classList.contains('is-ready'))
       await page.evaluate(() => document.fonts.ready)
       const layout = await page.evaluate(() => {
@@ -486,34 +486,43 @@ for (const [width, height] of [[390, 844], [768, 1024], [1101, 884], [1440, 900]
   })
 }
 
-test('abas do filme não votam; o trailer só carrega quando aberto e para ao sair', async () => {
+test('pôster, trailer e sinopse usam clique/Tab; as setas votam mesmo com foco nesses botões', async () => {
   const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await ctx.route(/\/functions\/v1\/movie_details/, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tmdb_id: 157336, title: 'Interestelar', year: 2014, runtime: 169, vote_average: 8.6, genres: [{ id: 878, name: 'Ficção científica' }], age_rating: '12', trailer: { key: 'fixture' }, overview: 'Uma viagem além das estrelas. '.repeat(80) }) }))
   await ctx.route(/youtube\.com\/embed/, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><button>Reproduzir</button>' }))
   try {
     await page.goto(sessionUrl.href)
-    const poster = page.getByRole('tab', { name: 'Pôster' })
-    const trailer = page.getByRole('tab', { name: 'Trailer' })
+    const poster = page.getByRole('button', { name: 'Pôster', exact: true })
+    const trailer = page.getByRole('button', { name: 'Trailer', exact: true })
     await trailer.waitFor()
     const title = await page.locator('.swipe-film-title').innerText()
-    assert.equal(await page.locator('.swipe-carousel iframe').count(), 0, await page.locator('iframe').evaluateAll(frames => frames.map(frame => frame.src).join(', ')))
-    await poster.focus()
-    await page.keyboard.press('ArrowRight')
+    assert.equal(await page.locator('.swipe-carousel iframe').count(), 0)
+    await trailer.click()
     await page.locator('.swipe-carousel iframe').waitFor()
     assert.equal(await page.locator('.swipe-carousel iframe').getAttribute('title'), `Trailer de ${title}`)
-    assert.equal(await trailer.getAttribute('aria-selected'), 'true')
     assert.equal(state.reactions.length, 0)
-    await page.keyboard.press('ArrowRight')
-    await page.getByRole('tab', { name: 'Sinopse' }).waitFor()
+    await page.keyboard.press('Tab')
+    assert.equal(await page.getByRole('button', { name: 'Sinopse', exact: true }).evaluate(el => el === document.activeElement), true)
+    await page.keyboard.press('Enter')
     await page.locator('.swipe-carousel iframe').waitFor({ state: 'detached' })
-    assert.equal(state.reactions.length, 0)
-    const synopsis = page.getByRole('tabpanel').getByLabel('Sinopse do filme')
+    const synopsis = page.getByRole('region', { name: 'Sinopse', exact: true }).getByLabel('Sinopse do filme')
     await synopsis.focus()
     await page.keyboard.press('ArrowDown')
     assert.equal(state.reactions.length, 0)
     assert.ok(await synopsis.evaluate(element => element.scrollHeight > element.clientHeight))
-    await poster.click()
-    assert.equal(await page.getByRole('tabpanel').count(), 1)
+    await page.getByRole('button', { name: 'Sinopse', exact: true }).focus()
+    await page.keyboard.press('ArrowRight')
+    await page.getByRole('button', { name: 'Desfazer', exact: true }).waitFor({ state: 'visible' })
+    await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-undo')?.disabled)
+    assert.equal(state.reactions.length, 1)
+    assert.equal(state.reactions[0].value, 1)
+    await page.keyboard.press('Backspace')
+    await page.waitForFunction(expected => document.querySelector('.swipe-film-title')?.innerText === expected && document.querySelector('.is-undo').disabled, title)
+    await poster.focus()
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-undo')?.disabled)
+    assert.equal(state.reactions.length, 2)
+    assert.equal(state.reactions[1].value, -1)
   } finally { await ctx.close() }
 })
 
@@ -542,7 +551,7 @@ test('tutorial de três etapas bloqueia atalhos, lembra conclusão e permite rea
     await dialog.waitFor({ state: 'detached' })
     assert.equal(await page.evaluate(() => localStorage.getItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222')), '1')
     await page.reload()
-    await page.getByRole('button', { name: 'Like', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
     assert.equal(await dialog.count(), 0)
     const help = page.getByRole('button', { name: 'Abrir tutorial de votação' })
     await help.click()
@@ -559,7 +568,7 @@ test('Dock amplia os controles com mouse e mantém tamanhos estáveis no toque e
     const { ctx, page } = await context({ viewport: { width: touch ? 390 : 1440, height: 900 }, hasTouch: touch, isMobile: touch })
     try {
       await page.goto(sessionUrl.href)
-      const like = page.getByRole('button', { name: 'Like', exact: true })
+      const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
       await like.waitFor()
       const control = like.locator('..')
       await like.hover()
@@ -622,7 +631,7 @@ test('arrastar o pôster salva um único voto e permite desfazer', async () => {
   const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   try {
     await page.goto(sessionUrl.href)
-    const like = page.getByRole('button', { name: 'Like', exact: true })
+    const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
     await like.waitFor()
     await page.waitForFunction(() => !document.querySelector('.is-like').disabled)
     const title = await page.locator('.swipe-film-title').innerText()
@@ -645,9 +654,9 @@ test('o match usa o novo diálogo, contém o foco e devolve a votação ao fecha
   await ctx.route(/\/rpc\/check_session_match/, route => route.fulfill({ contentType: 'application/json', body: '[{"is_match":true,"member_count":2,"like_count":2}]' }))
   try {
     await page.goto(sessionUrl.href)
-    await page.getByRole('button', { name: 'Like', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
     await page.waitForFunction(() => !document.querySelector('.is-like').disabled)
-    await page.getByRole('button', { name: 'Like', exact: true }).click()
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Deu match.' })
     await dialog.waitFor()
     assert.equal(state.reactions.length, 1)

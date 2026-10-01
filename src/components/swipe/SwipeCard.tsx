@@ -45,6 +45,7 @@ type SwipeCardProps = {
   onDecision: (value: 1 | -1) => void
   fitPoster?: boolean
   edgeToEdgePoster?: boolean
+  onReviews?: () => void
 }
 
 const INTERACTIVE_SELECTOR =
@@ -59,6 +60,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
       onDecision,
       fitPoster = false,
       edgeToEdgePoster = false,
+      onReviews,
     },
     ref,
   ) {
@@ -200,6 +202,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               details={details}
               fullHeight
               edgeToEdge={edgeToEdgePoster}
+              onReviews={onReviews}
             />
           </div></div>
 

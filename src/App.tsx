@@ -21,6 +21,7 @@ const Swipe = lazy(
 const Matches = lazy(
   () => import('./pages/Matches'),
 )
+const Watched = lazy(() => import('./pages/Watched'))
 
 function RouteLoading() {
   return (
@@ -56,6 +57,8 @@ export default function App() {
             path="/s/:code/matches"
             element={<Matches />}
           />
+          <Route path="/assistidos" element={<Watched />} />
+          <Route path="/s/:code/assistidos" element={<Watched />} />
           <Route
             path="*"
             element={<NotFound />}

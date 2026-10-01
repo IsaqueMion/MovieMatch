@@ -206,7 +206,7 @@ export default function Landing() {
       </main>
 
       <footer className="cinema-footer cinema-container">
-        <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label="Informações do site"><a href="/privacy.html">Privacidade</a><a href="/terms.html">Termos</a><a href="/ads.html">Publicidade</a></nav></div>
+        <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label="Informações do site"><a href="/assistidos">Meus assistidos</a><a href="/privacy.html">Privacidade</a><a href="/terms.html">Termos</a><a href="/ads.html">Publicidade</a></nav></div>
         <div className="cinema-footer-bottom"><span>Feito para decidir juntos.</span><p>Este produto usa a API do <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>, mas não é endossado ou certificado pelo TMDB.</p></div>
       </footer>
     </div>

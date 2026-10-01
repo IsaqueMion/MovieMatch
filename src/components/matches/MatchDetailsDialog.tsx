@@ -11,9 +11,13 @@ type Props = {
   loading: boolean
   region: string
   onClose: () => void
+  onMarkWatched?: () => void
+  onReviews?: () => void
+  markingWatched?: boolean
+  watchedError?: string
 }
 
-export default function MatchDetailsDialog({ item, details, loading, region, onClose }: Props) {
+export default function MatchDetailsDialog({ item, details, loading, region, onClose, onMarkWatched, onReviews, markingWatched = false, watchedError }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = dialogRef.current
@@ -33,7 +37,7 @@ export default function MatchDetailsDialog({ item, details, loading, region, onC
 
   return (
     <dialog ref={dialogRef} className="matches-dialog" aria-labelledby="match-detail-title"
-      onCancel={event => { event.preventDefault(); onClose() }}
+      onCancel={event => { event.preventDefault(); if (!markingWatched) onClose() }}
       onKeyDown={event => {
         if (event.key !== 'Tab') return
         const elements = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], iframe, [tabindex="0"]')].filter(element => element.getClientRects().length > 0)
@@ -43,11 +47,11 @@ export default function MatchDetailsDialog({ item, details, loading, region, onC
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
       }}
       onClick={event => {
-        if (event.target !== event.currentTarget) return
+        if (markingWatched || event.target !== event.currentTarget) return
         const bounds = event.currentTarget.getBoundingClientRect()
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose()
       }}>
-      <div className="matches-dialog-header"><span className="cinema-eyebrow"><Check size={14} aria-hidden="true" />Escolha do grupo</span><button className="matches-icon-button" onClick={onClose} aria-label="Fechar detalhes" autoFocus><X size={20} aria-hidden="true" /></button></div>
+      <div className="matches-dialog-header"><span className="cinema-eyebrow"><Check size={14} aria-hidden="true" />Escolha do grupo</span><button className="matches-icon-button" onClick={onClose} disabled={markingWatched} aria-label="Fechar detalhes" autoFocus><X size={20} aria-hidden="true" /></button></div>
       <div className="matches-dialog-content">
         <MatchPoster title={item.title} poster={item.poster_url} priority />
         <div className="matches-dialog-copy">
@@ -62,6 +66,7 @@ export default function MatchDetailsDialog({ item, details, loading, region, onC
           </div>
           {details?.genres?.length ? <p className="matches-genres">{details.genres.map(genre => genre.name).join(' · ')}</p> : null}
           <p className="matches-synopsis">{loading ? 'Preparando os detalhes do seu próximo filme.' : details?.overview || 'A sinopse não está disponível agora. Você pode consultar mais informações no TMDB.'}</p>
+          {onMarkWatched ? <section className="matches-after-play" aria-label="Depois do play"><p>Já viu esse filme? Marque para guardá-lo nos seus assistidos. Ele sai apenas da sua lista de matches.</p><div><CinemaButton compact direction="right" onClick={onMarkWatched} disabled={markingWatched}>{markingWatched ? 'Marcando…' : 'Já assisti'}</CinemaButton>{onReviews ? <button type="button" className="library-text-button" onClick={onReviews} disabled={markingWatched}>Ver avaliações</button> : null}</div>{watchedError ? <p role="alert">{watchedError}</p> : null}</section> : null}
           <section className="matches-watch" aria-label="Onde assistir">
             <h3>Onde assistir <span>{region}</span></h3>
             {providers.length ? <div className="matches-providers">{providers.map(provider => {
@@ -75,7 +80,7 @@ export default function MatchDetailsDialog({ item, details, loading, region, onC
         </div>
       </div>
       {trailer ? <section className="matches-trailer"><h3><Play size={17} aria-hidden="true" />Uma prévia antes do play</h3><div><iframe src={`https://www.youtube.com/embed/${encodeURIComponent(trailer)}?playsinline=1&rel=0`} title={`Trailer de ${item.title}`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen loading="lazy" /></div></section> : null}
-      <div className="matches-dialog-footer"><CinemaButton direction="right" tone="secondary" compact onClick={onClose}>Voltar à seleção</CinemaButton></div>
+      <div className="matches-dialog-footer"><CinemaButton direction="right" tone="secondary" compact onClick={onClose} disabled={markingWatched}>Voltar à seleção</CinemaButton></div>
     </dialog>
   )
 }
