@@ -4,6 +4,7 @@ import {
 } from 'react'
 import {
   BrowserRouter,
+  Navigate,
   Route,
   Routes,
 } from 'react-router-dom'
@@ -24,7 +25,6 @@ const Matches = lazy(
 const Watched = lazy(() => import('./pages/Watched'))
 const Account = lazy(() => import('./pages/Account'))
 const Profile = lazy(() => import('./pages/Profile'))
-const SavedRooms = lazy(() => import('./pages/SavedRooms'))
 
 function RouteLoading() {
   return (
@@ -65,7 +65,7 @@ export default function App() {
           <Route path="/conta" element={<Account />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/p/:handle" element={<Profile />} />
-          <Route path="/salas" element={<SavedRooms />} />
+          <Route path="/salas" element={<Navigate to="/#minhas-salas" replace />} />
           <Route
             path="*"
             element={<NotFound />}

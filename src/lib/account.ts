@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import type { LibraryMovie } from './movieLibrary'
 
 export const hasAccount = (user: User | null | undefined) => Boolean(user && !user.is_anonymous && user.email_confirmed_at)
-export const safeReturnTo = (path: string | null) => path && /^\/(?:s\/[A-Z0-9]{6}(?:\/(?:matches|assistidos))?|assistidos|salas|perfil)$/.test(path) ? path : '/salas'
+export const safeReturnTo = (path: string | null) => path && /^\/(?:s\/[A-Z0-9]{6}(?:\/(?:matches|assistidos))?|assistidos|perfil)?$/.test(path) ? path : '/'
 export const accountHref = () => `/conta?voltar=${encodeURIComponent(safeReturnTo(window.location.pathname))}`
 export async function requireAccount() {
   const { data: { session }, error } = await supabase.auth.getSession()

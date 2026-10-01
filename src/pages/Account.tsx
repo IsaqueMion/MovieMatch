@@ -34,7 +34,7 @@ export default function Account() {
   }, [])
   async function continueToRoom() {
     setBusy(true); setError('')
-    try { await claimGuestTransfer(); window.location.replace(returnTo) }
+    try { await claimGuestTransfer(); window.location.replace('/') }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível retomar seu histórico.'); setBusy(false) }
   }
   async function submit(event: FormEvent) {
@@ -56,7 +56,7 @@ export default function Account() {
           : await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (result.error) throw result.error
         setPassword('')
-        if (hasAccount(result.data.user) && result.data.session) { await claimGuestTransfer(); window.location.replace(returnTo); return }
+        if (hasAccount(result.data.user) && result.data.session) { await claimGuestTransfer(); window.location.replace('/'); return }
         setMessage('Confira seu e-mail para confirmar a conta. Depois entre nesta mesma aba para preservar o histórico de visitante.')
       }
     } catch (cause) {
@@ -75,7 +75,7 @@ export default function Account() {
         <div className="account-story-copy"><p className="cinema-eyebrow">O próximo filme. A escolha de todos.</p><p className="account-story-title">O play acaba.<br /><span>A conversa continua.</span></p><p>Guarde as sessões que renderam, os filmes que ficaram e a sua opinião depois dos créditos.</p><span className="account-story-signature">Seu lugar na próxima sessão.</span></div>
       </aside>
       <section className="account-entry-panel">
-        <Link className="account-guest-link" to={returnTo === '/salas' ? '/' : returnTo}><ArrowLeft size={16} aria-hidden="true" />Continuar sem cadastro</Link>
+        <Link className="account-guest-link" to={returnTo}><ArrowLeft size={16} aria-hidden="true" />Continuar sem cadastro</Link>
         <div className="account-form">
           <Link className="cinema-brand account-mobile-brand" to="/"><Clapperboard size={24} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></Link>
           <p className="cinema-eyebrow">{mode === 'signup' ? 'Crie sua conta' : mode === 'reset' || mode === 'password' ? 'Recuperar acesso' : 'Bem-vindo ao MovieMatch'}</p>
@@ -85,7 +85,7 @@ export default function Account() {
             <button type="button" aria-pressed={mode === 'signup'} disabled={busy} onClick={() => changeMode('signup')}>Criar conta</button>
           </div> : null}
       {error || account.error ? <p className="account-auth-error" role="alert">{error || account.error}</p> : null}{message ? <p className="account-auth-message" role="status">{message}</p> : null}
-      {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>Continuar</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm('Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.')) { discardGuestTransfer(); window.location.replace(returnTo) } }}>Continuar apenas com o histórico da conta</button> : null}<Link to="/perfil">Personalizar meu perfil</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>Este link não está ativo. <button onClick={() => changeMode('reset')}>Solicitar novo link de recuperação</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? 'Criar conta' : mode === 'login' ? 'Entrar' : 'Recuperar senha'}>
+      {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>Continuar para o início</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm('Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.')) { discardGuestTransfer(); window.location.replace('/') } }}>Continuar apenas com o histórico da conta</button> : null}<Link to="/perfil">Personalizar meu perfil</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>Este link não está ativo. <button onClick={() => changeMode('reset')}>Solicitar novo link de recuperação</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? 'Criar conta' : mode === 'login' ? 'Entrar' : 'Recuperar senha'}>
         {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">E-mail</label><div className="account-input-group"><AtSign size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
         {mode !== 'reset' ? <div className="account-field"><div className="account-label-row"><label htmlFor="account-password">Senha</label>{mode === 'login' ? <button type="button" disabled={busy} onClick={() => changeMode('reset')}>Esqueci minha senha</button> : null}</div><div className="account-input-group"><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 8 caracteres'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} /><button className="account-password-toggle" type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode !== 'login' ? <small id="account-password-hint">Use pelo menos 8 caracteres.</small> : null}</div> : null}
         <CinemaButton type="submit" disabled={busy || account.loading}>{busy ? 'Aguarde…' : mode === 'signup' ? 'Criar conta' : mode === 'reset' ? 'Enviar link' : mode === 'password' ? 'Salvar senha' : 'Entrar'}</CinemaButton>

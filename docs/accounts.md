@@ -3,11 +3,13 @@
 Visitantes continuam criando salas, entrando por código, votando e marcando assistidos. Uma conta com e-mail confirmado habilita salvar salas, publicar avaliações e votar nas opiniões da comunidade.
 
 - `/conta`: entrada e recuperação de senha. `/conta?modo=cadastro` abre o cadastro diretamente; o parâmetro `voltar` é preservado entre formulários.
-- `/salas`: salas pessoais salvas. Uma sala permanece sem expiração enquanto alguém a mantiver salva; depois da última remoção, expira em 24 horas.
+- `/#minhas-salas`: seção pessoal da home, visível apenas para contas, com salas salvas e ação para retomar. `/salas` redireciona para essa seção. Uma sala permanece sem expiração enquanto alguém a mantiver salva; depois da última remoção, expira em 24 horas.
 - `/perfil`: foto, capa, nome público, endereço, bio, até cinco gêneros e quatro filmes favoritos.
 - `/p/:handle`: perfil público, com controles para ocultar o perfil, favoritos e a seção de avaliações. Avaliações publicadas continuam públicas no filme; histórico e salas não são publicados. Imagens enviadas são públicas por URL.
 
 O visitante recebe um comprovante privado de uso único, válido por 24 horas, antes da troca de identidade. Ao entrar em uma conta confirmada na mesma aba, seus votos, participação e assistidos são transferidos em uma transação. Em filmes repetidos, prevalece o histórico existente da conta; avaliações antigas do visitante são preservadas. A transferência não concede privilégios premium ou autorização para conteúdo adulto.
+
+Após entrar e concluir a transferência, a navegação sempre termina na home (`/`). O parâmetro `voltar` orienta somente a ação de continuar como visitante. A home mantém criar sessão e entrar por código para ambos os públicos; visitantes não consultam perfis/salas nem criam uma identidade anônima antes de agir.
 
 Fotos são convertidas para WebP no navegador, sem metadados, limitadas a 512 px para avatar e 1600 px para capa. As políticas de Storage e do banco verificam propriedade; nome e autor de avaliações são definidos no servidor. Nenhum e-mail ou ID privado de autenticação aparece no perfil público.
 
@@ -28,6 +30,8 @@ Entrada e cadastro adaptam a composição do [Efferd auth-2](https://legacy.effe
 
 ## Validação
 
-Lint, build e 92 testes de lógica/navegador passaram sobre o conjunto exato de arquivos destinado ao preview, com APIs simuladas nos testes de interface. Três scripts SQL transacionais verificaram histórico, votos, propriedade, restrição de visitantes, persistência de salas e privacidade; todos os dados de teste foram revertidos. As rotas de conta/perfil são `noindex`, inclusive antes do JavaScript. A busca de favoritos é a Edge Function `search_movies`, autenticada e restrita a contas confirmadas.
+A navegação da home adapta o [Origin UI navbar3](https://github.com/wundercorp/awesome-components/tree/main/components/o/originui/navigation-menu-4/navbar3); o menu do avatar usa como referência o [Kokonut profile-dropdown](https://github.com/wundercorp/awesome-components/tree/main/components/k/kokonutd/profile-dropdown/default). As ações levam ao perfil, edição, assistidos, salas na home e saída da conta. O menu de perfil suporta teclado, Escape e clique fora; o menu móvel usa `details` nativo. Nenhuma dependência nova foi adicionada.
+
+Lint, build e 98 testes de lógica/navegador passaram sobre o conjunto exato de arquivos destinado ao preview, com APIs simuladas nos testes de interface. Três scripts SQL transacionais verificaram histórico, votos, propriedade, restrição de visitantes, persistência de salas e privacidade; todos os dados de teste foram revertidos. As rotas de conta/perfil são `noindex`, inclusive antes do JavaScript. A busca de favoritos é a Edge Function `search_movies`, autenticada e restrita a contas confirmadas.
 
 Os avisos do Supabase para RPCs com `SECURITY DEFINER` são intencionais nesta API, com `search_path` fixo e verificações explícitas de acesso. Permanecem as tarefas anteriores de atualização do Postgres e revisão de proteção contra senhas vazadas. A conferência administrativa de e-mail acima é o requisito externo ainda pendente.

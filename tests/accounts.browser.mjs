@@ -17,13 +17,13 @@ before(async()=>{
 })
 after(async()=>{await browser?.close();server?.kill()})
 const uid='cccccccc-cccc-4ccc-8ccc-cccccccccccc',pid='dddddddd-dddd-4ddd-8ddd-dddddddddddd'
-const makeUser=(guest=false)=>({id:uid,aud:'authenticated',role:'authenticated',is_anonymous:guest,email_confirmed_at:guest?undefined:'2026-10-01T12:00:00Z',app_metadata:{},user_metadata:{}})
+const makeUser=(guest=false)=>({id:uid,aud:'authenticated',role:'authenticated',is_anonymous:guest,email:guest?undefined:'luna@example.test',email_confirmed_at:guest?undefined:'2026-10-01T12:00:00Z',app_metadata:{},user_metadata:{}})
 const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:uid,aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture'
 const session=user=>({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user})
 async function fixture({path='/perfil',width=390,guest=false,loggedIn=true,privateProfile=false}={}){
   const context=await browser.newContext({viewport:{width,height:900},serviceWorkers:'block'})
   const state={user:makeUser(guest),profile:{id:pid,handle:'luna',display_name:'Luna',bio:'Histórias que ficam.',genres:[878],avatar_path:null,cover_path:null,is_public:!privateProfile,show_favorites:true,show_reviews:true},favorites:[],rooms:[{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sexta do grupo',saved_at:'2026-10-01T12:00:00Z'}],requests:[],errors:[],fail:false}
-  if(loggedIn)await context.addInitScript(({value,key})=>localStorage.setItem(key,JSON.stringify(value)),{value:session(state.user),key:storageKey})
+  if(loggedIn)await context.addInitScript(({value,key})=>{if(!sessionStorage.getItem('fixture:account-seeded')){localStorage.setItem(key,JSON.stringify(value));sessionStorage.setItem('fixture:account-seeded','1')}},{value:session(state.user),key:storageKey})
   await context.route(/https:\/\/[^/]+\.supabase\.co\//,async route=>{
     const request=route.request(),u=new URL(request.url()),method=request.method(),body=request.headers()['content-type']?.includes('application/json')&&request.postData()?request.postDataJSON():null
     state.requests.push({path:u.pathname,method,body})
@@ -32,11 +32,11 @@ async function fixture({path='/perfil',width=390,guest=false,loggedIn=true,priva
     if(u.pathname.includes('/auth/v1/token')){if(state.fail)return error(400,'invalid_credentials');state.user=makeUser();result=session(state.user)}
     else if(u.pathname.includes('/auth/v1/signup'))result={user:{...makeUser(),email_confirmed_at:undefined},session:null}
     else if(u.pathname.includes('/auth/v1/user'))result=state.user
-    else if(u.pathname.includes('/auth/v1/'))result={}
+    else if(u.pathname.includes('/auth/v1/')){if(state.fail&&u.pathname.includes('/logout'))return error();result={}}
     else if(u.pathname.includes('/rpc/prepare_guest_transfer'))result='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
     else if(u.pathname.includes('/rpc/claim_guest_transfer'))result=null
     else if(u.pathname.includes('/rpc/my_profile'))result=state.profile
-    else if(u.pathname.includes('/rpc/my_saved_sessions'))result=state.rooms
+    else if(u.pathname.includes('/rpc/my_saved_sessions')){if(state.fail)return error();result=state.rooms}
     else if(u.pathname.includes('/rpc/profile_reviews'))result=[]
     else if(u.pathname.includes('/rest/v1/profiles')){
       if(method==='PATCH'){if(state.fail)return error();Object.assign(state.profile,body)}
@@ -45,7 +45,7 @@ async function fixture({path='/perfil',width=390,guest=false,loggedIn=true,priva
       if(method==='POST')state.favorites.push(body)
       if(method==='DELETE')state.favorites=state.favorites.filter(x=>x.slot!==Number(u.searchParams.get('slot')?.slice(3)))
       result=method==='POST'?body:method==='DELETE'?{slot:1}:state.favorites
-    }else if(u.pathname.includes('/rest/v1/saved_sessions')){state.rooms=[];result={session_id:'22222222-2222-4222-8222-222222222222'}}
+    }else if(u.pathname.includes('/rest/v1/saved_sessions')){if(state.fail)return error();state.rooms=[];result={session_id:'22222222-2222-4222-8222-222222222222'}}
     else if(u.pathname.includes('/functions/v1/search_movies'))result={movies:[{tmdb_id:157336,title:'Interestelar',year:2014,poster_url:'https://image.tmdb.org/t/p/w342/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg'}]}
     else if(u.pathname.includes('/storage/v1/object')){if(state.fail)return error();result={Key:u.pathname.split('/object/')[1]}}
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)})
@@ -55,13 +55,13 @@ async function fixture({path='/perfil',width=390,guest=false,loggedIn=true,priva
   return {context,page,state}
 }
 
-test('login transfere visitante antes de retomar, e senha incorreta preserva a sessão',async()=>{
+test('login transfere visitante e volta ao início, mesmo com retorno antigo; senha incorreta preserva a sessão',async()=>{
   const {context,page,state}=await fixture({path:'/conta?voltar=%2Fsalas',guest:true})
   try{
     await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByLabel('Senha',{exact:true}).fill('correct-password')
     state.fail=true;await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.getByText('E-mail ou senha incorretos.').waitFor()
     assert.equal(state.requests.some(x=>x.path.includes('claim_guest_transfer')),false)
-    state.fail=false;await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL('**/salas')
+    state.fail=false;await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL(base+'/');await page.getByRole('heading',{name:'Continue de onde parou.'}).waitFor()
     assert.ok(state.requests.findIndex(x=>x.path.includes('prepare_guest_transfer'))<state.requests.findIndex(x=>x.path.includes('/auth/v1/token')))
     assert.equal(state.requests.filter(x=>x.path.includes('claim_guest_transfer')).length,1)
     assert.equal(await page.evaluate(()=>sessionStorage.getItem('mm:guest-transfer')),null)
@@ -136,7 +136,62 @@ for(const width of [320,390,768,1440])test(`perfil em ${width}px: personalizaç�
 })
 test('salas salvas e perfil privado apresentam estados corretos',async()=>{
   const {context,page,state}=await fixture({path:'/salas'})
-  try{await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();assert.match(await page.getByRole('link',{name:'Retomar'}).getAttribute('href'),/DEMO01/);await page.getByRole('button',{name:'Deixar de salvar'}).click();await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)}finally{await context.close()}
+  try{await page.waitForURL(base+'/#minhas-salas');await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();assert.match(await page.getByRole('link',{name:'Retomar'}).getAttribute('href'),/DEMO01/);await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)}finally{await context.close()}
   const hidden=await fixture({path:'/p/luna',loggedIn:false,privateProfile:true})
   try{await hidden.page.getByRole('heading',{name:'Perfil indisponível.'}).waitFor();assert.equal(hidden.state.requests.some(x=>x.path.includes('/auth/v1/')),false)}finally{await hidden.context.close()}
+})
+for(const width of [320,390,768,1440])test(`home em ${width}px: navegação de visitante e perfil com teclado, fora do menu e salas privadas`,async()=>{
+  const guest=await fixture({path:'/',width,loggedIn:false})
+  try{
+    await guest.page.locator('.home-navigation').waitFor();await guest.page.evaluate(()=>document.fonts.ready)
+    assert.equal(await guest.page.locator('#minhas-salas').count(),0)
+    assert.equal(guest.state.requests.some(x=>/auth\/v1|my_profile|my_saved_sessions/.test(x.path)),false)
+    await guest.page.locator('.home-header').getByRole('link',{name:'Entrar',exact:true}).waitFor()
+    assert.equal(await guest.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(width<1024){await guest.page.getByLabel('Menu de navegação',{exact:true}).click();await guest.page.getByRole('navigation',{name:'Navegação principal no celular'}).getByRole('link',{name:'Como funciona'}).waitFor();await guest.page.keyboard.press('Escape');assert.equal(await guest.page.locator('.home-nav-mobile').getAttribute('open'),null)}
+    if(process.env.VISUAL_CAPTURE_DIR)await guest.page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/home-guest-${width}.png`})
+    assert.deepEqual(guest.state.errors,[])
+  }finally{await guest.context.close()}
+  const {context,page,state}=await fixture({path:'/',width})
+  try{
+    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();await page.evaluate(()=>document.fonts.ready)
+    assert.equal(await page.locator('.home-header').getByRole('link',{name:'Entrar',exact:true}).count(),0)
+    assert.equal(await page.getByText('luna@example.test',{exact:true}).count(),0)
+    const trigger=page.getByRole('button',{name:'Abrir menu do perfil',exact:true});await trigger.click()
+    const menu=page.getByRole('menu',{name:'Menu do perfil'});await menu.getByText('Luna',{exact:true}).waitFor();await menu.getByText('luna@example.test',{exact:true}).waitFor()
+    assert.equal(await menu.getByRole('menuitem',{name:'Meu perfil',exact:true}).getAttribute('href'),'/p/luna')
+    await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Editar perfil')
+    await page.keyboard.press('End');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Sair da conta')
+    await page.keyboard.press('Escape');assert.equal(await trigger.getAttribute('aria-expanded'),'false');assert.equal(await trigger.evaluate(el=>el===document.activeElement),true)
+    await trigger.click();await page.mouse.click(5,110);assert.equal(await trigger.getAttribute('aria-expanded'),'false')
+    await trigger.click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    await menu.waitFor({state:'visible'})
+    if(process.env.VISUAL_CAPTURE_DIR){await page.waitForTimeout(220);await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/home-account-menu-${width}.png`})}
+    await menu.getByRole('menuitem',{name:'Minhas salas',exact:true}).click();await page.waitForURL(base+'/#minhas-salas');assert.equal(await page.locator('#minhas-salas').evaluate(el=>el.getBoundingClientRect().top<100),true)
+    assert.equal(state.requests.filter(x=>x.path.includes('/auth/v1/signup')).length,0)
+    assert.deepEqual(state.errors,[])
+  }finally{await context.close()}
+})
+test('sair da conta preserva estado em falha e remove salas e perfil após sucesso',async()=>{
+  const {context,page,state}=await fixture({path:'/'})
+  try{
+    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();await page.getByRole('button',{name:'Abrir menu do perfil'}).click()
+    state.fail=true;await page.getByRole('menuitem',{name:'Sair da conta',exact:true}).click();await page.getByText('Não foi possível sair. Tente novamente.').waitFor()
+    assert.equal(await page.locator('#minhas-salas').count(),1)
+    state.fail=false;await page.getByRole('menuitem',{name:'Sair da conta',exact:true}).click();await page.locator('.home-header').getByRole('link',{name:'Entrar',exact:true}).waitFor()
+    assert.equal(await page.locator('#minhas-salas').count(),0);assert.equal(await page.getByRole('button',{name:'Abrir menu do perfil'}).count(),0)
+    assert.equal(await page.evaluate(key=>localStorage.getItem(key),storageKey),null)
+    assert.deepEqual(state.errors,[])
+  }finally{await context.close()}
+})
+test('falha ao remover sala conserva os dados; confirmação pode ser cancelada',async()=>{
+  const {context,page,state}=await fixture({path:'/#minhas-salas'})
+  try{
+    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();await page.getByRole('button',{name:'Cancelar',exact:true}).click()
+    assert.equal(state.requests.filter(x=>x.method==='DELETE').length,0)
+    await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();state.fail=true;await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByRole('alert').filter({hasText:'Não foi possível remover.'}).waitFor()
+    assert.equal(state.rooms.length,1);await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor()
+    state.fail=false;await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)
+    assert.deepEqual(state.errors,[])
+  }finally{await context.close()}
 })

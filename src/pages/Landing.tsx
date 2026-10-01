@@ -8,6 +8,8 @@ import catalogue from '../data/landingMovies.json'
 import { selectLandingMovies } from '../lib/landingSelection'
 import CinemaButton from '../components/ui/cinema-button'
 const AccountMenu = lazy(() => import('../components/account/AccountMenu'))
+const HomeNavigation = lazy(() => import('../components/landing/HomeNavigation'))
+const HomeRooms = lazy(() => import('../components/landing/HomeRooms'))
 
 const FEATURED_KEY = 'mm:landing-featured:v1'
 
@@ -131,15 +133,15 @@ export default function Landing() {
   return (
     <div className="cinema-page">
       <a className="cinema-skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <header className="cinema-header cinema-container">
+      <header className="cinema-header cinema-container home-header">
         <a href="/" className="cinema-brand" aria-label="MovieMatch, página inicial">
           <span className="cinema-brand-mark"><Clapperboard size={22} aria-hidden="true" /></span>
           MovieMatch<span className="cinema-brand-dot">.</span>
         </a>
-        <nav aria-label="Navegação principal">
+        <Suspense fallback={<nav aria-label="Navegação principal">
           <a href="#como-funciona">Como funciona</a>
           <a href="#recursos">A experiência</a>
-        </nav>
+        </nav>}><HomeNavigation /></Suspense>
         <Suspense fallback={<a href="/conta">Entrar</a>}><AccountMenu /></Suspense>
         <CinemaButton compact tone="secondary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
           {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}
@@ -172,6 +174,8 @@ export default function Landing() {
             </span>
           </button>
         </ImageStreamHero>
+
+        <Suspense fallback={null}><HomeRooms /></Suspense>
 
         <section className="cinema-join cinema-container" aria-labelledby="join-title">
           <div><p className="cinema-eyebrow">JÁ FOI CONVIDADO?</p><h2 id="join-title">Seu grupo está esperando.</h2></div>

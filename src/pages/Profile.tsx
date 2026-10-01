@@ -61,13 +61,13 @@ export default function Profile() {
     const { handle, display_name, bio, genres, is_public, show_favorites, show_reviews } = profile
     const response = await supabase.from('profiles').update({ handle, display_name: display_name.trim(), bio: bio.trim(), genres, is_public, show_favorites, show_reviews }).eq('id', profile.id).select(profileFields).single()
     if (response.error) setError(response.error.code === '23505' ? 'Esse endereço de perfil já está em uso. Escolha outro.' : 'Não foi possível salvar. Seus textos continuam aqui.')
-    else { setProfile(response.data as ProfileData); setStatus('Perfil salvo.') }
+    else { setProfile(response.data as ProfileData); setStatus('Perfil salvo.'); window.dispatchEvent(new Event('moviematch:profile-changed')) }
     setBusy(false)
   }
   async function image(kind: 'avatar' | 'cover', file?: File) {
     if (!profile || !file || busy) return
     setBusy(true); setError(''); setStatus('')
-    try { const updated = await uploadProfileImage(profile, kind, file); setProfile(current => current ? { ...current, avatar_path: updated.avatar_path, cover_path: updated.cover_path } : updated); setStatus('Imagem atualizada.') }
+    try { const updated = await uploadProfileImage(profile, kind, file); setProfile(current => current ? { ...current, avatar_path: updated.avatar_path, cover_path: updated.cover_path } : updated); setStatus('Imagem atualizada.'); window.dispatchEvent(new Event('moviematch:profile-changed')) }
     catch (cause) { setError(cause instanceof Error && cause.message.startsWith('Use ') ? cause.message : 'Não foi possível enviar a imagem. A foto anterior foi preservada.') }
     finally { setBusy(false) }
   }
@@ -129,7 +129,7 @@ export default function Profile() {
       </form></section> : null}
       {editing || profile.show_favorites ? <section className="profile-section"><p className="cinema-eyebrow">Os que ficam com você</p><h2>Quatro favoritos.</h2><div className="profile-favorites">{favorites.map(movie => <figure key={movie.slot}><MatchPoster title={movie.title} poster={movie.poster_url} /><figcaption>{movie.title}{editing ? <button disabled={busy} onClick={() => void favorite(movie)} aria-label={`Remover ${movie.title} dos favoritos`}>Remover</button> : null}</figcaption></figure>)}</div>{!favorites.length ? <p>A seleção de favoritos ainda está começando.</p> : null}{editing ? <><form className="profile-search" onSubmit={search}><label>Buscar filme<input type="search" value={query} onChange={event => setQuery(event.target.value)} minLength={2} maxLength={80} placeholder="Título do filme" /></label><CinemaButton compact type="submit" disabled={searching || query.trim().length < 2}>{searching ? 'Buscando…' : 'Buscar'}</CinemaButton></form><p role="status">{searchError}</p><div className="profile-search-results">{results.map(movie => <button key={movie.tmdb_id} disabled={busy || favorites.some(row => row.tmdb_id === movie.tmdb_id)} onClick={() => void favorite(movie)}><MatchPoster title={movie.title} poster={movie.poster_url} /><span>{movie.title}<small>{movie.year} · {favorites.some(row => row.tmdb_id === movie.tmdb_id) ? 'Favorito' : 'Adicionar'}</small></span></button>)}</div><small>Filmes e imagens: <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>.</small></> : null}</section> : null}
       {editing || profile.show_reviews ? <section className="profile-section"><p className="cinema-eyebrow">Depois do play</p><h2>Os seus olhares.</h2>{reviews.map((review,index) => <article className="profile-review" key={`${review.tmdb_id}-${index}`}><MatchPoster title={review.title} poster={review.poster_url} /><div><h3>{review.title}</h3><span className="profile-rating"><Star size={16} fill="currentColor" aria-hidden="true" />{review.rating}/5</span><time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString('pt-BR')}</time>{review.contains_spoilers ? <details><summary>Comentário com spoilers</summary><p>{review.comment}</p></details> : <p>{review.comment || 'Avaliação sem comentário.'}</p>}</div></article>)}{!reviews.length ? <p>As avaliações publicadas aparecem aqui.</p> : null}{more ? <button disabled={busy} onClick={() => void moreReviews()}>Ver mais avaliações</button> : null}</section> : null}
-      {editing ? <footer className="profile-footer"><Link to="/assistidos">Meus assistidos</Link><Link to="/salas">Minhas salas</Link><button disabled={busy} onClick={() => void logout()}>Sair da conta neste aparelho</button></footer> : null}
+      {editing ? <footer className="profile-footer"><Link to="/assistidos">Meus assistidos</Link><a href="/#minhas-salas">Minhas salas</a><button disabled={busy} onClick={() => void logout()}>Sair da conta neste aparelho</button></footer> : null}
     </>}
   </main></div>
 }
