@@ -59,9 +59,9 @@ test('login transfere visitante antes de retomar, e senha incorreta preserva a s
   const {context,page,state}=await fixture({path:'/conta?voltar=%2Fsalas',guest:true})
   try{
     await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByLabel('Senha',{exact:true}).fill('correct-password')
-    state.fail=true;await page.getByRole('button',{name:'Entrar',exact:true}).click();await page.getByText('E-mail ou senha incorretos.').waitFor()
+    state.fail=true;await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.getByText('E-mail ou senha incorretos.').waitFor()
     assert.equal(state.requests.some(x=>x.path.includes('claim_guest_transfer')),false)
-    state.fail=false;await page.getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL('**/salas')
+    state.fail=false;await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL('**/salas')
     assert.ok(state.requests.findIndex(x=>x.path.includes('prepare_guest_transfer'))<state.requests.findIndex(x=>x.path.includes('/auth/v1/token')))
     assert.equal(state.requests.filter(x=>x.path.includes('claim_guest_transfer')).length,1)
     assert.equal(await page.evaluate(()=>sessionStorage.getItem('mm:guest-transfer')),null)
@@ -72,10 +72,48 @@ test('cadastro exige confirmação e nunca armazena senha; visitante continua se
   const {context,page,state}=await fixture({path:'/conta',loggedIn:false})
   try{
     await page.getByRole('button',{name:'Ainda não tenho conta'}).click();await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByLabel('Senha',{exact:true}).fill('new-password-123')
-    await page.getByRole('button',{name:'Criar conta',exact:true}).click();await page.getByText(/Confira seu e-mail/).waitFor()
+    await page.getByRole('form',{name:'Criar conta',exact:true}).getByRole('button',{name:'Criar conta',exact:true}).click();await page.getByText(/Confira seu e-mail/).waitFor()
     assert.equal(state.requests.some(x=>x.path.includes('signInAnonymously')),false)
     assert.equal(await page.evaluate(()=>Object.values({...localStorage,...sessionStorage}).some(value=>String(value).includes('new-password-123'))),false)
     await page.getByRole('link',{name:'Continuar sem cadastro'}).click();await page.waitForURL(base+'/')
+  }finally{await context.close()}
+})
+for(const width of [320,390,768,1440])test(`acesso em ${width}px: cadastro direto, teclado, senha e recuperação sem autenticação automática`,async()=>{
+  const {context,page,state}=await fixture({path:'/conta?modo=cadastro&voltar=%2Fs%2FDEMO01',loggedIn:false,width})
+  try{
+    await page.getByRole('heading',{name:'Seu cinema começa aqui.'}).waitFor();await page.evaluate(()=>document.fonts.ready)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    assert.equal(await page.locator('h1').count(),1)
+    assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/')),false)
+    await page.getByLabel('Senha',{exact:true}).fill('never-stored-password')
+    const toggle=page.getByRole('button',{name:'Mostrar senha',exact:true});await toggle.focus();await page.keyboard.press('Enter')
+    assert.equal(await page.getByLabel('Senha',{exact:true}).getAttribute('type'),'text')
+    await page.getByRole('button',{name:'Ocultar senha',exact:true}).click()
+    assert.equal(await page.getByLabel('Senha',{exact:true}).getAttribute('type'),'password')
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/auth-signup-${width}.png`,fullPage:true})
+    await page.getByRole('group',{name:'Acesso à conta'}).getByRole('button',{name:'Entrar',exact:true}).click()
+    assert.equal(await page.getByLabel('Senha',{exact:true}).inputValue(),'')
+    assert.equal(new URL(page.url()).searchParams.get('voltar'),'/s/DEMO01')
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/auth-login-${width}.png`,fullPage:true})
+    await page.getByRole('button',{name:'Esqueci minha senha',exact:true}).click()
+    await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByRole('button',{name:'Enviar link',exact:true}).click()
+    await page.getByRole('status').filter({hasText:'Se esse e-mail tiver uma conta'}).waitFor()
+    assert.equal(state.requests.filter(x=>x.path.includes('/auth/v1/recover')).length,1)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    await page.getByRole('button',{name:'Voltar para entrar'}).click();await page.getByRole('heading',{name:'A sessão continua.'}).waitFor()
+    await page.emulateMedia({reducedMotion:'reduce'})
+    assert.deepEqual(state.errors,[])
+  }finally{await context.close()}
+})
+test('link de recuperação expirado permite pedir novo e preserva o retorno',async()=>{
+  const {context,page,state}=await fixture({path:'/conta?recuperar=1&voltar=%2Fs%2FDEMO01',loggedIn:false})
+  try{
+    await page.getByText('Este link não está ativo.',{exact:false}).waitFor()
+    await page.getByRole('button',{name:'Solicitar novo link de recuperação'}).click()
+    await page.getByRole('heading',{name:'Vamos recuperar seu acesso.'}).waitFor()
+    assert.equal(new URL(page.url()).searchParams.get('recuperar'),null)
+    assert.equal(new URL(page.url()).searchParams.get('voltar'),'/s/DEMO01')
+    assert.deepEqual(state.errors,[])
   }finally{await context.close()}
 })
 for(const width of [320,390,768,1440])test(`perfil em ${width}px: personalização, privacidade, favoritos, upload e falha preservando foto`,async()=>{

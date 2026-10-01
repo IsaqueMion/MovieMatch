@@ -1,23 +1,32 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Clapperboard } from 'lucide-react'
+import { ArrowLeft, AtSign, Clapperboard, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { claimGuestTransfer, discardGuestTransfer, hasAccount, prepareGuestTransfer, safeReturnTo } from '../lib/account'
 import { useAccount } from '../hooks/useAccount'
 import { usePageMeta } from '../hooks/usePageMeta'
 import CinemaButton from '../components/ui/cinema-button'
+import FloatingPaths from '../components/account/FloatingPaths'
 import '../styles/account.css'
 
 export default function Account() {
   const account = useAccount()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const returnTo = safeReturnTo(params.get('voltar'))
-  const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'password'>(params.get('recuperar') ? 'password' : 'login')
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'password'>(params.get('recuperar') ? 'password' : params.get('modo') === 'cadastro' ? 'signup' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  function changeMode(next: typeof mode) {
+    setMode(next); setError(''); setMessage(''); setPassword(''); setShowPassword(false)
+    const search = new URLSearchParams(params)
+    search.delete('recuperar')
+    if (next === 'signup') search.set('modo', 'cadastro'); else search.delete('modo')
+    setParams(search, { replace: true })
+  }
   usePageMeta({ title: 'Sua conta — MovieMatch', description: 'Entre para salvar salas e compartilhar avaliações.', robots: 'noindex,nofollow,noarchive' })
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(event => { if (event === 'PASSWORD_RECOVERY') setMode('password') })
@@ -56,15 +65,35 @@ export default function Account() {
     } finally { setBusy(false) }
   }
   const signedIn = account.registered && mode !== 'password'
-  return <div className="cinema-page account-page"><header className="cinema-container account-header"><Link className="cinema-brand" to="/"><Clapperboard size={22} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></Link><Link to={returnTo === '/salas' ? '/' : returnTo}>Continuar sem cadastro</Link></header>
-    <main className="cinema-container account-auth" id="conteudo"><section><p className="cinema-eyebrow">Seu lugar na próxima sessão</p><h1>{signedIn ? 'Bom ter você de volta.' : mode === 'signup' ? 'O seu cinema.\nEm qualquer tela.' : mode === 'reset' || mode === 'password' ? 'Uma nova senha.' : 'A sessão continua.'}</h1><p>Salve as salas do seu grupo, monte sua seleção de favoritos e compartilhe o que ficou depois do play.</p><small>Criar sessões e votar continuam sem cadastro. Sua lista de assistidos é pessoal.</small></section>
-    <section className="account-form"><h2>{signedIn ? 'Sua conta está conectada.' : mode === 'signup' ? 'Criar conta' : mode === 'reset' ? 'Recuperar acesso' : mode === 'password' ? 'Definir senha' : 'Entrar'}</h2>
-      {error || account.error ? <p className="library-error" role="alert">{error || account.error}</p> : null}<p role="status">{message}</p>
-      {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>Continuar</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm('Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.')) { discardGuestTransfer(); window.location.replace(returnTo) } }}>Continuar apenas com o histórico da conta</button> : null}<Link to="/perfil">Personalizar meu perfil</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>Este link não está ativo. <button onClick={() => setMode('reset')}>Solicitar novo link de recuperação</button></p> : <form onSubmit={submit}>
-        {mode !== 'password' ? <label>E-mail<input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></label> : null}
-        {mode !== 'reset' ? <label>Senha<input aria-label="Senha" type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} required disabled={busy} />{mode !== 'login' ? <small>Use pelo menos 8 caracteres.</small> : null}</label> : null}
+  const heading = signedIn ? 'Bom ter você de volta.' : mode === 'signup' ? 'Seu cinema começa aqui.' : mode === 'reset' ? 'Vamos recuperar seu acesso.' : mode === 'password' ? 'Uma nova senha. Um novo começo.' : 'A sessão continua.'
+  const description = signedIn ? 'Sua conta está conectada. Retome a sessão ou deixe o perfil com a sua cara.' : mode === 'signup' ? 'Crie sua conta para guardar as salas e compartilhar o que achou de cada filme.' : mode === 'reset' ? 'Enviaremos um link para você escolher uma nova senha.' : mode === 'password' ? 'Escolha uma senha com pelo menos 8 caracteres.' : 'Entre para reencontrar suas salas, seus filmes e suas histórias.'
+  return <div className="cinema-page account-page account-entry">
+    <main className="account-auth" id="conteudo">
+      <aside className="account-story" aria-label="MovieMatch">
+        <Link className="cinema-brand" to="/"><Clapperboard size={24} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></Link>
+        <div className="account-paths"><FloatingPaths position={1} /><FloatingPaths position={-1} /></div>
+        <div className="account-story-copy"><p className="cinema-eyebrow">O próximo filme. A escolha de todos.</p><p className="account-story-title">O play acaba.<br /><span>A conversa continua.</span></p><p>Guarde as sessões que renderam, os filmes que ficaram e a sua opinião depois dos créditos.</p><span className="account-story-signature">Seu lugar na próxima sessão.</span></div>
+      </aside>
+      <section className="account-entry-panel">
+        <Link className="account-guest-link" to={returnTo === '/salas' ? '/' : returnTo}><ArrowLeft size={16} aria-hidden="true" />Continuar sem cadastro</Link>
+        <div className="account-form">
+          <Link className="cinema-brand account-mobile-brand" to="/"><Clapperboard size={24} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></Link>
+          <p className="cinema-eyebrow">{mode === 'signup' ? 'Crie sua conta' : mode === 'reset' || mode === 'password' ? 'Recuperar acesso' : 'Bem-vindo ao MovieMatch'}</p>
+          <h1>{heading}</h1><p className="account-form-description">{description}</p>
+          {!signedIn && (mode === 'login' || mode === 'signup') ? <div className="account-mode-switch" role="group" aria-label="Acesso à conta">
+            <button type="button" aria-pressed={mode === 'login'} disabled={busy} onClick={() => changeMode('login')}>Entrar</button>
+            <button type="button" aria-pressed={mode === 'signup'} disabled={busy} onClick={() => changeMode('signup')}>Criar conta</button>
+          </div> : null}
+      {error || account.error ? <p className="account-auth-error" role="alert">{error || account.error}</p> : null}{message ? <p className="account-auth-message" role="status">{message}</p> : null}
+      {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>Continuar</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm('Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.')) { discardGuestTransfer(); window.location.replace(returnTo) } }}>Continuar apenas com o histórico da conta</button> : null}<Link to="/perfil">Personalizar meu perfil</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>Este link não está ativo. <button onClick={() => changeMode('reset')}>Solicitar novo link de recuperação</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? 'Criar conta' : mode === 'login' ? 'Entrar' : 'Recuperar senha'}>
+        {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">E-mail</label><div className="account-input-group"><AtSign size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
+        {mode !== 'reset' ? <div className="account-field"><div className="account-label-row"><label htmlFor="account-password">Senha</label>{mode === 'login' ? <button type="button" disabled={busy} onClick={() => changeMode('reset')}>Esqueci minha senha</button> : null}</div><div className="account-input-group"><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 8 caracteres'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} /><button className="account-password-toggle" type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode !== 'login' ? <small id="account-password-hint">Use pelo menos 8 caracteres.</small> : null}</div> : null}
         <CinemaButton type="submit" disabled={busy || account.loading}>{busy ? 'Aguarde…' : mode === 'signup' ? 'Criar conta' : mode === 'reset' ? 'Enviar link' : mode === 'password' ? 'Salvar senha' : 'Entrar'}</CinemaButton>
-        {mode === 'login' ? <><button type="button" onClick={() => { setMode('signup'); setError(''); setMessage('') }}>Ainda não tenho conta</button><button type="button" onClick={() => { setMode('reset'); setError(''); setMessage('') }}>Esqueci minha senha</button></> : <button type="button" onClick={() => { setMode('login'); setError(''); setMessage('') }}>Voltar para entrar</button>}
+        {mode === 'login' ? <p className="account-switch-copy">Novo por aqui? <button type="button" disabled={busy} onClick={() => changeMode('signup')}>Ainda não tenho conta</button></p> : <p className="account-switch-copy"><button type="button" disabled={busy} onClick={() => changeMode('login')}>Voltar para entrar</button></p>}
       </form>}
-    </section></main></div>
+      <p className="account-legal">Criar salas e votar continuam sem cadastro.<br /><a href="/terms.html">Termos de uso</a><span aria-hidden="true"> · </span><a href="/privacy.html">Privacidade</a></p>
+        </div>
+      </section>
+    </main>
+  </div>
 }

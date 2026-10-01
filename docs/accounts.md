@@ -2,7 +2,7 @@
 
 Visitantes continuam criando salas, entrando por código, votando e marcando assistidos. Uma conta com e-mail confirmado habilita salvar salas, publicar avaliações e votar nas opiniões da comunidade.
 
-- `/conta`: cadastro, entrada e recuperação de senha.
+- `/conta`: entrada e recuperação de senha. `/conta?modo=cadastro` abre o cadastro diretamente; o parâmetro `voltar` é preservado entre formulários.
 - `/salas`: salas pessoais salvas. Uma sala permanece sem expiração enquanto alguém a mantiver salva; depois da última remoção, expira em 24 horas.
 - `/perfil`: foto, capa, nome público, endereço, bio, até cinco gêneros e quatro filmes favoritos.
 - `/p/:handle`: perfil público, com controles para ocultar o perfil, favoritos e a seção de avaliações. Avaliações publicadas continuam públicas no filme; histórico e salas não são publicados. Imagens enviadas são públicas por URL.
@@ -13,7 +13,7 @@ Fotos são convertidas para WebP no navegador, sem metadados, limitadas a 512 px
 
 ## Configuração de e-mail antes da publicação
 
-Cadastro por e-mail está habilitado no projeto, com confirmação obrigatória. O transporte de e-mails e a configuração administrativa de redirects não foram validados nesta entrega. Conferir no Supabase:
+Cadastro por e-mail está habilitado no projeto, com confirmação obrigatória. Em 01/10/2026, o proprietário confirmou que o SMTP personalizado está desabilitado. A entrega real de e-mails e a configuração administrativa de redirects ainda precisam ser validadas. Conferir no Supabase:
 
 1. Site URL: `https://moviematch-three.vercel.app`.
 2. Autorizar `https://moviematch-three.vercel.app/conta**` e o endereço específico do preview para confirmação e recuperação. Não liberar todos os domínios.
@@ -22,8 +22,12 @@ Cadastro por e-mail está habilitado no projeto, com confirmação obrigatória.
 
 Referências oficiais: [redirects](https://supabase.com/docs/guides/auth/redirect-urls), [SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [contas anônimas](https://supabase.com/docs/guides/auth/auth-anonymous).
 
+## Referência de interface
+
+Entrada e cadastro adaptam a composição do [Efferd auth-2](https://legacy.efferd.com/view/auth-2), com o [código do registry](https://legacy.efferd.com/r/auth-2.json): painel lateral com linhas animadas e formulário compacto. A marca, textos, campos e ações são do MovieMatch. `FloatingPaths` reutiliza `motion`, já instalado, com duração determinística e preferência por movimento reduzido. Botões e campos existentes substituem os exemplos de login social, mantendo e-mail/senha e sem alterar o tema global ou adicionar dependências.
+
 ## Validação
 
-Lint, build e 87 testes de lógica/navegador passaram sobre o conjunto exato de arquivos destinado ao preview. Três scripts SQL transacionais verificaram histórico, votos, propriedade, restrição de visitantes, persistência de salas e privacidade; todos os dados de teste foram revertidos. As rotas de conta/perfil são `noindex`, inclusive antes do JavaScript. A busca de favoritos é a Edge Function `search_movies`, autenticada e restrita a contas confirmadas.
+Lint, build e 92 testes de lógica/navegador passaram sobre o conjunto exato de arquivos destinado ao preview, com APIs simuladas nos testes de interface. Três scripts SQL transacionais verificaram histórico, votos, propriedade, restrição de visitantes, persistência de salas e privacidade; todos os dados de teste foram revertidos. As rotas de conta/perfil são `noindex`, inclusive antes do JavaScript. A busca de favoritos é a Edge Function `search_movies`, autenticada e restrita a contas confirmadas.
 
 Os avisos do Supabase para RPCs com `SECURITY DEFINER` são intencionais nesta API, com `search_path` fixo e verificações explícitas de acesso. Permanecem as tarefas anteriores de atualização do Postgres e revisão de proteção contra senhas vazadas. A conferência administrativa de e-mail acima é o requisito externo ainda pendente.
