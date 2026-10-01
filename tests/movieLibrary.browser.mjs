@@ -15,7 +15,7 @@ const movies = [
   { movie_id: 1, id: 1, tmdb_id: 157336, title: 'Interestelar', year: 2014, poster_url: '/demo/interstellar.jpg', likes: 2, member_count: 2, latest_at: '2026-10-01T10:00:00Z' },
   { movie_id: 2, id: 2, tmdb_id: 194, title: 'O Fabuloso Destino de Amélie Poulain', year: 2001, poster_url: '/demo/amelie.jpg', likes: 2, member_count: 2, latest_at: '2026-09-30T10:00:00Z' },
 ]
-const shared = () => ({ watches: [], reviews: [], counter: 0, failWatch: false, failReview: false, failList: false })
+const shared = () => ({ watches: [], reviews: [], votes: [], counter: 0, failWatch: false, failReview: false, failList: false, failVote: false })
 const watch = (state, uid = owner, movie = movies[0]) => {
   const row = { ...movie, id: `aaaaaaaa-aaaa-4aaa-8aaa-${String(++state.counter).padStart(12, '0')}`, user_id: uid, watched_at: '2026-10-01T12:00:00Z' }
   state.watches.push(row)
@@ -50,6 +50,18 @@ async function fixture({ state = shared(), uid = owner, width = 1440, path = '/s
     if (pathname.includes('/auth/v1/')) result = pathname.endsWith('/user') ? user : { access_token: token, token_type: 'bearer', expires_in: 3600, refresh_token: 'fixture', user }
     else if (pathname.includes('/rpc/join_session')) result = [{ id: '22222222-2222-4222-8222-222222222222', code: 'DEMO01' }]
     else if (pathname.includes('/rpc/list_session_matches')) result = movies
+    else if (pathname.includes('/rpc/is_demo_session')) result = !!state.demo
+    else if (pathname.includes('/rpc/movie_review_votes')) result = body.p_review_ids.map(id => ({ review_id: id, upvotes: state.votes.filter(v => v.review_id === id && v.value === 1).length, downvotes: state.votes.filter(v => v.review_id === id && v.value === -1).length, my_vote: state.votes.find(v => v.review_id === id && v.user_id === uid)?.value || 0 }))
+    else if (pathname.includes('/rest/v1/review_votes')) {
+      if (state.failVote) return fail()
+      const id = body?.review_id || endpoint.searchParams.get('review_id')?.slice(3)
+      if (req.method() === 'POST') {
+        if (state.votes.some(v => v.review_id === id && v.user_id === uid)) return fail(409, '23505')
+        state.votes.push(body)
+      } else if (req.method() === 'PATCH') {
+        state.votes = state.votes.map(v => v.review_id === id && v.user_id === uid ? { ...v, ...body } : v)
+      } else if (req.method() === 'DELETE') state.votes = state.votes.filter(v => v.review_id !== id || v.user_id !== uid)
+    }
     else if (pathname.includes('/rpc/touch_session_presence')) result = 2
     else if (/\/rpc\/(record_movie_reaction|undo_movie_reaction|list_my_recommendation_feedback)$/.test(pathname)) return fail(404, 'PGRST202')
     else if (pathname.includes('/rpc/check_session_match')) result = [{ is_match: false, member_count: 2, like_count: 1 }]
@@ -291,4 +303,87 @@ for (const width of [320, 390, 768, 1440]) test(`histórico e avaliações em ${
     await page.locator('.library-movie-card').waitFor()
     assert.deepEqual(errors, [])
   } finally { await ctx.close() }
+})
+
+test('estrelas douradas: prévia, animação, limpar e teclado sem registrar votos no filme', async () => {
+  const state=shared(), {ctx,page,reactions}=await fixture({state,width:390,path:'/s/DEMO01'})
+  try {
+    await page.getByRole('button',{name:'Avaliações dos usuários'}).click()
+    await page.getByRole('button',{name:'Já assisti',exact:true}).click()
+    const star=page.getByRole('radio',{name:'4 de 5 estrelas'})
+    await star.hover()
+    await page.waitForFunction(()=>document.querySelector('.peek-rating-tip')?.dataset.show==='true')
+    await page.waitForFunction(()=>getComputedStyle(document.querySelectorAll('.peek-rating-glyph')[3]).color==='rgb(245, 180, 0)')
+    assert.equal(await page.locator('.peek-rating-glyph').nth(3).evaluate(el=>getComputedStyle(el).color),'rgb(245, 180, 0)')
+    assert.equal(state.reviews.length,0)
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/gold-rating-hover-390.png'})
+    await star.click()
+    assert.equal(await star.getAttribute('aria-checked'),'true')
+    await star.click()
+    assert.equal(await star.getAttribute('aria-checked'),'false')
+    await star.focus();await page.keyboard.press('End')
+    assert.equal(await page.getByRole('radio',{name:'5 de 5 estrelas'}).getAttribute('aria-checked'),'true')
+    await page.keyboard.press('Backspace')
+    assert.equal(await page.getByRole('button',{name:'Salvar avaliação'}).isDisabled(),true)
+    await page.emulateMedia({reducedMotion:'reduce'});await star.hover()
+    assert.equal(await page.locator('.peek-rating-glyph').nth(3).evaluate(el=>el.parentElement.style.transform),'translateY(0px) scale(1)')
+    assert.equal(reactions.length,0)
+  }finally{await ctx.close()}
+})
+
+test('upvote/downvote: hover sem gravação, alternância, erro, persistência e voto próprio bloqueado',async()=>{
+  const state=shared(),row=watch(state,peer)
+  state.reviews.push({id:row.id,tmdb_id:157336,display_name:'Pessoa B',rating:4,comment:'Comentário de teste',contains_spoilers:false,created_at:'2026-10-01T12:00:00Z'})
+  const a=await fixture({state,width:390}),b=await fixture({state,uid:peer})
+  const open=async p=>{await p.getByRole('button',{name:'Explorar o filme'}).click();await p.getByRole('button',{name:'Ver avaliações',exact:true}).click();await p.locator('.library-public-review').waitFor()}
+  try{
+    await open(a.page)
+    const up=a.page.getByRole('button',{name:/^Upvote:/}),down=a.page.getByRole('button',{name:/^Downvote:/})
+    await a.page.mouse.move(0,0)
+    assert.equal(await a.page.locator('.review-vote-count').first().evaluate(el=>getComputedStyle(el).opacity),'0')
+    await up.hover();await delay(250)
+    assert.equal(await a.page.locator('.review-vote-count').first().evaluate(el=>getComputedStyle(el).opacity),'1')
+    assert.equal(state.votes.length,0)
+    await up.click();await a.page.getByText('Seu voto foi salvo.',{exact:true}).waitFor()
+    await a.page.waitForFunction(()=>document.querySelector('.is-up .review-vote-button').getAttribute('aria-busy')!=='true')
+    assert.equal(await up.getAttribute('aria-pressed'),'true');assert.equal(state.votes[0].value,1)
+    await a.page.waitForFunction(()=>getComputedStyle(document.querySelector('.is-up .review-vote-button')).color==='rgb(249, 115, 22)')
+    await a.page.locator('.review-vote-count strong').first().filter({hasText:'1'}).waitFor()
+    if(process.env.VISUAL_CAPTURE_DIR)await a.page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/review-upvote-390.png'})
+    await down.click();await a.page.waitForFunction(()=>document.querySelector('.is-down .review-vote-button').getAttribute('aria-pressed')==='true')
+    assert.equal(state.votes.length,1);assert.equal(state.votes[0].value,-1)
+    await a.page.waitForFunction(()=>getComputedStyle(document.querySelector('.is-down .review-vote-button')).color==='rgb(250, 151, 124)')
+    await a.page.waitForFunction(()=>!document.querySelector('.is-down .review-vote-button').disabled)
+    await down.click();await a.page.getByText('Voto removido.',{exact:true}).waitFor();assert.equal(state.votes.length,0)
+    state.failVote=true;await up.click();await a.page.getByRole('alert').filter({hasText:'Não foi possível salvar seu voto.'}).waitFor()
+    assert.equal(await up.getAttribute('aria-pressed'),'false');assert.equal(state.votes.length,0)
+    state.failVote=false;await up.click();await a.page.waitForFunction(()=>document.querySelector('.is-up .review-vote-button').getAttribute('aria-pressed')==='true')
+    await a.page.reload();await a.page.locator('.matches-selection[aria-busy="false"]').waitFor();await open(a.page)
+    assert.equal(await a.page.getByRole('button',{name:'Upvote: 1'}).getAttribute('aria-pressed'),'true')
+    await a.page.emulateMedia({reducedMotion:'reduce'})
+    await a.page.getByRole('button',{name:'Downvote: 0'}).focus()
+    await a.page.keyboard.press('Enter')
+    await a.page.waitForFunction(()=>document.querySelector('.is-down .review-vote-button').getAttribute('aria-pressed')==='true')
+    assert.equal(await a.page.locator('.review-vote-particle').count(),0)
+    assert.equal(await a.page.locator('.review-vote-ripple').count(),0)
+    await b.page.getByRole('link',{name:/Meus assistidos/}).click();await b.page.getByRole('button',{name:'Editar avaliação'}).click()
+    await b.page.locator('.library-public-review').waitFor()
+    assert.equal(await b.page.getByRole('button',{name:'Upvote: 1'}).isDisabled(),true)
+    assert.equal(await b.page.getByRole('button',{name:'Downvote: 0'}).isDisabled(),true)
+    assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[])
+  }finally{await a.ctx.close();await b.ctx.close()}
+})
+
+for(const width of [390,768,1440])test(`atalhos centralizados na ordem dos controles e sala de teste em ${width}px`,async()=>{
+  const state=shared();state.demo=true
+  const {ctx,page}=await fixture({state,width,path:'/s/DEMO01'})
+  try{
+    await page.emulateMedia({reducedMotion:'reduce'})
+    assert.deepEqual(await page.locator('.cinema-dock-shortcut kbd').allTextContents(),['←','⌫','→'])
+    const alignment=await page.locator('.cinema-dock-item').evaluateAll(items=>items.map(item=>{const b=item.querySelector('button').getBoundingClientRect(),l=item.querySelector('.cinema-dock-label').getBoundingClientRect();return Math.abs(b.left+b.width/2-l.left-l.width/2)}))
+    assert.ok(alignment.every(delta=>delta<1),JSON.stringify(alignment))
+    await page.getByText('Testes',{exact:true}).waitFor()
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/vote-shortcuts-${width}.png`})
+  }finally{await ctx.close()}
 })

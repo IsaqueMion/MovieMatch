@@ -17,9 +17,9 @@ export default function SwipeActionButtons({
 }: SwipeActionButtonsProps) {
   const previewProps = interactive ? {} : { tabIndex: -1, 'aria-hidden': true as const }
   const items: DockItemData[] = [
-    { id: 'dislike', icon: <XIcon />, label: 'Passo', onClick: onDislike, disabled: interactive && dislikeDisabled },
-    { id: 'undo', icon: <Undo2 />, label: 'Desfazer', onClick: onUndo, disabled: interactive && undoDisabled },
-    { id: 'like', icon: <><Heart className="empty" /><Heart className="filled" /></>, label: 'Quero assistir', onClick: onLike, disabled: interactive && likeDisabled },
+    { id: 'dislike', icon: <XIcon />, label: 'Passo', shortcut: '←', onClick: onDislike, disabled: interactive && dislikeDisabled },
+    { id: 'undo', icon: <Undo2 />, label: 'Desfazer', shortcut: '⌫', onClick: onUndo, disabled: interactive && undoDisabled },
+    { id: 'like', icon: <><Heart className="empty" /><Heart className="filled" /></>, label: 'Quero assistir', shortcut: '→', onClick: onLike, disabled: interactive && likeDisabled },
   ]
   const renderItem = (item: DockItemData) => <button type="button" className={`cinema-vote-button is-${item.id}`} onClick={item.onClick} disabled={item.disabled} aria-label={item.id === 'like' ? 'Quero assistir' : item.id === 'dislike' ? 'Passo' : 'Desfazer'} title={item.id === 'like' ? 'Quero assistir' : item.id === 'dislike' ? 'Não quero assistir' : 'Desfazer último voto'} {...previewProps}><span className="cinema-vote-icon" aria-hidden="true">{item.icon}</span></button>
   return (

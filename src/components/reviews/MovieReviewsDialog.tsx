@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, MessageSquare, Star, X } from 'lucide-react'
 import CinemaButton from '../ui/cinema-button'
 import MatchPoster from '../matches/MatchPoster'
+import PeekRating from '../ui/PeekRating'
+import ReviewVoteButton from '../ui/review-vote-button'
+import { emptyReviewVote, getReviewVotes, setReviewVote, type ReviewVote } from '../../lib/reviewVotes'
 import { trapDialogFocus } from '../../lib/dialogFocus'
 import { deleteMovieReview, getMovieReviewPage, getMovieReviewSummary, getMyWatchedMovie, markMovieWatched, saveMovieReview, type LibraryMovie, type MovieReview, type ReviewDraft, type WatchedMovie } from '../../lib/movieLibrary'
 import '../../styles/library.css'
@@ -27,6 +30,10 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [votes, setVotes] = useState<Record<string, ReviewVote>>({})
+  const [votesError, setVotesError] = useState('')
+  const [votingBusy, setVotingBusy] = useState<string | null>(null)
+  const votingRef = useRef(false)
   const cancelRequests = useCallback(() => { requestRef.current++ }, [])
 
   const load = useCallback(async () => {
@@ -34,10 +41,16 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
     setLoading(true)
     setLoadFailed(false)
     setMoreBusy(false)
+    setVotingBusy(null)
     setError('')
     try {
       const [mine, feed, average] = await Promise.all([getMyWatchedMovie(movie.tmdb_id), getMovieReviewPage(movie.tmdb_id), getMovieReviewSummary(movie.tmdb_id)])
+      let totals: ReviewVote[] = []
+      try { totals = await getReviewVotes(feed.reviews.map(review => review.id)) }
+      catch { if (request === requestRef.current) setVotesError('Não foi possível consultar os votos. Tente novamente.') }
       if (request !== requestRef.current) return
+      setVotes(Object.fromEntries(totals.map(row => [row.review_id, row])))
+      if (totals.length || !feed.reviews.length) setVotesError('')
       setMyMovie(mine)
       setHasLoaded(true)
       setReviews(feed.reviews)
@@ -94,12 +107,43 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
     setMoreBusy(true)
     try {
       const next = await getMovieReviewPage(movie.tmdb_id, reviews.length)
+      let totals: ReviewVote[] = []
+      try { totals = await getReviewVotes(next.reviews.map(review => review.id)) }
+      catch { if (request === requestRef.current) setVotesError('Não foi possível consultar os votos. Tente novamente.') }
       if (request === requestRef.current) {
         setReviews(previous => [...new Map([...previous, ...next.reviews].map(review => [review.id, review])).values()])
+        setVotes(previous => ({ ...previous, ...Object.fromEntries(totals.map(row => [row.review_id, row])) }))
         setSummary(previous => ({ ...previous, total: next.total }))
       }
     } catch { if (request === requestRef.current) setError('Não foi possível carregar mais avaliações. Tente novamente.') }
     finally { if (request === requestRef.current) setMoreBusy(false) }
+  }
+
+  async function refreshVotes() {
+    const request = requestRef.current
+    try {
+      const rows = await getReviewVotes(reviews.map(review => review.id))
+      if (request !== requestRef.current) return
+      setVotes(Object.fromEntries(rows.map(row => [row.review_id, row]))); setVotesError('')
+    } catch { if (request === requestRef.current) setVotesError('Não foi possível consultar os votos. Tente novamente.') }
+  }
+  async function vote(id: string, direction: 1 | -1): Promise<boolean> {
+    if (votingRef.current || id === myMovie?.id || !votes[id]) return false
+    votingRef.current = true; setVotingBusy(id); setVotesError('')
+    const request = requestRef.current, previous = votes[id]
+    const next = previous.my_vote === direction ? 0 : direction
+    try {
+      await setReviewVote(id, next)
+      if (request !== requestRef.current) return false
+      setVotes(rows => ({ ...rows, [id]: { ...previous, my_vote: next, upvotes: previous.upvotes + Number(next === 1) - Number(previous.my_vote === 1), downvotes: previous.downvotes + Number(next === -1) - Number(previous.my_vote === -1) } }))
+      setStatus(next === 0 ? 'Voto removido.' : 'Seu voto foi salvo.')
+      try {
+        const [total] = await getReviewVotes([id])
+        if (total && request === requestRef.current) setVotes(rows => ({ ...rows, [id]: total }))
+      } catch { if (request === requestRef.current) setVotesError('Seu voto foi salvo. Não foi possível atualizar as contagens agora.') }
+      return request === requestRef.current
+    } catch { if (request === requestRef.current) setVotesError('Não foi possível salvar seu voto. Tente novamente.'); return false }
+    finally { votingRef.current = false; if (request === requestRef.current) setVotingBusy(null) }
   }
 
   return <dialog ref={dialogRef} className="library-dialog" aria-labelledby="reviews-title" onKeyDown={trapDialogFocus} onCancel={event => { event.preventDefault(); if (!busy) onClose() }}>
@@ -111,7 +155,7 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
       <section className="library-review-editor" aria-label="Sua avaliação">
         {!myMovie ? <><h3>Já viu esse filme?</h3><p>Adicione aos seus assistidos para dar uma nota e compartilhar o que achou.</p><CinemaButton compact direction="right" onClick={() => void mark()} disabled={busy}>Já assisti</CinemaButton></> : <>
           <p className="cinema-eyebrow"><Check size={13} aria-hidden="true" />Na sua lista de assistidos</p><h3>{myMovie.review ? 'Sua opinião pode mudar.' : 'Que nota merece?'}</h3>
-          <StarRating value={draft.rating} disabled={busy} onChange={rating => setDraft(previous => ({ ...previous, rating }))} />
+          <div className="library-star-input"><PeekRating value={draft.rating} count={5} labels={['Ruim', 'Regular', 'Bom', 'Ótimo', 'Excelente']} activeColor="#f5b400" idleColor="#52525b" tipColor="#27272a" tipTextColor="#f5f5f5" size={32} lift={7} magnify={1.15} riseDuration={320} popScale={1.3} showTip allowClear disabled={busy} ariaLabel="Sua nota de 1 a 5 estrelas" onChange={rating => setDraft(previous => ({ ...previous, rating }))} /><span className="library-star-caption">{draft.rating ? `${draft.rating}/5` : 'Escolha sua nota'}</span></div>
           <label className="library-field">Apelido público<input value={draft.display_name} onChange={event => setDraft(previous => ({ ...previous, display_name: event.target.value }))} minLength={2} maxLength={32} placeholder="Como quer aparecer?" disabled={busy} autoComplete="nickname" /></label>
           <label className="library-field">Seu comentário <small>opcional</small><textarea value={draft.comment} onChange={event => setDraft(previous => ({ ...previous, comment: event.target.value }))} maxLength={1000} rows={3} placeholder="O que fez esse filme valer o play?" disabled={busy} /><span className="library-character-count">{draft.comment.length}/1000</span></label>
           <label className="library-spoiler-choice"><input type="checkbox" checked={draft.contains_spoilers} onChange={event => setDraft(previous => ({ ...previous, contains_spoilers: event.target.checked }))} disabled={busy} />Meu comentário contém spoilers</label>
@@ -120,21 +164,13 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
           {confirmDelete ? <div className="library-delete-confirm"><p>Excluir sua nota e comentário públicos?</p><button type="button" disabled={busy} onClick={() => void remove()}>Confirmar exclusão</button><button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Cancelar</button></div> : null}
         </>}
       </section>
-      <section className="library-community" aria-label="Avaliações da comunidade"><h3>Outros olhares.</h3>{reviews.length ? <ul>{reviews.map(review => <ReviewCard key={review.id} review={review} mine={review.id === myMovie?.id} />)}</ul> : <p>Ninguém avaliou ainda. O primeiro olhar pode ser o seu.</p>}{reviews.length < summary.total ? <button type="button" className="library-text-button" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? 'Carregando…' : 'Ver mais avaliações'}</button> : null}</section>
+      <section className="library-community" aria-label="Avaliações da comunidade"><h3>Outros olhares.</h3>{votesError ? <p className="library-error" role="alert">{votesError}<button type="button" onClick={() => void refreshVotes()}>Atualizar contagens</button></p> : null}{reviews.length ? <ul>{reviews.map(review => <ReviewCard key={review.id} review={review} mine={review.id === myMovie?.id} totals={votes[review.id]} votingBusy={votingBusy !== null || busy} onVote={direction => vote(review.id, direction)} />)}</ul> : <p>Ninguém avaliou ainda. O primeiro olhar pode ser o seu.</p>}{reviews.length < summary.total ? <button type="button" className="library-text-button" disabled={moreBusy} onClick={() => void more()}>{moreBusy ? 'Carregando…' : 'Ver mais avaliações'}</button> : null}</section>
     </> : null}
   </dialog>
 }
 
-function StarRating({ value, disabled, onChange }: { value: number; disabled: boolean; onChange: (value: number) => void }) {
-  return <div className="library-star-input" role="radiogroup" aria-label="Sua nota de 1 a 5 estrelas">{[1, 2, 3, 4, 5].map(star => <button type="button" key={star} role="radio" aria-label={`${star} de 5 estrelas`} aria-checked={value === star} tabIndex={value === star || (!value && star === 1) ? 0 : -1} disabled={disabled} onClick={() => onChange(star)} onKeyDown={event => {
-    const next = event.key === 'Home' ? 1 : event.key === 'End' ? 5 : event.key === 'ArrowRight' || event.key === 'ArrowUp' ? Math.min(5, star + 1) : event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? Math.max(1, star - 1) : 0
-    if (!next) return
-    event.preventDefault(); event.stopPropagation(); onChange(next)
-    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next - 1]?.focus()
-  }}><Star size={28} fill={star <= value ? 'currentColor' : 'none'} aria-hidden="true" /></button>)}<span>{value ? `${value}/5` : 'Escolha sua nota'}</span></div>
-}
-
-function ReviewCard({ review, mine }: { review: MovieReview; mine: boolean }) {
+function ReviewCard({ review, mine, totals, votingBusy, onVote }: { review: MovieReview; mine: boolean; totals?: ReviewVote; votingBusy: boolean; onVote: (direction: 1 | -1) => Promise<boolean> }) {
   const [showSpoiler, setShowSpoiler] = useState(false)
-  return <li className="library-public-review"><header><strong>{review.display_name}{mine ? <small>Sua avaliação</small> : null}</strong><span><Star size={14} fill="currentColor" aria-hidden="true" />{review.rating}/5</span></header><time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString('pt-BR')}</time>{review.comment ? review.contains_spoilers && !showSpoiler ? <button type="button" className="library-spoiler-reveal" onClick={() => setShowSpoiler(true)}>Mostrar comentário com spoilers</button> : <p>{review.comment}</p> : <p className="library-rating-only">Avaliação sem comentário.</p>}</li>
+  const votes = totals ?? emptyReviewVote(review.id)
+  return <li className="library-public-review"><header><strong>{review.display_name}{mine ? <small>Sua avaliação</small> : null}</strong><span><Star size={14} fill="currentColor" aria-hidden="true" />{review.rating}/5</span></header><time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString('pt-BR')}</time>{review.comment ? review.contains_spoilers && !showSpoiler ? <button type="button" className="library-spoiler-reveal" onClick={() => setShowSpoiler(true)}>Mostrar comentário com spoilers</button> : <p>{review.comment}</p> : <p className="library-rating-only">Avaliação sem comentário.</p>}<div className="library-review-votes" role="group" aria-label={`Votos na avaliação de ${review.display_name}`}><ReviewVoteButton direction="up" active={votes.my_vote === 1} count={votes.upvotes} disabled={mine || votingBusy || !totals} busy={votingBusy} onVote={() => onVote(1)} /><ReviewVoteButton direction="down" active={votes.my_vote === -1} count={votes.downvotes} disabled={mine || votingBusy || !totals} busy={votingBusy} onVote={() => onVote(-1)} />{mine ? <small>Outras pessoas podem votar na sua avaliação.</small> : null}</div></li>
 }

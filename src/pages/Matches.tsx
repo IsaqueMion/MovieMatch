@@ -13,6 +13,7 @@ import { ensureAnonymousUser } from '../lib/auth'
 import { useSessionPresence } from '../hooks/useSessionPresence'
 import { usePageMeta } from '../hooks/usePageMeta'
 import { useWatchedMovies } from '../hooks/useWatchedMovies'
+import { useDemoSession } from '../hooks/useDemoSession'
 import { markMovieWatched, type LibraryMovie } from '../lib/movieLibrary'
 import '../styles/library.css'
 const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviewsDialog'))
@@ -55,6 +56,7 @@ export default function Matches() {
   const [items, setItems] = useState<MatchItem[]>([])
   const [loading, setLoading] = useState(true)
   const onlineCount = useSessionPresence(sessionId)
+  const demo = useDemoSession(sessionId)
 
   // Controles da UI
   const [q, setQ] = useState('')
@@ -376,6 +378,7 @@ export default function Matches() {
         <CinemaButton compact tone="secondary" direction="right" onClick={() => navigate(`/s/${code}`)}>Voltar a votar</CinemaButton>
       </header>
       <div className="cinema-container">
+        {demo ? <p className="cinema-demo-notice">Sala de testes · Matches e votos iniciais de exemplo. Suas alterações de assistidos continuam pessoais.</p> : null}
         <section className="matches-hero" aria-labelledby="matches-title">
           <div><p className="cinema-eyebrow"><Heart size={13} aria-hidden="true" />A escolha é de vocês</p><h1 id="matches-title">Gostos diferentes.<br /><span>O mesmo sim.</span></h1><p className="matches-intro">{pending.length ? 'Todos curtiram. Agora, só falta escolher qual filme vai ganhar o play.' : 'Quando os gostos se encontram, os filmes aparecem aqui. A próxima escolha é de vocês.'}</p></div>
           <div className="matches-total" aria-live="polite"><span>{pageLoading ? '—' : String(pending.length).padStart(2, '0')}</span><p>{pending.length === 1 ? 'filme em comum' : 'filmes em comum'}<small>Aprovados por todos os<br />participantes atuais.</small></p></div>

@@ -25,7 +25,7 @@
 .library-movie-copy > span { font-size: 10px; color: var(--cinema-muted); }
 .library-movie-copy h3 { font: 500 22px/1.2 var(--cinema-display); letter-spacing: -.03em; margin-top: 8px; overflow-wrap: anywhere; }
 .library-movie-copy > p { color: var(--cinema-muted); font-size: 10px; margin-top: 10px; }
-.library-own-rating { display: flex; align-items: center; gap: 6px; margin-top: 17px; font-size: 11px; color: var(--cinema-accent); }
+.library-own-rating { display: flex; align-items: center; gap: 6px; margin-top: 17px; font-size: 11px; color: var(--cinema-rating); }
 .library-rate-button { width: 100%; text-align: center; border: 1px solid #476352; border-radius: 22px; min-height: 44px; color: var(--cinema-accent); font-size: 11px; margin-top: 17px; transition: background .2s, border-color .2s; }
 .library-rate-button:hover { background: #75efb815; border-color: var(--cinema-accent); }
 .library-text-button { min-height: 44px; color: var(--cinema-muted); text-decoration: underline; text-underline-offset: 4px; font-size: 11px; }
@@ -49,16 +49,14 @@
 .library-review-film > .matches-poster { width: 68px; aspect-ratio: 2/3; }
 .library-review-film h3 { font: 500 25px/1.2 var(--cinema-display); letter-spacing: -.03em; overflow-wrap: anywhere; }
 .library-review-film p { color: var(--cinema-muted); font-size: 10px; margin-top: 7px; }
-.library-review-average { display: flex; align-items: center; gap: 7px; color: var(--cinema-accent); font-size: 21px; margin-top: 12px; }
+.library-review-average { display: flex; align-items: center; gap: 7px; color: var(--cinema-rating); font-size: 21px; margin-top: 12px; }
 .library-review-average small { color: var(--cinema-muted); font-size: 10px; }
 .library-review-editor { padding: 22px; border: 1px solid #405c4966; background: #75efb805; border-radius: 11px; margin-top: 14px; }
 .library-review-editor h3, .library-community > h3 { font: 500 27px/1.2 var(--cinema-display); letter-spacing: -.03em; margin-bottom: 17px; }
 .library-review-editor .cinema-eyebrow { margin-bottom: 14px; font-size: 8px; }
 .library-review-editor > p:not(.cinema-eyebrow) { font-size: 12px; color: var(--cinema-muted); line-height: 1.8; margin-bottom: 20px; }
-.library-star-input { display: flex; align-items: center; margin-bottom: 20px; color: #9bdcb7; }
-.library-star-input button { width: 44px; height: 44px; display: grid; place-items: center; transition: transform .18s, color .18s; }
-.library-star-input button:hover { transform: scale(1.12); color: #d8ffe8; }
-.library-star-input > span { margin-left: 12px; color: var(--cinema-muted); font-size: 10px; }
+.library-star-input { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 0 12px; margin-bottom: 20px; }
+.library-star-caption { color: var(--cinema-muted); font-size: 10px; padding-block: 15px; }
 .library-field { display: block; font-size: 11px; color: #d0dfd4; margin-top: 20px; }
 .library-field > small { color: var(--cinema-muted); }
 .library-field input, .library-field textarea { display: block; width: 100%; min-height: 44px; margin-top: 9px; padding: 11px 13px; border: 1px solid #425249; border-radius: 8px; background: #0d1711; color: var(--cinema-ink); font-family: inherit; font-size: 12px; resize: vertical; }
@@ -75,7 +73,7 @@
 .library-public-review header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; font-size: 12px; }
 .library-public-review header strong { overflow-wrap: anywhere; }
 .library-public-review header small { color: var(--cinema-accent); font-weight: 400; font-size: 9px; margin-left: 9px; }
-.library-public-review header > span { display: flex; align-items: center; gap: 5px; color: var(--cinema-accent); white-space: nowrap; }
+.library-public-review header > span { display: flex; align-items: center; gap: 5px; color: var(--cinema-rating); white-space: nowrap; }
 .library-public-review time { display: block; margin-top: 7px; color: var(--cinema-muted); font-size: 9px; }
 .library-public-review p { margin-top: 17px; color: #c0d1c5; font-size: 12px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
 .library-public-review .library-rating-only { color: var(--cinema-muted); font-size: 10px; }
@@ -84,6 +82,21 @@
 .matches-after-play { padding-block: 23px; border-block: 1px solid var(--cinema-line); margin-top: 25px; }
 .matches-after-play > p { font-size: 11px; color: var(--cinema-muted); line-height: 1.8; margin-bottom: 18px; }
 .matches-after-play > div { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.library-review-votes { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 17px; }
+.library-review-votes > small { color: var(--cinema-muted); font-size: 9px; }
+.review-vote-control { position: relative; display: inline-flex; justify-content: center; align-items: center; }
+.review-vote-button { position: relative; display: inline-grid; place-items: center; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: #252a27; color: #a3aaa6; transition: color .3s, background .3s; touch-action: manipulation; }
+.review-vote-button[aria-pressed="true"] { color: #f97316; background: #f973161a; }
+.review-vote-control.is-down .review-vote-button[aria-pressed="true"] { color: #fa977c; background: #fa977c1a; }
+.review-vote-button:disabled { cursor: default; opacity: .5; }
+.review-vote-button:focus-visible { outline: 2px solid var(--cinema-rating); outline-offset: 3px; }
+.review-vote-particle { position: absolute; border-radius: 50%; pointer-events: none; }
+.review-vote-ripple { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #f9731640; pointer-events: none; }
+.review-vote-count { position: absolute; left: 50%; bottom: calc(100% + 7px); display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-radius: 12px; background: #27272a; color: #f5f5f5; font-size: 10px; white-space: nowrap; pointer-events: none; opacity: 0; transform: translate(-50%, 5px); transition: opacity .18s, transform .18s; }
+.review-vote-count strong { min-width: 1ch; font-variant-numeric: tabular-nums; }
+.review-vote-control:hover .review-vote-count, .review-vote-control:focus-within .review-vote-count { opacity: 1; transform: translate(-50%, 0); }
+.review-vote-control:first-child .review-vote-count { left: 0; transform: translate(0, 5px); }
+.review-vote-control:first-child:is(:hover, :focus-within) .review-vote-count { transform: translate(0, 0); }
 @media (max-width: 900px) { .library-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 22px; } .library-hero { padding-block: 50px; } .library-toolbar { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 640px) { .library-header { padding-block: 18px; gap: 12px; flex-wrap: wrap; } .library-header .cinema-brand { font-size: 18px; gap: 4px; } .library-header .cinema-button { min-width: 150px; } .library-hero { display: block; padding-block: 40px; } .library-total { margin-top: 30px; } .library-total strong { font-size: 56px; } .library-total span { max-width: none; } .library-toolbar > div:last-child { width: 100%; gap: 12px; flex-wrap: wrap; } .library-search { flex: 1; } .library-search input { width: 100%; } .library-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 26px 17px; } .library-movie-copy h3 { font-size: 19px; } .library-dialog { padding: 24px 20px; } .library-dialog-header h2 { font-size: 37px; } .library-review-editor { padding: 18px 14px; } .library-star-input > span { margin-left: 4px; font-size: 9px; } .library-selection { padding-top: 30px; } .library-toolbar h2 { font-size: 25px; } }
 @media (prefers-reduced-motion: reduce) { .library-page *, .library-dialog * { transition: none !important; scroll-behavior: auto !important; } .library-star-input button:hover { transform: none; } }

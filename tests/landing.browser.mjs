@@ -370,6 +370,12 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
       await page.goto(sessionUrl.href)
       const loader = page.locator('.cinema-session-loader')
       await loader.waitFor()
+      for (const viewport of [{width:320,height:568},{width:390,height:844},{width:768,height:1024},{width:1440,height:900},{width:844,height:390}]) {
+        await page.setViewportSize(viewport)
+        const center = await loader.locator('.cinema-wave-orb').evaluate(el => { const r=el.getBoundingClientRect(); return {x:r.left+r.width/2-innerWidth/2,y:r.top+r.height/2-innerHeight/2} })
+        assert.ok(Math.abs(center.x)<1 && Math.abs(center.y)<1, `Loader not centered in ${viewport.width}x${viewport.height}: ${JSON.stringify(center)}`)
+      }
+      await page.setViewportSize({width:390,height:844})
       assert.equal(await loader.locator('.cinema-wave').count(), 4)
       assert.equal(await loader.locator('.cinema-wave-bar').count(), 96)
       assert.equal(await loader.getAttribute('role'), 'status')

@@ -1988,7 +1988,7 @@ function Swipe() {
 
   return (
     <main className="cinema-page swipe-page" id="conteudo">
-      <SwipeSessionHeader code={code ?? ''} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
+      <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />
       <div className="swipe-deck">
@@ -2009,7 +2009,6 @@ function Swipe() {
           <div>
             <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />
           </div>
-          <div className="swipe-keyboard-hint" aria-hidden="true"><span><kbd>←</kbd>Passo</span><span><kbd>→</kbd>Quero assistir</span><span><kbd>⌫</kbd>Desfazer</span></div>
         </footer>
       </div>
       {!isPremium ? <>
