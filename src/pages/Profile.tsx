@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Clapperboard, Star, UserRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { mediaUrl, myProfile, profileFields, uploadProfileImage, type Favorite, type Profile as ProfileData } from '../lib/account'
+import { mediaUrl, myProfile, profileFields, type Favorite, type Profile as ProfileData } from '../lib/account'
 import { useAccount } from '../hooks/useAccount'
 import { usePageMeta } from '../hooks/usePageMeta'
 import AccountMenu from '../components/account/AccountMenu'
@@ -10,9 +10,10 @@ import CinemaButton from '../components/ui/cinema-button'
 import MatchPoster from '../components/matches/MatchPoster'
 import SessionLoader from '../components/ui/session-loader'
 import type { LibraryMovie } from '../lib/movieLibrary'
+import { GENRES } from '../components/swipe/filterOptions'
 import '../styles/account.css'
 
-const GENRES: [number, string][] = [[28,'Ação'],[12,'Aventura'],[16,'Animação'],[35,'Comédia'],[80,'Crime'],[99,'Documentário'],[18,'Drama'],[14,'Fantasia'],[27,'Terror'],[10749,'Romance'],[878,'Ficção científica'],[53,'Suspense']]
+const ProfileEditorDialog = lazy(() => import('../components/account/ProfileEditorDialog'))
 type ProfileReview = LibraryMovie & { rating: number; comment: string; contains_spoilers: boolean; created_at: string }
 
 export default function Profile() {
@@ -31,6 +32,12 @@ export default function Profile() {
   const [results, setResults] = useState<LibraryMovie[]>([])
   const [more, setMore] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const [editorOpen, setEditorOpen] = useState(false)
+  useEffect(() => {
+    const changed = (event: Event) => { const updated = (event as CustomEvent<ProfileData>).detail; if (updated && updated.id === profile?.id) { setProfile(updated); setStatus('Perfil salvo.') } }
+    window.addEventListener('moviematch:profile-changed', changed)
+    return () => window.removeEventListener('moviematch:profile-changed', changed)
+  }, [profile?.id])
   usePageMeta({ title: `${profile?.display_name ?? 'Perfil'} — MovieMatch`, description: 'Favoritos e opiniões de quem vive o cinema.', robots: 'noindex,nofollow,noarchive' })
   useEffect(() => {
     let active = true
@@ -55,22 +62,6 @@ export default function Profile() {
     })()
     return () => { active = false }
   }, [handle, editing, account.loading, account.registered])
-  async function save(event: FormEvent) {
-    event.preventDefault(); if (!profile || busy) return
-    setBusy(true); setError(''); setStatus('')
-    const { handle, display_name, bio, genres, is_public, show_favorites, show_reviews } = profile
-    const response = await supabase.from('profiles').update({ handle, display_name: display_name.trim(), bio: bio.trim(), genres, is_public, show_favorites, show_reviews }).eq('id', profile.id).select(profileFields).single()
-    if (response.error) setError(response.error.code === '23505' ? 'Esse endereço de perfil já está em uso. Escolha outro.' : 'Não foi possível salvar. Seus textos continuam aqui.')
-    else { setProfile(response.data as ProfileData); setStatus('Perfil salvo.'); window.dispatchEvent(new Event('moviematch:profile-changed')) }
-    setBusy(false)
-  }
-  async function image(kind: 'avatar' | 'cover', file?: File) {
-    if (!profile || !file || busy) return
-    setBusy(true); setError(''); setStatus('')
-    try { const updated = await uploadProfileImage(profile, kind, file); setProfile(current => current ? { ...current, avatar_path: updated.avatar_path, cover_path: updated.cover_path } : updated); setStatus('Imagem atualizada.'); window.dispatchEvent(new Event('moviematch:profile-changed')) }
-    catch (cause) { setError(cause instanceof Error && cause.message.startsWith('Use ') ? cause.message : 'Não foi possível enviar a imagem. A foto anterior foi preservada.') }
-    finally { setBusy(false) }
-  }
   async function search(event: FormEvent) {
     event.preventDefault(); if (query.trim().length < 2 || searching) return
     setSearching(true); setSearchError('')
@@ -118,15 +109,9 @@ export default function Profile() {
     {error ? <p className="library-error" role="alert">{error}</p> : null}<p role="status">{status}</p>
     {loading ? <SessionLoader /> : !profile ? <><h1>{editing ? 'Seu cinema, com sua cara.' : 'Perfil indisponível.'}</h1><p>{editing ? <Link className="account-link" to="/conta?voltar=%2Fperfil">Entre para montar seu perfil.</Link> : 'Este perfil não existe ou está privado.'}</p></> : <>
       <div className="profile-cover"><span className="cinema-eyebrow">MovieMatch · Seu olhar sobre o cinema</span>{profile.cover_path ? <img src={mediaUrl(profile.cover_path)} alt="" onError={event => { event.currentTarget.hidden=true }} /> : null}</div>
-      <section className="profile-identity"><div className="profile-avatar"><UserRound size={42} aria-hidden="true" />{profile.avatar_path ? <img key={profile.avatar_path} src={mediaUrl(profile.avatar_path)} alt={`Foto de ${profile.display_name}`} onError={event => { event.currentTarget.hidden=true }} /> : null}</div><div><p className="cinema-eyebrow">@{profile.handle}</p><h1>{profile.display_name}</h1><p>{profile.bio || (editing ? 'O seu gosto conta uma história. Conte a sua.' : '')}</p><div className="profile-genres">{GENRES.filter(([id]) => profile.genres.includes(id)).map(([id,name]) => <span key={id}>{name}</span>)}</div></div></section>
-      {editing ? <section className="profile-editor"><div><h2>Seu jeito de ver.</h2><p>Quatro favoritos, os gêneros que você gosta e as opiniões que quer compartilhar.</p><Link className="account-link" to={`/p/${profile.handle}`}>Abrir meu perfil público</Link><div className="profile-upload"><label>Foto de perfil<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => { void image('avatar', event.target.files?.[0]); event.target.value='' }} /></label><label>Foto de capa<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => { void image('cover', event.target.files?.[0]); event.target.value='' }} /></label><small>JPG, PNG ou WebP · até 6 MB. Imagens são públicas por link; use fotos que queira compartilhar. A capa usa recorte central.</small></div></div><form onSubmit={save}>
-        <label>Nome público<input value={profile.display_name} onChange={event => setProfile({ ...profile, display_name: event.target.value })} required minLength={2} maxLength={32} disabled={busy} autoComplete="nickname" /></label>
-        <label>Endereço do perfil<input value={profile.handle} onChange={event => setProfile({ ...profile, handle: event.target.value.toLowerCase() })} required pattern="[a-z0-9][a-z0-9-]{2,29}" minLength={3} maxLength={30} disabled={busy} /><small>Letras minúsculas, números e hífen. /p/{profile.handle}</small></label>
-        <label>Bio<textarea aria-label="Bio" value={profile.bio} onChange={event => setProfile({ ...profile, bio: event.target.value })} maxLength={280} rows={3} disabled={busy} /></label>
-        <fieldset><legend>Gêneros preferidos · até cinco</legend><div className="profile-genre-picker">{GENRES.map(([id,name]) => <button key={id} type="button" aria-pressed={profile.genres.includes(id)} disabled={busy || !profile.genres.includes(id) && profile.genres.length >= 5} onClick={() => setProfile({ ...profile, genres: profile.genres.includes(id) ? profile.genres.filter(value => value!==id) : [...profile.genres,id] })}>{name}</button>)}</div></fieldset>
-        <fieldset className="profile-privacy"><legend>O que aparece no perfil</legend><label><input type="checkbox" checked={profile.is_public} onChange={event => setProfile({ ...profile, is_public: event.target.checked })} disabled={busy} />Perfil público</label><label><input type="checkbox" checked={profile.show_favorites} onChange={event => setProfile({ ...profile, show_favorites: event.target.checked })} disabled={busy} />Mostrar favoritos</label><label><input type="checkbox" checked={profile.show_reviews} onChange={event => setProfile({ ...profile, show_reviews: event.target.checked })} disabled={busy} />Mostrar minhas avaliações neste perfil</label><small>Avaliações publicadas continuam visíveis na página do filme. Seu histórico de assistidos e suas salas são privados.</small></fieldset>
-        <CinemaButton type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar perfil'}</CinemaButton>
-      </form></section> : null}
+      <section className="profile-identity"><div className="profile-avatar"><UserRound size={42} aria-hidden="true" />{profile.avatar_path ? <img key={profile.avatar_path} src={mediaUrl(profile.avatar_path)} alt={`Foto de ${profile.display_name}`} onError={event => { event.currentTarget.hidden=true }} /> : null}</div><div><p className="cinema-eyebrow">@{profile.handle}</p><h1>{profile.display_name}</h1><p>{profile.bio || (editing ? 'O seu gosto conta uma história. Conte a sua.' : '')}</p><div className="profile-genres">{GENRES.filter(({ id }) => profile.genres.includes(id)).map(({ id, name }) => <span key={id}>{name}</span>)}</div></div></section>
+      {editing ? <div className="profile-edit-actions"><CinemaButton compact className="profile-edit-trigger" onClick={() => setEditorOpen(true)}>Editar perfil</CinemaButton><Link className="account-link" to={`/p/${profile.handle}`}>Abrir meu perfil público</Link></div> : null}
+      {editorOpen && editing ? <Suspense fallback={<p role="status">Abrindo edição…</p>}><ProfileEditorDialog profile={profile} onClose={() => setEditorOpen(false)} /></Suspense> : null}
       {editing || profile.show_favorites ? <section className="profile-section"><p className="cinema-eyebrow">Os que ficam com você</p><h2>Quatro favoritos.</h2><div className="profile-favorites">{favorites.map(movie => <figure key={movie.slot}><MatchPoster title={movie.title} poster={movie.poster_url} /><figcaption>{movie.title}{editing ? <button disabled={busy} onClick={() => void favorite(movie)} aria-label={`Remover ${movie.title} dos favoritos`}>Remover</button> : null}</figcaption></figure>)}</div>{!favorites.length ? <p>A seleção de favoritos ainda está começando.</p> : null}{editing ? <><form className="profile-search" onSubmit={search}><label>Buscar filme<input type="search" value={query} onChange={event => setQuery(event.target.value)} minLength={2} maxLength={80} placeholder="Título do filme" /></label><CinemaButton compact type="submit" disabled={searching || query.trim().length < 2}>{searching ? 'Buscando…' : 'Buscar'}</CinemaButton></form><p role="status">{searchError}</p><div className="profile-search-results">{results.map(movie => <button key={movie.tmdb_id} disabled={busy || favorites.some(row => row.tmdb_id === movie.tmdb_id)} onClick={() => void favorite(movie)}><MatchPoster title={movie.title} poster={movie.poster_url} /><span>{movie.title}<small>{movie.year} · {favorites.some(row => row.tmdb_id === movie.tmdb_id) ? 'Favorito' : 'Adicionar'}</small></span></button>)}</div><small>Filmes e imagens: <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>.</small></> : null}</section> : null}
       {editing || profile.show_reviews ? <section className="profile-section"><p className="cinema-eyebrow">Depois do play</p><h2>Os seus olhares.</h2>{reviews.map((review,index) => <article className="profile-review" key={`${review.tmdb_id}-${index}`}><MatchPoster title={review.title} poster={review.poster_url} /><div><h3>{review.title}</h3><span className="profile-rating"><Star size={16} fill="currentColor" aria-hidden="true" />{review.rating}/5</span><time dateTime={review.created_at}>{new Date(review.created_at).toLocaleDateString('pt-BR')}</time>{review.contains_spoilers ? <details><summary>Comentário com spoilers</summary><p>{review.comment}</p></details> : <p>{review.comment || 'Avaliação sem comentário.'}</p>}</div></article>)}{!reviews.length ? <p>As avaliações publicadas aparecem aqui.</p> : null}{more ? <button disabled={busy} onClick={() => void moreReviews()}>Ver mais avaliações</button> : null}</section> : null}
       {editing ? <footer className="profile-footer"><Link to="/assistidos">Meus assistidos</Link><a href="/#minhas-salas">Minhas salas</a><button disabled={busy} onClick={() => void logout()}>Sair da conta neste aparelho</button></footer> : null}

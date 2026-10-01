@@ -1,12 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, AtSign, Clapperboard, Eye, EyeOff, LockKeyhole } from 'lucide-react'
+import { ArrowLeft, Mail, Clapperboard, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { claimGuestTransfer, discardGuestTransfer, hasAccount, prepareGuestTransfer, safeReturnTo } from '../lib/account'
 import { useAccount } from '../hooks/useAccount'
 import { usePageMeta } from '../hooks/usePageMeta'
 import CinemaButton from '../components/ui/cinema-button'
 import FloatingPaths from '../components/account/FloatingPaths'
+import PasswordStrength from '../components/account/PasswordStrength'
+import PasswordConfirmation from '../components/account/PasswordConfirmation'
 import '../styles/account.css'
 
 export default function Account() {
@@ -16,12 +18,13 @@ export default function Account() {
   const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'password'>(params.get('recuperar') ? 'password' : params.get('modo') === 'cadastro' ? 'signup' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   function changeMode(next: typeof mode) {
-    setMode(next); setError(''); setMessage(''); setPassword(''); setShowPassword(false)
+    setMode(next); setError(''); setMessage(''); setPassword(''); setConfirmation(''); setShowPassword(false)
     const search = new URLSearchParams(params)
     search.delete('recuperar')
     if (next === 'signup') search.set('modo', 'cadastro'); else search.delete('modo')
@@ -39,6 +42,7 @@ export default function Account() {
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); if (busy) return
+    if ((mode === 'signup' || mode === 'password') && (password.length < 8 || password !== confirmation)) { setError('Use pelo menos 8 caracteres e confirme a mesma senha.'); return }
     setBusy(true); setError(''); setMessage('')
     try {
       if (mode === 'reset') {
@@ -48,14 +52,14 @@ export default function Account() {
       } else if (mode === 'password') {
         const { error } = await supabase.auth.updateUser({ password })
         if (error) throw error
-        setPassword(''); setMessage('Senha atualizada. Você pode continuar.'); setMode('login')
+        setPassword(''); setConfirmation(''); setMessage('Senha atualizada. Você pode continuar.'); setMode('login')
       } else {
         await prepareGuestTransfer()
         const result = mode === 'signup'
           ? await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/conta?voltar=${encodeURIComponent(returnTo)}` } })
           : await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (result.error) throw result.error
-        setPassword('')
+        setPassword(''); setConfirmation('')
         if (hasAccount(result.data.user) && result.data.session) { await claimGuestTransfer(); window.location.replace('/'); return }
         setMessage('Confira seu e-mail para confirmar a conta. Depois entre nesta mesma aba para preservar o histórico de visitante.')
       }
@@ -86,8 +90,9 @@ export default function Account() {
           </div> : null}
       {error || account.error ? <p className="account-auth-error" role="alert">{error || account.error}</p> : null}{message ? <p className="account-auth-message" role="status">{message}</p> : null}
       {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>Continuar para o início</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm('Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.')) { discardGuestTransfer(); window.location.replace('/') } }}>Continuar apenas com o histórico da conta</button> : null}<Link to="/perfil">Personalizar meu perfil</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>Este link não está ativo. <button onClick={() => changeMode('reset')}>Solicitar novo link de recuperação</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? 'Criar conta' : mode === 'login' ? 'Entrar' : 'Recuperar senha'}>
-        {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">E-mail</label><div className="account-input-group"><AtSign size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
-        {mode !== 'reset' ? <div className="account-field"><div className="account-label-row"><label htmlFor="account-password">Senha</label>{mode === 'login' ? <button type="button" disabled={busy} onClick={() => changeMode('reset')}>Esqueci minha senha</button> : null}</div><div className="account-input-group"><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 8 caracteres'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} /><button className="account-password-toggle" type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode !== 'login' ? <small id="account-password-hint">Use pelo menos 8 caracteres.</small> : null}</div> : null}
+        {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">E-mail</label><div className="account-input-group"><Mail size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
+        {mode !== 'reset' ? <div className="account-field"><label htmlFor="account-password">Senha</label><div className="account-input-group"><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Sua senha' : 'Pelo menos 8 caracteres'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} /><button className="account-password-toggle" type="button" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} disabled={busy} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode === 'login' ? <button className="account-forgot-password" type="button" disabled={busy} onClick={() => changeMode('reset')}>Esqueci minha senha</button> : <><small id="account-password-hint">Use pelo menos 8 caracteres.</small><PasswordStrength value={password} /></>}</div> : null}
+        {mode === 'signup' || mode === 'password' ? <PasswordConfirmation password={password} value={confirmation} onChange={setConfirmation} disabled={busy} /> : null}
         <CinemaButton type="submit" disabled={busy || account.loading}>{busy ? 'Aguarde…' : mode === 'signup' ? 'Criar conta' : mode === 'reset' ? 'Enviar link' : mode === 'password' ? 'Salvar senha' : 'Entrar'}</CinemaButton>
         {mode === 'login' ? <p className="account-switch-copy">Novo por aqui? <button type="button" disabled={busy} onClick={() => changeMode('signup')}>Ainda não tenho conta</button></p> : <p className="account-switch-copy"><button type="button" disabled={busy} onClick={() => changeMode('login')}>Voltar para entrar</button></p>}
       </form>}
