@@ -1,3 +1,5 @@
+import FilterButton from './FilterButton'
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
@@ -20,10 +22,11 @@ export default function FilterSection({
   children,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen)
+  const reducedMotion = usePrefersReducedMotion()
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] shadow-[0_12px_40px_rgba(0,0,0,0.16)]">
-      <button
+      <FilterButton
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-white/[0.035] sm:px-5"
@@ -56,7 +59,7 @@ export default function FilterSection({
             open ? 'rotate-180' : ''
           }`}
         />
-      </button>
+      </FilterButton>
 
       <AnimatePresence initial={false}>
         {open ? (
@@ -64,7 +67,7 @@ export default function FilterSection({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            transition={{ duration: reducedMotion ? 0 : 0.2, ease: 'easeOut' }}
             className="overflow-hidden"
           >
             <div className="border-t border-white/10 px-4 pb-5 pt-4 sm:px-5">

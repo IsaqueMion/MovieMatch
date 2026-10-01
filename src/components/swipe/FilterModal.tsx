@@ -1,3 +1,5 @@
+import FilterButton from './FilterButton'
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import {
   useEffect,
   useMemo,
@@ -120,6 +122,7 @@ export default function FilterModal({
   onClose,
   onApply,
 }: Props) {
+  const reducedMotion = usePrefersReducedMotion()
   const [draft, setDraft] = useState<DiscoverFilters>(() =>
     cloneFilters(filters),
   )
@@ -425,9 +428,10 @@ export default function FilterModal({
       {open ? (
         <motion.div
           className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
-          initial={{ opacity: 0 }}
+          initial={{ opacity: reducedMotion ? 1 : 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: reducedMotion ? 0 : 0.2 }}
         >
           <motion.button
             type="button"
@@ -443,10 +447,10 @@ export default function FilterModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="filters-title"
-            initial={{ opacity: 0, y: 28, scale: 0.985 }}
+            initial={{ opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 28, scale: reducedMotion ? 1 : 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 28, scale: 0.985 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+            exit={{ opacity: 0, y: reducedMotion ? 0 : 28, scale: reducedMotion ? 1 : 0.985 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 340, damping: 30 }}
             className="relative z-10 flex h-[94dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-neutral-950 shadow-[0_-24px_80px_rgba(0,0,0,0.5)] sm:h-auto sm:max-h-[90dvh] sm:w-[min(94vw,54rem)] sm:rounded-[28px] sm:shadow-2xl"
           >
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
@@ -477,14 +481,14 @@ export default function FilterModal({
                   </p>
                 </div>
 
-                <button
+                <FilterButton
                   type="button"
                   onClick={onClose}
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.045] text-white/55 transition hover:bg-white/[0.08] hover:text-white"
                   aria-label="Fechar"
                 >
                   <X className="h-4 w-4" />
-                </button>
+                </FilterButton>
               </div>
 
               <div className="mt-4">
@@ -591,6 +595,7 @@ export default function FilterModal({
                       </span>
 
                       <Select
+                        buttonComponent={FilterButton}
                         value={draft.watchRegion ?? 'BR'}
                         onChange={(value) =>
                           setDraft((current) => ({
@@ -917,6 +922,7 @@ export default function FilterModal({
                       </span>
 
                       <Select
+                        buttonComponent={FilterButton}
                         value={draft.language ?? ''}
                         onChange={(value) =>
                           setDraft((current) => ({
@@ -934,6 +940,7 @@ export default function FilterModal({
                       </span>
 
                       <Select
+                        buttonComponent={FilterButton}
                         value={draft.sortBy ?? 'popularity.desc'}
                         onChange={(value) =>
                           setDraft((current) => ({
@@ -1009,7 +1016,7 @@ export default function FilterModal({
                         não é armazenada.
                       </p>
 
-                      <button
+                      <FilterButton
                         type="button"
                         onClick={() => {
                           if (!draft.includeAdult && !isAdult) {
@@ -1048,7 +1055,7 @@ export default function FilterModal({
                         >
                           <Check className="h-3.5 w-3.5" />
                         </span>
-                      </button>
+                      </FilterButton>
                     </div>
                   </div>
                 </FilterSection>
@@ -1057,7 +1064,7 @@ export default function FilterModal({
 
             <footer className="shrink-0 border-t border-white/10 bg-neutral-950/95 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-xl sm:px-5 sm:pb-4">
               <div className="flex items-center gap-2">
-                <button
+                <FilterButton
                   type="button"
                   onClick={resetAll}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/55 transition hover:bg-white/[0.075] hover:text-white"
@@ -1065,17 +1072,17 @@ export default function FilterModal({
                   aria-label="Limpar filtros"
                 >
                   <RotateCcw className="h-4 w-4" />
-                </button>
+                </FilterButton>
 
-                <button
+                <FilterButton
                   type="button"
                   onClick={onClose}
                   className="hidden h-11 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/65 transition hover:bg-white/[0.075] hover:text-white sm:block"
                 >
                   Cancelar
-                </button>
+                </FilterButton>
 
-                <button
+                <FilterButton
                   type="button"
                   onClick={apply}
                   disabled={!isDirty}
@@ -1087,7 +1094,7 @@ export default function FilterModal({
                         activeItems.length === 1 ? 'filtro' : 'filtros'
                       }`.trim()
                     : 'Filtros aplicados'}
-                </button>
+                </FilterButton>
               </div>
 
               {isDirty ? (

@@ -456,7 +456,7 @@ test('retorno ao topo aparece após rolar, respeita movimento reduzido e devolve
   } finally { await ctx.close() }
 })
 
-for (const [width, height] of [[390, 844], [768, 1024], [1440, 900], [320, 568], [390, 1000], [844, 390]]) {
+for (const [width, height] of [[390, 844], [768, 1024], [1101, 884], [1440, 900], [320, 568], [390, 1000], [844, 390]]) {
   test(`swipe editorial ${width}x${height}: pôster 2:3 e controles dentro da tela`, async () => {
     const { ctx, page } = await context({ viewport: { width, height }, reducedMotion: 'reduce' })
     try {
@@ -472,6 +472,10 @@ for (const [width, height] of [[390, 844], [768, 1024], [1440, 900], [320, 568],
       })
       assert.ok(Math.abs(layout.poster.width / layout.poster.height - 2 / 3) < .01, JSON.stringify(layout.poster))
       assert.ok(layout.poster.height > 140)
+      assert.ok(Math.abs((layout.poster.left + layout.poster.right) / 2 - width / 2) < 2, JSON.stringify(layout.poster))
+      const voteCenter = (Math.min(...layout.buttons.map(button => button.left)) + Math.max(...layout.buttons.map(button => button.right))) / 2
+      assert.ok(Math.abs(voteCenter - width / 2) < 2, JSON.stringify(layout.buttons))
+      assert.equal(await page.locator('.swipe-film-copy').count(), 0)
       assert.ok(layout.scrollWidth <= width)
       assert.ok(layout.scrollHeight <= height + 1)
       assert.ok(layout.buttons.every(button => button.top >= 0 && button.bottom <= height && button.left >= 0 && button.right <= width), JSON.stringify(layout.buttons))
@@ -659,3 +663,77 @@ test('o match usa o novo diálogo, contém o foco e devolve a votação ao fecha
     assert.equal(state.reactions.length, 1)
   } finally { await ctx.close() }
 })
+
+for (const width of [390, 1101]) {
+  test(`filtros em ${width}px: brilho, seleção, números, menus, limpeza e aplicação sem votos`, async () => {
+    const { ctx, page, state } = await context({ viewport: { width, height: 884 } })
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.goto(sessionUrl.href)
+      await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: 'Encontre o filme certo' })
+      const netflix = dialog.getByRole('button', { name: 'Netflix', exact: true })
+      await netflix.waitFor()
+      assert.equal(await dialog.getByRole('button', { name: 'Filtros aplicados' }).isDisabled(), true)
+      assert.equal(await dialog.locator('button:not(.cinema-filter-button)').count(), 0)
+      if (width === 1101) {
+        await netflix.hover()
+        const webgl = await page.evaluate(() => {
+          const gl = document.createElement('canvas').getContext('webgl2')
+          gl?.getExtension('WEBGL_lose_context')?.loseContext()
+          return !!gl
+        })
+        if (webgl) {
+          await netflix.locator('canvas').waitFor()
+          await delay(500)
+          assert.equal(await netflix.locator('.cinema-specular-fx').evaluate(el => getComputedStyle(el).opacity), '1')
+          if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/filters-white-hover.png' })
+          await page.mouse.move(0, 0)
+          await netflix.locator('canvas').waitFor({ state: 'detached' })
+        }
+      }
+      await netflix.click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'true')
+      await dialog.getByTitle('Remover filtro: Netflix', { exact: true }).click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
+      await netflix.click()
+      const region = dialog.getByRole('button', { name: 'Brasil (BR)', exact: true })
+      await region.click()
+      const us = page.getByRole('option', { name: 'Estados Unidos (US)', exact: true })
+      assert.ok((await us.getAttribute('class')).includes('cinema-filter-button'))
+      await us.click()
+      assert.equal(await page.getByRole('listbox').count(), 0)
+      await dialog.getByRole('button', { name: /^Período e duração/ }).click()
+      await dialog.getByRole('button', { name: 'Aumentar De', exact: true }).click()
+      assert.equal(await dialog.getByRole('spinbutton', { name: 'De', exact: true }).inputValue(), '1991')
+      await dialog.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
+      assert.equal(await dialog.getByRole('spinbutton', { name: 'De', exact: true }).inputValue(), '1990')
+      assert.equal(await dialog.getByRole('button', { name: 'Filtros aplicados' }).isDisabled(), true)
+      await netflix.click()
+      await region.click()
+      await page.getByRole('option', { name: 'Estados Unidos (US)', exact: true }).click()
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await netflix.hover()
+      await delay(350)
+      assert.equal(await netflix.locator('canvas').count(), 0)
+      assert.equal(await netflix.evaluate(el => getComputedStyle(el).transform), 'none')
+      await dialog.getByRole('button', { name: /^Aplicar/ }).click()
+      await dialog.waitFor({ state: 'detached' })
+      const saves = state.requests.filter(request => request.path.includes('/rest/v1/session_filters') && request.method === 'POST')
+      assert.equal(saves.length, 1)
+      assert.deepEqual(saves[0].body.providers, [8])
+      assert.equal(saves[0].body.watch_region, 'US')
+      assert.equal(saves[0].body.year_min, 1990)
+      assert.equal(state.reactions.length, 0)
+      await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
+      await dialog.waitFor()
+      await dialog.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Fechar', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      assert.equal(state.requests.filter(request => request.path.includes('/rest/v1/session_filters') && request.method === 'POST').length, 1)
+      assert.deepEqual(errors, [])
+    } finally { await ctx.close() }
+  })
+}

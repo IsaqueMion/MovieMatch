@@ -128,7 +128,14 @@ html, body, #root { height: 100%; }
 .cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-arrow svg { animation: cinema-arrow-travel .55s cubic-bezier(.4, 0, .2, 1) both; }
 .cinema-button:active:not(:disabled) { transform: scale(.97); }
 .cinema-specular-fx { opacity: 0; border-radius: inherit; transition: opacity .2s; }
-.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-specular-fx { opacity: 1; }
+.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-specular-fx,
+.cinema-filter-button:is(:hover, :focus-visible):not(:disabled) .cinema-specular-fx { opacity: 1; }
+.cinema-filter-button { position: relative; isolation: isolate; transition: transform .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.cinema-filter-button > :not(.cinema-specular-fx) { position: relative; z-index: 2; }
+.cinema-filter-button:not(:disabled):active { transform: scale(.97); }
+.cinema-filter-button:focus-visible { outline: 2px solid var(--cinema-accent); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) { .cinema-filter-button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 3px 12px #ffffff14; } }
+@media (prefers-reduced-motion: reduce) { .cinema-filter-button, .cinema-filter-button * { transition: none !important; } .cinema-filter-button:not(:disabled):is(:hover, :active) { transform: none; } }
 .cinema-button:disabled .cinema-button-arrow svg { animation: none; }
 .cinema-button.is-compact { --button-height: 44px; padding: 0 54px 0 16px; font-size: 13px; }
 .cinema-button.is-compact .cinema-button-arrow svg { width: 16px; height: 16px; }
