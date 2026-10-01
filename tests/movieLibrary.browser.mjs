@@ -368,8 +368,8 @@ test('upvote/downvote: hover sem gravação, alternância, erro, persistência e
     assert.equal(await a.page.locator('.review-vote-ripple').count(),0)
     await b.page.getByRole('link',{name:/Meus assistidos/}).click();await b.page.getByRole('button',{name:'Editar avaliação'}).click()
     await b.page.locator('.library-public-review').waitFor()
-    assert.equal(await b.page.getByRole('button',{name:'Upvote: 1'}).isDisabled(),true)
-    assert.equal(await b.page.getByRole('button',{name:'Downvote: 0'}).isDisabled(),true)
+    assert.equal(await b.page.getByRole('button',{name:'Upvote: 0'}).isDisabled(),true)
+    assert.equal(await b.page.getByRole('button',{name:'Downvote: 1'}).isDisabled(),true)
     assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[])
   }finally{await a.ctx.close();await b.ctx.close()}
 })
