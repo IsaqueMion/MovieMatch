@@ -231,6 +231,9 @@ for(const width of [320,390,768,1440])test(`home em ${width}px: navegação de v
     await menu.waitFor({state:'visible'})
     if(process.env.VISUAL_CAPTURE_DIR){await page.waitForTimeout(220);await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/home-account-menu-${width}.png`})}
     await menu.getByRole('menuitem',{name:'Minhas salas',exact:true}).click();await page.waitForURL(base+'/#minhas-salas');assert.equal(await page.locator('#minhas-salas').evaluate(el=>el.getBoundingClientRect().top<100),true)
+    await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();await page.getByRole('button',{name:'Remover da minha lista'}).getByText('Confirmar',{exact:true}).waitFor();await page.waitForTimeout(400)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    await page.keyboard.press('Escape');assert.equal(await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).getAttribute('aria-expanded'),'false');assert.equal(state.requests.filter(x=>x.method==='DELETE').length,0)
     assert.equal(state.requests.filter(x=>x.path.includes('/auth/v1/signup')).length,0)
     assert.deepEqual(state.errors,[])
   }finally{await context.close()}
@@ -250,11 +253,16 @@ test('sair da conta preserva estado em falha e remove salas e perfil após suces
 test('falha ao remover sala conserva os dados; confirmação pode ser cancelada',async()=>{
   const {context,page,state}=await fixture({path:'/#minhas-salas'})
   try{
-    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();const remove=page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'});assert.equal(await remove.innerText(),'Excluir');assert.equal(await remove.locator('.lucide-trash-2').count(),1);await remove.click();await page.getByRole('button',{name:'Cancelar',exact:true}).click()
+    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();const remove=page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'});assert.equal(await remove.innerText(),'');assert.equal(await remove.locator('.lucide-trash-2').count(),1)
+    const initial=await remove.boundingBox(), card=await page.locator('.home-room-grid article').boundingBox()
+    await remove.click();const confirm=page.getByRole('button',{name:'Remover da minha lista'});await confirm.getByText('Confirmar',{exact:true}).waitFor();await page.waitForTimeout(400)
+    assert.ok((await confirm.boundingBox()).width>initial.width);assert.equal((await page.locator('.home-room-grid article').boundingBox()).height,card.height);assert.equal(await page.locator('.home-room-confirm').count(),0)
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/delete-confirmation.png'})
+    await page.getByRole('button',{name:'Cancelar',exact:true}).click();await remove.waitFor();assert.equal(await remove.evaluate(el=>el===document.activeElement),true)
     assert.equal(state.requests.filter(x=>x.method==='DELETE').length,0)
     await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();state.fail=true;await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByRole('alert').filter({hasText:'Não foi possível remover.'}).waitFor()
     assert.equal(state.rooms.length,1);await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor()
-    state.fail=false;await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)
+    state.fail=false;await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)
     assert.deepEqual(state.errors,[])
   }finally{await context.close()}
 })
