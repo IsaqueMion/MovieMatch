@@ -28,11 +28,38 @@ before(async () => {
   }
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) })
 })
+
+test('trocar idioma no swipe preserva filme, votos e região; metadados usam o novo idioma',async()=>{
+  const {ctx,page,state}=await context({locale:'en-US',serviceWorkers:'block'})
+  try{
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button',{name:'Want to watch',exact:true}).waitFor()
+    const title=await page.locator('.swipe-film-title').textContent()
+    const localizedDetails=page.waitForResponse(response=>response.url().includes('/functions/v1/movie_details')&&new URL(response.url()).searchParams.get('language')==='es-ES')
+    await page.getByLabel('Interface language',{exact:true}).selectOption('es')
+    await localizedDetails
+    await page.getByRole('button',{name:'Quiero verla',exact:true}).waitFor()
+    assert.equal(await page.locator('.swipe-film-title').textContent(),title)
+    assert.equal(state.reactions.length,0)
+    await page.waitForFunction(()=>document.documentElement.lang==='es-ES')
+    const details=state.requests.filter(x=>x.path.includes('/functions/v1/movie_details'))
+    assert.ok(details.some(x=>new URL(x.url).searchParams.get('language')==='es-ES'))
+    assert.ok(details.every(x=>new URL(x.url).searchParams.get('region')==='BR'))
+    assert.equal(state.requests.find(x=>x.path.includes('/functions/v1/discover')).body.displayLanguage,'en-US')
+    await page.getByRole('button',{name:'Quiero verla',exact:true}).click()
+    await page.waitForFunction(old=>document.querySelector('.swipe-film-title')?.textContent!==old,title)
+    const next=await page.locator('.swipe-film-title').textContent()
+    await page.getByLabel('Idioma de la interfaz',{exact:true}).selectOption('pt')
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
+    assert.equal(await page.locator('.swipe-film-title').textContent(),next)
+    assert.equal(state.reactions.length,1)
+  }finally{await ctx.close()}
+})
 after(async () => { await browser?.close(); server?.kill() })
 
 async function context(options = {}) {
   const { tutorial = false, ...browserOptions } = options
-  const ctx = await browser.newContext({ ...browserOptions })
+  const ctx = await browser.newContext({ locale: 'pt-BR', ...browserOptions })
   // Block the app worker by its route: Playwright's global blocker reads
   // navigator.serviceWorker inside sandboxed child frames and throws.
   await ctx.route('**/sw.js', route => route.abort())
@@ -48,7 +75,7 @@ async function context(options = {}) {
     const req = route.request()
     const path = new URL(req.url()).pathname
     const body = req.postData() ? req.postDataJSON() : null
-    state.requests.push({ path, method: req.method(), body })
+    state.requests.push({ path, method: req.method(), body, url: req.url() })
     let result = []
     if (path.includes('/auth/v1/')) {
       result = path.endsWith('/user') ? user : { access_token: token, token_type: 'bearer', expires_in: 3600, refresh_token: 'fixture', user }

@@ -15,7 +15,8 @@ Deno.serve(async req => {
     const key = Deno.env.get('TMDB_KEY') ?? ''
     if (!key) return respond({ error: 'Search unavailable' }, 503)
     const url = new URL('https://api.themoviedb.org/3/search/movie')
-    url.search = new URLSearchParams({ query, language: 'pt-BR', include_adult: 'false', page: '1', ...(!key.startsWith('eyJ') ? { api_key: key } : {}) }).toString()
+    const language = ['pt-BR', 'en-US', 'es-ES'].includes(body.language) ? body.language : 'pt-BR'
+    url.search = new URLSearchParams({ query, language, include_adult: 'false', page: '1', ...(!key.startsWith('eyJ') ? { api_key: key } : {}) }).toString()
     const response = await fetch(url, { headers: key.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(8000) })
     if (!response.ok) return respond({ error: 'Search unavailable' }, 502)
     const { results } = await response.json()

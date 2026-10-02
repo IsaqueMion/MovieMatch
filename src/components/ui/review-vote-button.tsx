@@ -1,3 +1,4 @@
+import { useLocale, currentLocale } from '../../hooks/useLocale'
 // Based on the supplied button-21: paired directions, server-controlled state,
 // hover/focus counts and mirrored particles for downvotes.
 import { useId, useState } from 'react'
@@ -13,6 +14,7 @@ const PARTICLES = Array.from({ length: 6 }, (_, i) => {
 })
 
 export default function ReviewVoteButton({ direction, active, count, disabled, busy, onVote }: { direction: 'up' | 'down'; active: boolean; count: number; disabled: boolean; busy: boolean; onVote: () => Promise<boolean> }) {
+  useLocale()
   const reduced = usePrefersReducedMotion()
   const tipId = useId()
   const [burst, setBurst] = useState(0)
@@ -30,6 +32,6 @@ export default function ReviewVoteButton({ direction, active, count, disabled, b
       <AnimatePresence initial={false}>{burst > 0 && !reduced ? <motion.span key={burst} className="review-vote-ripple" initial={{ scale: 0, opacity: 1 }} animate={{ scale: 5, opacity: 0 }} transition={{ duration: .65, ease: 'easeOut' }} /> : null}</AnimatePresence>
       <motion.span key={`icon-${burst}`} animate={reduced ? { y: 0 } : burst > 0 ? { y: [0, -4 * sign, sign, -2 * sign, 0] } : { y: 0 }} transition={{ duration: .4, ease: 'easeOut' }}><Icon size={21} fill={active ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden="true" /></motion.span>
     </motion.button>
-    <span id={tipId} role="tooltip" className="review-vote-count"><span>{label}</span><AnimatePresence mode="wait" initial={false}><motion.strong key={count} initial={reduced ? false : { y: 8 * sign, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reduced ? undefined : { y: -8 * sign, opacity: 0 }} transition={{ duration: .18 }}>{count.toLocaleString('pt-BR')}</motion.strong></AnimatePresence></span>
+    <span id={tipId} role="tooltip" className="review-vote-count"><span>{label}</span><AnimatePresence mode="wait" initial={false}><motion.strong key={count} initial={reduced ? false : { y: 8 * sign, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reduced ? undefined : { y: -8 * sign, opacity: 0 }} transition={{ duration: .18 }}>{count.toLocaleString(currentLocale())}</motion.strong></AnimatePresence></span>
   </div>
 }

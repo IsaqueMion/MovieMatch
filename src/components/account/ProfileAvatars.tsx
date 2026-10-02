@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../../hooks/useLocale'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, UserRound } from 'lucide-react'
@@ -8,6 +9,7 @@ import '../../styles/profile-avatars.css'
 type Member = { member_key?: number; id: string | null; handle: string | null; display_name: string; bio: string | null; avatar_path: string | null; cover_path: string | null; online?: boolean }
 
 export default function ProfileAvatars({ sessionId }: { sessionId?: string | null }) {
+  useLocale()
   const [members, setMembers] = useState<Member[]>([])
   const [error, setError] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -39,14 +41,15 @@ export default function ProfileAvatars({ sessionId }: { sessionId?: string | nul
     return () => { active = false; observer?.disconnect(); window.clearInterval(interval); window.removeEventListener('moviematch:profile-changed', changed); window.removeEventListener('focus', changed) }
   }, [sessionId])
   return <div className="profile-avatars" ref={root} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Backspace'].includes(event.key)) event.stopPropagation() }}>
-    <div className="profile-avatar-list" role="group" aria-label={sessionId ? 'Participantes da sessão' : 'Perfis públicos da comunidade'}>
+    <div className="profile-avatar-list" role="group" aria-label={sessionId ? t("Participantes da sessão") : t("Perfis públicos da comunidade")}>
       {members.map(member => <MemberAvatar key={member.member_key ?? member.id!} member={member} />)}
     </div>
-    {!sessionId ? <small>{members.length ? 'Perfis públicos da comunidade · sessão ilustrativa' : error ? 'Comunidade indisponível agora · sessão ilustrativa' : 'Uma sessão ilustrativa do MovieMatch'}</small> : error ? <small role="status">Não foi possível atualizar participantes.</small> : null}
+    {!sessionId ? <small>{members.length ? t("Perfis públicos da comunidade · sessão ilustrativa") : error ? t("Comunidade indisponível agora · sessão ilustrativa") : t("Uma sessão ilustrativa do MovieMatch")}</small> : error ? <small role="status">{t("Não foi possível atualizar participantes.")}</small> : null}
   </div>
 }
 
 function MemberAvatar({ member }: { member: Member }) {
+  useLocale()
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<CSSProperties>({})
   const timer = useRef<number | undefined>(undefined)
@@ -74,12 +77,12 @@ function MemberAvatar({ member }: { member: Member }) {
     return () => { window.clearTimeout(timer.current); document.removeEventListener('keydown', escape); document.removeEventListener('pointerdown', outside); window.removeEventListener('scroll', scroll, true); window.removeEventListener('resize', hide) }
   }, [])
   const image = <><UserRound size={18} aria-hidden="true" />{member.avatar_path ? <img key={member.avatar_path} src={mediaUrl(member.avatar_path)} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true }} /> : null}</>
-  const description = member.online === undefined ? 'Perfil público' : member.online ? 'Online' : 'Fora da página, participa do consenso'
+  const description = member.online === undefined ? t("Perfil público") : member.online ? 'Online' : t("Fora da página, participa do consenso")
   return <div className="member-avatar" ref={root} data-open={open} onPointerEnter={event => { if (event.pointerType === 'mouse') show() }} onPointerLeave={hide} onFocus={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) show() }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) hide() }}>
     <button type="button" className="member-avatar-trigger" aria-label={`${member.display_name} · ${description}`} aria-expanded={open} onClick={() => { window.clearTimeout(timer.current); if (open) hide(); else reveal() }}><span>{image}</span>{member.online ? <i aria-hidden="true" /> : null}</button>
     {open ? <section className="member-profile-preview" style={position} aria-label={`Perfil de ${member.display_name}`}>
       <div className="member-preview-cover">{member.cover_path ? <img key={member.cover_path} src={mediaUrl(member.cover_path)} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true }} /> : null}</div>
-      <div className="member-preview-copy"><span className="member-preview-avatar">{image}</span><strong>{member.display_name}</strong>{member.handle ? <small>@{member.handle}</small> : null}<small>{description}</small>{member.bio ? <p>{member.bio}</p> : !member.handle ? <p>{member.display_name === 'Perfil privado' ? 'Esta pessoa mantém o perfil privado.' : 'Participa sem cadastro.'}</p> : null}{member.handle ? <Link to={`/p/${member.handle}`}>Ver perfil<ArrowUpRight size={14} aria-hidden="true" /></Link> : null}</div>
+      <div className="member-preview-copy"><span className="member-preview-avatar">{image}</span><strong>{member.display_name}</strong>{member.handle ? <small>@{member.handle}</small> : null}<small>{description}</small>{member.bio ? <p>{member.bio}</p> : !member.handle ? <p>{member.display_name === t("Perfil privado") ? t("Esta pessoa mantém o perfil privado.") : t("Participa sem cadastro.")}</p> : null}{member.handle ? <Link to={`/p/${member.handle}`}>{t("Ver perfil")}<ArrowUpRight size={14} aria-hidden="true" /></Link> : null}</div>
     </section> : null}
   </div>
 }

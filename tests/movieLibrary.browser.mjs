@@ -35,7 +35,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill() })
 
 async function fixture({ state = shared(), uid = owner, width = 1440, guest = false, path = '/s/DEMO01/matches' } = {}) {
-  const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
+  const ctx = await browser.newContext({ locale: 'pt-BR', serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: guest, email_confirmed_at: guest ? undefined : '2026-10-01T12:00:00Z', app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
   const requests = [], reactions = [], errors = []

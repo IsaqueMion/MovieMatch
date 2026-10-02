@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../hooks/useLocale'
 import {
   ArrowLeft,
   Clapperboard,
@@ -7,11 +8,12 @@ import { Link } from 'react-router-dom'
 import { usePageMeta } from '../hooks/usePageMeta'
 
 export default function NotFound() {
+  useLocale()
   usePageMeta({
     title:
-      'Página não encontrada — MovieMatch',
+      t("Página não encontrada — MovieMatch"),
     description:
-      'A página que você tentou acessar não existe no MovieMatch.',
+      t("A página que você tentou acessar não existe no MovieMatch."),
     robots:
       'noindex,nofollow,noarchive',
   })
@@ -23,26 +25,17 @@ export default function NotFound() {
           <Clapperboard className="h-6 w-6 text-neutral-950" />
         </div>
 
-        <p className="mt-6 font-mono text-sm text-emerald-400">
-          ERRO 404
-        </p>
+        <p className="mt-6 font-mono text-sm text-emerald-400">{t("ERRO 404")}</p>
 
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          Essa página não entrou nos matches.
-        </h1>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t("Essa página não entrou nos matches.")}</h1>
 
-        <p className="mt-3 text-sm leading-6 text-white/55">
-          O endereço pode estar incorreto ou a
-          página pode ter sido movida.
-        </p>
+        <p className="mt-3 text-sm leading-6 text-white/55">{t("O endereço pode estar incorreto ou a página pode ter sido movida.")}</p>
 
         <Link
           to="/"
           className="mt-7 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-neutral-950 transition hover:bg-white/90"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar para o início
-        </Link>
+          <ArrowLeft className="h-4 w-4" />{t("Voltar para o início")}</Link>
       </div>
     </main>
   )

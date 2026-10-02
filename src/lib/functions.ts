@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { ensureAnonymousUser } from './auth'
+import { currentLocale } from '../hooks/useLocale'
 
 export type MonetizationType = 'flatrate' | 'free' | 'ads' | 'rent' | 'buy'
 
@@ -95,18 +96,19 @@ export async function discoverMovies(opts: { page?: number; filters?: DiscoverFi
       poster_url: string | null
       genres: number[]
     }>
-  }>('discover', opts, 3)
+  }>('discover', { ...opts, displayLanguage: currentLocale() }, 3)
 }
 
 /* ---------------- Detalhes com cache (TTL) + retry ---------------- */
 
-const MD_CACHE_PREFIX = 'mm:md:v3:'
+const MD_CACHE_PREFIX = 'mm:md:v4:'
 const MD_TTL = 1000 * 60 * 60 * 3 // 3 horas
 
 export async function getMovieDetails(tmdb_id: number, opts?: { region?: string }): Promise<MovieDetails> {
   
   const region = (opts?.region || 'BR').toUpperCase()
-  const key = `${MD_CACHE_PREFIX}${tmdb_id}:${region}`
+  const language = currentLocale()
+  const key = `${MD_CACHE_PREFIX}${tmdb_id}:${region}:${language}`
   try {
     const raw = localStorage.getItem(key)
     if (raw) {
@@ -134,7 +136,7 @@ export async function getMovieDetails(tmdb_id: number, opts?: { region?: string 
     throw new Error('Sessão Supabase indisponível.')
   }
 
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}&region=${region}`
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/movie_details?tmdb_id=${tmdb_id}&region=${encodeURIComponent(region)}&language=${language}`
 
   const res = await fetchWithRetry(
     url,

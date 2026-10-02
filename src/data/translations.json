@@ -1,0 +1,2590 @@
+{
+  "Idioma da interface": [
+    "Interface language",
+    "Idioma de la interfaz"
+  ],
+  "Sua conta — MovieMatch": [
+    "Your account — MovieMatch",
+    "Tu cuenta — MovieMatch"
+  ],
+  "Entre para salvar salas e compartilhar avaliações.": [
+    "Sign in to save rooms and share reviews.",
+    "Inicia sesión para guardar salas y compartir reseñas."
+  ],
+  "Não foi possível retomar seu histórico.": [
+    "We couldn't restore your history.",
+    "No pudimos recuperar tu historial."
+  ],
+  "Use pelo menos 8 caracteres e confirme a mesma senha.": [
+    "Use at least 8 characters and confirm the same password.",
+    "Usa al menos 8 caracteres y confirma la misma contraseña."
+  ],
+  "Se esse e-mail tiver uma conta, você receberá um link para redefinir a senha.": [
+    "If this email has an account, you'll receive a password reset link.",
+    "Si este correo tiene una cuenta, recibirás un enlace para restablecer la contraseña."
+  ],
+  "Senha atualizada. Você pode continuar.": [
+    "Password updated. You can continue.",
+    "Contraseña actualizada. Puedes continuar."
+  ],
+  "Confira seu e-mail para confirmar a conta. Depois entre nesta mesma aba para preservar o histórico de visitante.": [
+    "Check your email to confirm your account. Then sign in in this tab to keep your guest history.",
+    "Revisa tu correo para confirmar tu cuenta. Después inicia sesión en esta pestaña para conservar tu historial de invitado."
+  ],
+  "E-mail ou senha incorretos.": [
+    "Incorrect email or password.",
+    "Correo o contraseña incorrectos."
+  ],
+  "Confirme seu e-mail antes de entrar.": [
+    "Confirm your email before signing in.",
+    "Confirma tu correo antes de iniciar sesión."
+  ],
+  "O limite de envio de e-mails foi atingido. Tente novamente mais tarde.": [
+    "The email sending limit was reached. Try again later.",
+    "Se alcanzó el límite de envío de correos. Inténtalo más tarde."
+  ],
+  "Não foi possível concluir. Confira os dados e tente novamente.": [
+    "We couldn't complete this. Check your details and try again.",
+    "No pudimos completar la acción. Revisa los datos e inténtalo de nuevo."
+  ],
+  "Bom ter você de volta.": [
+    "Good to have you back.",
+    "Qué bueno tenerte de vuelta."
+  ],
+  "Seu cinema começa aqui.": [
+    "Your cinema starts here.",
+    "Tu cine empieza aquí."
+  ],
+  "Vamos recuperar seu acesso.": [
+    "Let's restore your access.",
+    "Recuperemos tu acceso."
+  ],
+  "Uma nova senha. Um novo começo.": [
+    "A new password. A fresh start.",
+    "Una nueva contraseña. Un nuevo comienzo."
+  ],
+  "A sessão continua.": [
+    "The session continues.",
+    "La sesión continúa."
+  ],
+  "Sua conta está conectada. Retome a sessão ou deixe o perfil com a sua cara.": [
+    "You're signed in. Resume your session or make your profile your own.",
+    "Tu cuenta está conectada. Retoma la sesión o personaliza tu perfil."
+  ],
+  "Crie sua conta para guardar as salas e compartilhar o que achou de cada filme.": [
+    "Create an account to save rooms and share your thoughts on each film.",
+    "Crea tu cuenta para guardar salas y compartir lo que piensas de cada película."
+  ],
+  "Enviaremos um link para você escolher uma nova senha.": [
+    "We'll send you a link to choose a new password.",
+    "Te enviaremos un enlace para elegir una nueva contraseña."
+  ],
+  "Escolha uma senha com pelo menos 8 caracteres.": [
+    "Choose a password with at least 8 characters.",
+    "Elige una contraseña de al menos 8 caracteres."
+  ],
+  "Entre para reencontrar suas salas, seus filmes e suas histórias.": [
+    "Sign in to find your rooms, films and stories again.",
+    "Inicia sesión para reencontrar tus salas, películas e historias."
+  ],
+  "O próximo filme. A escolha de todos.": [
+    "The next film. Everyone's choice.",
+    "La próxima película. La elección de todos."
+  ],
+  "O play acaba.": [
+    "The credits roll.",
+    "La película termina."
+  ],
+  "A conversa continua.": [
+    "The conversation continues.",
+    "La conversación continúa."
+  ],
+  "Guarde as sessões que renderam, os filmes que ficaram e a sua opinião depois dos créditos.": [
+    "Keep memorable sessions, lasting films and your thoughts after the credits.",
+    "Guarda las sesiones memorables, las películas que dejaron huella y tu opinión después de los créditos."
+  ],
+  "Seu lugar na próxima sessão.": [
+    "Your place in the next session.",
+    "Tu lugar en la próxima sesión."
+  ],
+  "Continuar sem cadastro": [
+    "Continue as a guest",
+    "Continuar sin cuenta"
+  ],
+  "Crie sua conta": [
+    "Create your account",
+    "Crea tu cuenta"
+  ],
+  "Recuperar acesso": [
+    "Recover access",
+    "Recuperar acceso"
+  ],
+  "Bem-vindo ao MovieMatch": [
+    "Welcome to MovieMatch",
+    "Bienvenido a MovieMatch"
+  ],
+  "Acesso à conta": [
+    "Account access",
+    "Acceso a la cuenta"
+  ],
+  "Entrar": [
+    "Sign in",
+    "Entrar"
+  ],
+  "Criar conta": [
+    "Create account",
+    "Crear cuenta"
+  ],
+  "Continuar para o início": [
+    "Continue to home",
+    "Continuar al inicio"
+  ],
+  "Continuar apenas com o histórico da conta? O histórico de visitante não será transferido.": [
+    "Continue with account history only? Your guest history won't be transferred.",
+    "¿Continuar solo con el historial de la cuenta? El historial de invitado no se transferirá."
+  ],
+  "Continuar apenas com o histórico da conta": [
+    "Continue with account history only",
+    "Continuar solo con el historial de la cuenta"
+  ],
+  "Personalizar meu perfil": [
+    "Personalize my profile",
+    "Personalizar mi perfil"
+  ],
+  "Este link não está ativo.": [
+    "This link is no longer active.",
+    "Este enlace no está activo."
+  ],
+  "Solicitar novo link de recuperação": [
+    "Request a new recovery link",
+    "Solicitar un nuevo enlace de recuperación"
+  ],
+  "Recuperar senha": [
+    "Reset password",
+    "Recuperar contraseña"
+  ],
+  "E-mail": [
+    "Email",
+    "Correo electrónico"
+  ],
+  "Senha": [
+    "Password",
+    "Contraseña"
+  ],
+  "Sua senha": [
+    "Your password",
+    "Tu contraseña"
+  ],
+  "Pelo menos 8 caracteres": [
+    "At least 8 characters",
+    "Al menos 8 caracteres"
+  ],
+  "Ocultar senha": [
+    "Hide password",
+    "Ocultar contraseña"
+  ],
+  "Mostrar senha": [
+    "Show password",
+    "Mostrar contraseña"
+  ],
+  "Esqueci minha senha": [
+    "Forgot password",
+    "Olvidé mi contraseña"
+  ],
+  "Use pelo menos 8 caracteres.": [
+    "Use at least 8 characters.",
+    "Usa al menos 8 caracteres."
+  ],
+  "Aguarde…": [
+    "Please wait…",
+    "Espera…"
+  ],
+  "Salvar senha": [
+    "Save password",
+    "Guardar contraseña"
+  ],
+  "Enviar link": [
+    "Send link",
+    "Enviar enlace"
+  ],
+  "Novo por aqui?": [
+    "New here?",
+    "¿Eres nuevo aquí?"
+  ],
+  "Ainda não tenho conta": [
+    "I don't have an account yet",
+    "Todavía no tengo cuenta"
+  ],
+  "Voltar para entrar": [
+    "Back to sign in",
+    "Volver a iniciar sesión"
+  ],
+  "Criar salas e votar continuam sem cadastro.": [
+    "Creating rooms and voting still work without an account.",
+    "Crear salas y votar sigue sin requerir una cuenta."
+  ],
+  "Termos de uso": [
+    "Terms of use",
+    "Términos de uso"
+  ],
+  "Privacidade": [
+    "Privacy",
+    "Privacidad"
+  ],
+  "Junte o elenco.": [
+    "Bring everyone together.",
+    "Reúne al grupo."
+  ],
+  "Crie uma sessão e compartilhe o link ou o código com quem vai assistir.": [
+    "Create a session and share its link or code with your watching group.",
+    "Crea una sesión y comparte el enlace o código con quienes van a ver la película."
+  ],
+  "Cada um dá seu voto.": [
+    "Everyone gets a vote.",
+    "Cada persona tiene su voto."
+  ],
+  "Escolham os filtros do grupo. Depois, cada pessoa curte os filmes que quer ver.": [
+    "Choose the group's filters. Then everyone likes the films they want to watch.",
+    "Elijan los filtros del grupo. Después, cada persona indica las películas que quiere ver."
+  ],
+  "O sim é de todo mundo.": [
+    "A yes from everyone.",
+    "Un sí de todos."
+  ],
+  "Com pelo menos duas pessoas, o filme vira match quando todos os participantes atuais curtirem.": [
+    "With at least two people, a film becomes a match when every current participant likes it.",
+    "Con al menos dos personas, una película es un match cuando les gusta a todos los participantes actuales."
+  ],
+  "MovieMatch — o próximo filme, a escolha de todos": [
+    "MovieMatch — the next film, everyone's choice",
+    "MovieMatch — la próxima película, la elección de todos"
+  ],
+  "Crie uma sessão, convide seu grupo e encontre um filme que todos querem assistir. Sem cadastro, no celular ou no computador.": [
+    "Create a session, invite your group and find a film everyone wants to watch. No account needed, on your phone or computer.",
+    "Crea una sesión, invita a tu grupo y encuentra una película que todos quieran ver. Sin cuenta, en el móvil o el ordenador."
+  ],
+  "O código tem 6 letras ou números.": [
+    "The code has 6 letters or numbers.",
+    "El código tiene 6 letras o números."
+  ],
+  "Faltam ": [
+    "Remaining: ",
+    "Faltan "
+  ],
+  " caractere.": [
+    " character.",
+    " carácter."
+  ],
+  " caracteres.": [
+    " characters.",
+    " caracteres."
+  ],
+  "Digite os 6 caracteres do código da sessão.": [
+    "Enter the 6-character session code.",
+    "Introduce los 6 caracteres del código de la sesión."
+  ],
+  "Procurando sua sessão…": [
+    "Looking for your session…",
+    "Buscando tu sesión…"
+  ],
+  "Sessão não encontrada ou expirada. Confira o código ou crie uma nova.": [
+    "Session not found or expired. Check the code or create a new one.",
+    "Sesión no encontrada o caducada. Revisa el código o crea una nueva."
+  ],
+  "Não foi possível conectar à sessão. Tente novamente.": [
+    "Couldn't connect to the session. Try again.",
+    "No pudimos conectar con la sesión. Inténtalo de nuevo."
+  ],
+  "Não foi possível conectar agora. Tente novamente.": [
+    "Couldn't connect right now. Try again.",
+    "No pudimos conectar ahora. Inténtalo de nuevo."
+  ],
+  "Preparando sua sessão…": [
+    "Preparing your session…",
+    "Preparando tu sesión…"
+  ],
+  "Não foi possível criar a sessão. Tente novamente.": [
+    "Couldn't create the session. Try again.",
+    "No pudimos crear la sesión. Inténtalo de nuevo."
+  ],
+  "Pular para o conteúdo": [
+    "Skip to content",
+    "Saltar al contenido"
+  ],
+  "MovieMatch, página inicial": [
+    "MovieMatch, home page",
+    "MovieMatch, página de inicio"
+  ],
+  "Navegação principal": [
+    "Main navigation",
+    "Navegación principal"
+  ],
+  "Como funciona": [
+    "How it works",
+    "Cómo funciona"
+  ],
+  "A experiência": [
+    "The experience",
+    "La experiencia"
+  ],
+  "Criando…": [
+    "Creating…",
+    "Creando…"
+  ],
+  "Criar sessão": [
+    "Create session",
+    "Crear sesión"
+  ],
+  "PARA A SUA PRÓXIMA SESSÃO": [
+    "FOR YOUR NEXT MOVIE NIGHT",
+    "PARA TU PRÓXIMA SESIÓN"
+  ],
+  "O próximo filme.": [
+    "The next film.",
+    "La próxima película."
+  ],
+  "A escolha de todos.": [
+    "Everyone's choice.",
+    "La elección de todos."
+  ],
+  "Menos tempo escolhendo.": [
+    "Less time choosing.",
+    "Menos tiempo eligiendo."
+  ],
+  "Mais tempo assistindo juntos.": [
+    "More time watching together.",
+    "Más tiempo viendo juntos."
+  ],
+  "Uma prévia do catálogo. A sessão de verdade começa com você.": [
+    "A glimpse of the catalogue. The real session starts with you.",
+    "Una muestra del catálogo. La verdadera sesión empieza contigo."
+  ],
+  "Criando sessão…": [
+    "Creating session…",
+    "Creando sesión…"
+  ],
+  "Criar uma sessão": [
+    "Create a session",
+    "Crear una sesión"
+  ],
+  "Tenho um código": [
+    "I have a code",
+    "Tengo un código"
+  ],
+  "Sem cadastro. Sem baixar nada. Só escolher.": [
+    "No account. No downloads. Just choose.",
+    "Sin cuenta. Sin descargar nada. Solo elegir."
+  ],
+  "Animação pausada pela preferência de movimento reduzido": [
+    "Animation paused by your reduced motion preference",
+    "Animación pausada por tu preferencia de movimiento reducido"
+  ],
+  "Retomar animação dos pôsteres": [
+    "Resume poster animation",
+    "Reanudar animación de pósteres"
+  ],
+  "Pausar animação dos pôsteres": [
+    "Pause poster animation",
+    "Pausar animación de pósteres"
+  ],
+  "JÁ FOI CONVIDADO?": [
+    "ALREADY INVITED?",
+    "¿YA TE INVITARON?"
+  ],
+  "Seu grupo está esperando.": [
+    "Your group is waiting.",
+    "Tu grupo te espera."
+  ],
+  "Código da sessão": [
+    "Session code",
+    "Código de la sesión"
+  ],
+  "Entrando…": [
+    "Joining…",
+    "Entrando…"
+  ],
+  "COMO FUNCIONA": [
+    "HOW IT WORKS",
+    "CÓMO FUNCIONA"
+  ],
+  "O roteiro é simples.": [
+    "The story is simple.",
+    "El guion es sencillo."
+  ],
+  "A parte difícil era escolher. Era.": [
+    "Choosing used to be the hard part.",
+    "Elegir era lo difícil. Era."
+  ],
+  "DO “O QUE VAMOS VER?” AO PLAY": [
+    "FROM “WHAT SHALL WE WATCH?” TO PLAY",
+    "DEL «¿QUÉ VEMOS?» AL PLAY"
+  ],
+  "Gostos diferentes.": [
+    "Different tastes.",
+    "Gustos diferentes."
+  ],
+  "Um filme em comum.": [
+    "One film in common.",
+    "Una película en común."
+  ],
+  "Da comédia de sexta ao suspense de domingo: descubram o que combina com todo mundo.": [
+    "From Friday comedy to Sunday suspense: find what works for everyone.",
+    "De la comedia del viernes al suspense del domingo: descubran lo que le gusta a todo el grupo."
+  ],
+  "O catálogo do seu jeito": [
+    "Your kind of catalogue",
+    "El catálogo a tu manera"
+  ],
+  "Filtrem por gênero, duração, nota e serviços de streaming.": [
+    "Filter by genre, runtime, rating and streaming services.",
+    "Filtren por género, duración, puntuación y servicios de streaming."
+  ],
+  "Cada pessoa tem seu voto": [
+    "Everyone has a vote",
+    "Cada persona tiene su voto"
+  ],
+  "Os filtros são compartilhados. O gosto continua sendo seu.": [
+    "Filters are shared. Your taste is still yours.",
+    "Los filtros son compartidos. Tu gusto sigue siendo tuyo."
+  ],
+  "O match é do grupo": [
+    "The match belongs to the group",
+    "El match es del grupo"
+  ],
+  "Todos os participantes atuais precisam curtir. Quem fecha a aba ainda faz parte da sessão.": [
+    "Every current participant must like it. Closing the tab doesn't leave the session.",
+    "Debe gustarles a todos los participantes actuales. Cerrar la pestaña no abandona la sesión."
+  ],
+  "LUZES BAIXAS. ESCOLHA FEITA.": [
+    "LIGHTS DOWN. CHOICE MADE.",
+    "LUCES BAJAS. ELECCIÓN HECHA."
+  ],
+  "Hoje tem filme.": [
+    "It's movie night.",
+    "Hoy toca película."
+  ],
+  "Começar uma sessão": [
+    "Start a session",
+    "Empezar una sesión"
+  ],
+  "Informações do site": [
+    "Site information",
+    "Información del sitio"
+  ],
+  "Meus assistidos": [
+    "My watched films",
+    "Mis películas vistas"
+  ],
+  "Termos": [
+    "Terms",
+    "Términos"
+  ],
+  "Publicidade": [
+    "Advertising",
+    "Publicidad"
+  ],
+  "Feito para decidir juntos.": [
+    "Made for choosing together.",
+    "Hecho para elegir juntos."
+  ],
+  "Este produto usa a API do": [
+    "This product uses the API of",
+    "Este producto usa la API de"
+  ],
+  ", mas não é endossado ou certificado pelo TMDB.": [
+    ", but is not endorsed or certified by TMDB.",
+    ", pero no está respaldado ni certificado por TMDB."
+  ],
+  "Matches — MovieMatch": [
+    "Matches — MovieMatch",
+    "Matches — MovieMatch"
+  ],
+  "Veja os filmes aprovados pelos participantes da sua sessão do MovieMatch.": [
+    "See the films everyone in your MovieMatch session liked.",
+    "Descubre las películas aprobadas por los participantes de tu sesión de MovieMatch."
+  ],
+  "Filme sem título": [
+    "Untitled film",
+    "Película sin título"
+  ],
+  "Não foi possível marcar o filme. Tente novamente.": [
+    "Couldn't mark the film. Try again.",
+    "No pudimos marcar la película. Inténtalo de nuevo."
+  ],
+  "Não foi possível copiar. Permita o acesso à área de transferência e tente novamente.": [
+    "Couldn't copy. Allow clipboard access and try again.",
+    "No pudimos copiar. Permite el acceso al portapapeles e inténtalo de nuevo."
+  ],
+  "Pular para os filmes": [
+    "Skip to films",
+    "Saltar a las películas"
+  ],
+  "Sessão": [
+    "Session",
+    "Sesión"
+  ],
+  "online": [
+    "online",
+    "en línea"
+  ],
+  "Voltar a votar": [
+    "Back to voting",
+    "Volver a votar"
+  ],
+  "Sala de testes · Matches e votos iniciais de exemplo. Suas alterações de assistidos continuam pessoais.": [
+    "Test room · Sample matches and initial votes. Your watched list changes remain personal.",
+    "Sala de pruebas · Matches y votos iniciales de ejemplo. Los cambios en tu lista de vistas siguen siendo personales."
+  ],
+  "A escolha é de vocês": [
+    "The choice is yours",
+    "La elección es de ustedes"
+  ],
+  "O mesmo sim.": [
+    "The same yes.",
+    "El mismo sí."
+  ],
+  "Todos curtiram. Agora, só falta escolher qual filme vai ganhar o play.": [
+    "Everyone liked it. Now choose which film gets played.",
+    "A todos les gustó. Ahora solo queda elegir qué película ver."
+  ],
+  "Quando os gostos se encontram, os filmes aparecem aqui. A próxima escolha é de vocês.": [
+    "When tastes meet, films appear here. The next choice is yours.",
+    "Cuando los gustos coinciden, las películas aparecen aquí. La próxima elección es de ustedes."
+  ],
+  "filme em comum": [
+    "film in common",
+    "película en común"
+  ],
+  "filmes em comum": [
+    "films in common",
+    "películas en común"
+  ],
+  "Aprovados por todos os": [
+    "Approved by all",
+    "Aprobadas por todos los"
+  ],
+  "participantes atuais.": [
+    "current participants.",
+    "participantes actuales."
+  ],
+  "Sua próxima sessão": [
+    "Your next session",
+    "Tu próxima sesión"
+  ],
+  "A seleção do grupo": [
+    "The group's selection",
+    "La selección del grupo"
+  ],
+  "Meus assistidos ·": [
+    "My watched films ·",
+    "Mis películas vistas ·"
+  ],
+  "Buscar filme": [
+    "Search films",
+    "Buscar película"
+  ],
+  "Buscar um filme": [
+    "Search for a film",
+    "Buscar una película"
+  ],
+  "Ordenar filmes": [
+    "Sort films",
+    "Ordenar películas"
+  ],
+  "Mais recentes": [
+    "Newest first",
+    "Más recientes"
+  ],
+  "Mais antigos": [
+    "Oldest first",
+    "Más antiguos"
+  ],
+  "Título (A→Z)": [
+    "Title (A→Z)",
+    "Título (A→Z)"
+  ],
+  "Copiar lista": [
+    "Copy list",
+    "Copiar lista"
+  ],
+  "Não foi possível verificar seus assistidos.": [
+    "Couldn't check your watched films.",
+    "No pudimos consultar tus películas vistas."
+  ],
+  "Tentar novamente": [
+    "Try again",
+    "Intentar de nuevo"
+  ],
+  "Reunindo as escolhas de vocês…": [
+    "Gathering your choices…",
+    "Reuniendo sus elecciones…"
+  ],
+  "Sessão indisponível": [
+    "Session unavailable",
+    "Sesión no disponible"
+  ],
+  "Confira o código da sessão. Ela pode ter expirado ou a conexão pode estar indisponível.": [
+    "Check the session code. It may have expired or the connection may be unavailable.",
+    "Revisa el código de la sesión. Puede haber caducado o la conexión puede no estar disponible."
+  ],
+  "Ir para o início": [
+    "Go to home",
+    "Ir al inicio"
+  ],
+  "Não foi possível atualizar a seleção. Tente novamente em instantes.": [
+    "Couldn't update the selection. Try again shortly.",
+    "No pudimos actualizar la selección. Inténtalo en un momento."
+  ],
+  "Vamos tentar outro título": [
+    "Let's try another title",
+    "Probemos otro título"
+  ],
+  "O próximo sim está por vir": [
+    "The next yes is coming",
+    "El próximo sí está por llegar"
+  ],
+  "Esse filme não está na seleção.": [
+    "This film isn't in the selection.",
+    "Esta película no está en la selección."
+  ],
+  "Você já viu todos esses filmes.": [
+    "You've watched all these films.",
+    "Ya has visto todas estas películas."
+  ],
+  "Ainda não deu match.": [
+    "No matches yet.",
+    "Todavía no hay matches."
+  ],
+  "Busque outro título ou veja todos os filmes aprovados pelo grupo.": [
+    "Search for another title or browse all the group's films.",
+    "Busca otro título o consulta todas las películas aprobadas por el grupo."
+  ],
+  "Suas histórias estão em Meus assistidos. Continue votando para descobrir novas opções.": [
+    "Your stories are in My watched films. Keep voting to discover new options.",
+    "Tus historias están en Mis películas vistas. Sigue votando para descubrir nuevas opciones."
+  ],
+  "O filme que conquistou o grupo": [
+    "The film that won everyone over",
+    "La película que conquistó al grupo"
+  ],
+  "Matches da sessão": [
+    "Session matches",
+    "Matches de la sesión"
+  ],
+  "Ano não informado": [
+    "Year unavailable",
+    "Año no disponible"
+  ],
+  "· Escolha do grupo": [
+    "· The group's choice",
+    "· Elección del grupo"
+  ],
+  "Escolha do grupo": [
+    "The group's choice",
+    "Elección del grupo"
+  ],
+  "Todo mundo disse sim.": [
+    "Everyone said yes.",
+    "Todos dijeron que sí."
+  ],
+  "de": [
+    "of",
+    "de"
+  ],
+  "participantes curtiram": [
+    "participants liked it",
+    "participantes indicaron que les gusta"
+  ],
+  "Explorar o filme": [
+    "Explore the film",
+    "Explorar la película"
+  ],
+  "Sinopse, trailer e onde assistir": [
+    "Synopsis, trailer and where to watch",
+    "Sinopsis, tráiler y dónde ver"
+  ],
+  "Todos os matches": [
+    "All matches",
+    "Todos los matches"
+  ],
+  "curtiram": [
+    "liked it",
+    "indicaron que les gusta"
+  ],
+  "Menos tempo escolhendo. Mais tempo assistindo juntos.": [
+    "Less time choosing. More time watching together.",
+    "Menos tiempo eligiendo. Más tiempo viendo juntos."
+  ],
+  "Continuar descobrindo": [
+    "Keep discovering",
+    "Seguir descubriendo"
+  ],
+  "Página não encontrada — MovieMatch": [
+    "Page not found — MovieMatch",
+    "Página no encontrada — MovieMatch"
+  ],
+  "A página que você tentou acessar não existe no MovieMatch.": [
+    "This page doesn't exist on MovieMatch.",
+    "La página que intentaste abrir no existe en MovieMatch."
+  ],
+  "ERRO 404": [
+    "ERROR 404",
+    "ERROR 404"
+  ],
+  "Essa página não entrou nos matches.": [
+    "This page didn't make the matches.",
+    "Esta página no llegó a los matches."
+  ],
+  "O endereço pode estar incorreto ou a página pode ter sido movida.": [
+    "The address may be incorrect or the page may have moved.",
+    "La dirección puede ser incorrecta o la página puede haberse movido."
+  ],
+  "Voltar para o início": [
+    "Back to home",
+    "Volver al inicio"
+  ],
+  "Perfil salvo.": [
+    "Profile saved.",
+    "Perfil guardado."
+  ],
+  "Perfil": [
+    "Profile",
+    "Perfil"
+  ],
+  "Favoritos e opiniões de quem vive o cinema.": [
+    "Favorites and thoughts from film lovers.",
+    "Favoritos y opiniones de quienes viven el cine."
+  ],
+  "Não foi possível carregar o perfil. Recarregue para tentar novamente.": [
+    "Couldn't load the profile. Reload to try again.",
+    "No pudimos cargar el perfil. Recarga para intentarlo de nuevo."
+  ],
+  "Nenhum filme encontrado. Tente outro título.": [
+    "No films found. Try another title.",
+    "No se encontraron películas. Prueba otro título."
+  ],
+  "Não foi possível buscar filmes. Tente novamente.": [
+    "Couldn't search for films. Try again.",
+    "No pudimos buscar películas. Inténtalo de nuevo."
+  ],
+  "Não foi possível remover esse favorito.": [
+    "Couldn't remove this favorite.",
+    "No pudimos eliminar este favorito."
+  ],
+  "Você já escolheu quatro favoritos. Remova um para adicionar outro.": [
+    "You already have four favorites. Remove one to add another.",
+    "Ya elegiste cuatro favoritos. Elimina uno para añadir otro."
+  ],
+  "Não foi possível adicionar esse favorito.": [
+    "Couldn't add this favorite.",
+    "No pudimos añadir este favorito."
+  ],
+  "Não foi possível carregar mais avaliações.": [
+    "Couldn't load more reviews.",
+    "No pudimos cargar más reseñas."
+  ],
+  "Não foi possível sair da conta. Tente novamente.": [
+    "Couldn't sign out. Try again.",
+    "No pudimos cerrar sesión. Inténtalo de nuevo."
+  ],
+  "Perfil indisponível.": [
+    "Profile unavailable.",
+    "Perfil no disponible."
+  ],
+  "Entre para montar seu perfil.": [
+    "Sign in to build your profile.",
+    "Inicia sesión para crear tu perfil."
+  ],
+  "Este perfil não existe ou está privado.": [
+    "This profile doesn't exist or is private.",
+    "Este perfil no existe o es privado."
+  ],
+  "MovieMatch · Seu olhar sobre o cinema": [
+    "MovieMatch · Your view of cinema",
+    "MovieMatch · Tu mirada al cine"
+  ],
+  "O seu gosto conta uma história. Conte a sua.": [
+    "Your taste tells a story. Tell yours.",
+    "Tu gusto cuenta una historia. Cuenta la tuya."
+  ],
+  "Editar perfil": [
+    "Edit profile",
+    "Editar perfil"
+  ],
+  "Abrir meu perfil público": [
+    "Open my public profile",
+    "Abrir mi perfil público"
+  ],
+  "Abrindo edição…": [
+    "Opening editor…",
+    "Abriendo editor…"
+  ],
+  "Os que ficam com você": [
+    "The ones that stay with you",
+    "Las que se quedan contigo"
+  ],
+  "Quatro favoritos.": [
+    "Four favorites.",
+    "Cuatro favoritos."
+  ],
+  "Remover": [
+    "Remove",
+    "Eliminar"
+  ],
+  "A seleção de favoritos ainda está começando.": [
+    "The favorites collection is just getting started.",
+    "La selección de favoritos acaba de empezar."
+  ],
+  "Título do filme": [
+    "Film title",
+    "Título de la película"
+  ],
+  "Buscar": [
+    "Search",
+    "Buscar"
+  ],
+  "Buscando…": [
+    "Searching…",
+    "Buscando…"
+  ],
+  "Filmes e imagens:": [
+    "Films and images:",
+    "Películas e imágenes:"
+  ],
+  "Depois do play": [
+    "After the film",
+    "Después de la película"
+  ],
+  "Os seus olhares.": [
+    "Your perspectives.",
+    "Tus miradas."
+  ],
+  "Comentário com spoilers": [
+    "Comment with spoilers",
+    "Comentario con spoilers"
+  ],
+  "Avaliação sem comentário.": [
+    "Rating without a comment.",
+    "Puntuación sin comentario."
+  ],
+  "As avaliações publicadas aparecem aqui.": [
+    "Published reviews appear here.",
+    "Las reseñas publicadas aparecen aquí."
+  ],
+  "Ver mais avaliações": [
+    "Load more reviews",
+    "Ver más reseñas"
+  ],
+  "Minhas salas": [
+    "My rooms",
+    "Mis salas"
+  ],
+  "Sair da conta neste aparelho": [
+    "Sign out on this device",
+    "Cerrar sesión en este dispositivo"
+  ],
+  "Sessão — MovieMatch": [
+    "Session — MovieMatch",
+    "Sesión — MovieMatch"
+  ],
+  "Vote em filmes com os participantes da sua sessão do MovieMatch.": [
+    "Vote on films with the participants in your MovieMatch session.",
+    "Vota películas con los participantes de tu sesión de MovieMatch."
+  ],
+  "Código da sessão ausente ou inválido.": [
+    "Session code missing or invalid.",
+    "Código de sesión ausente o no válido."
+  ],
+  "Sessão não encontrada. Verifique o código.": [
+    "Session not found. Check the code.",
+    "Sesión no encontrada. Revisa el código."
+  ],
+  "Último swipe desfeito": [
+    "Last vote undone",
+    "Último voto deshecho"
+  ],
+  "Informe sua data de nascimento para ativar conteúdo adulto.": [
+    "Enter your birth date to enable adult content.",
+    "Introduce tu fecha de nacimiento para activar contenido para adultos."
+  ],
+  "Você precisa ter 18+ para ver esse conteúdo.": [
+    "You must be 18 or older to view this content.",
+    "Debes tener al menos 18 años para ver este contenido."
+  ],
+  "Verificação concluída. Conteúdo adulto autorizado.": [
+    "Verification complete. Adult content enabled.",
+    "Verificación completa. Contenido para adultos activado."
+  ],
+  "Não foi possível identificar a sessão para salvar os filtros.": [
+    "Couldn't identify the session to save filters.",
+    "No pudimos identificar la sesión para guardar los filtros."
+  ],
+  "Vamos tentar de novo": [
+    "Let's try again",
+    "Intentémoslo de nuevo"
+  ],
+  "Não foi possível iniciar a sessão": [
+    "Couldn't start the session",
+    "No pudimos iniciar la sesión"
+  ],
+  "Uma escolha de cada vez": [
+    "One choice at a time",
+    "Una elección a la vez"
+  ],
+  "Arraste o pôster para votar": [
+    "Drag the poster to vote",
+    "Arrastra el póster para votar"
+  ],
+  "Escolha o próximo filme": [
+    "Choose the next film",
+    "Elige la próxima película"
+  ],
+  "Mais histórias pela frente": [
+    "More stories ahead",
+    "Más historias por delante"
+  ],
+  "Vamos ampliar a seleção?": [
+    "Shall we expand the selection?",
+    "¿Ampliamos la selección?"
+  ],
+  "Você viu este lote.": [
+    "You've seen this batch.",
+    "Ya has visto este lote."
+  ],
+  "Nenhum resultado com os filtros atuais. Remova ou reduza os catálogos de streaming selecionados.": [
+    "No results with these filters. Remove or reduce the selected streaming catalogues.",
+    "No hay resultados con estos filtros. Quita o reduce los catálogos de streaming seleccionados."
+  ],
+  "Nenhum resultado com os filtros atuais. Experimente outros gêneros ou amplie o período da busca.": [
+    "No results with these filters. Try other genres or a wider date range.",
+    "No hay resultados con estos filtros. Prueba otros géneros o amplía el periodo de búsqueda."
+  ],
+  "Buscando as próximas opções para a sessão.": [
+    "Looking for the next options for your session.",
+    "Buscando las próximas opciones para la sesión."
+  ],
+  "Altere os filtros para descobrir novas opções ou confira os matches do grupo.": [
+    "Change filters to discover more options or view the group's matches.",
+    "Cambia los filtros para descubrir más opciones o consulta los matches del grupo."
+  ],
+  "Ajustar filtros": [
+    "Adjust filters",
+    "Ajustar filtros"
+  ],
+  "Ops! Algo quebrou.": [
+    "Something went wrong.",
+    "Algo salió mal."
+  ],
+  "Recarregar": [
+    "Reload",
+    "Recargar"
+  ],
+  "Meus assistidos — MovieMatch": [
+    "My watched films — MovieMatch",
+    "Mis películas vistas — MovieMatch"
+  ],
+  "Seus filmes assistidos e avaliações no MovieMatch.": [
+    "Your watched films and reviews on MovieMatch.",
+    "Tus películas vistas y reseñas en MovieMatch."
+  ],
+  "Não foi possível desmarcar o filme. Tente novamente.": [
+    "Couldn't unmark the film. Try again.",
+    "No pudimos desmarcar la película. Inténtalo de nuevo."
+  ],
+  "Sua história no cinema": [
+    "Your cinema history",
+    "Tu historia en el cine"
+  ],
+  "O play passou.": [
+    "The film ended.",
+    "La película terminó."
+  ],
+  "A história ficou.": [
+    "The story stayed.",
+    "La historia se quedó."
+  ],
+  "Seus filmes assistidos, suas notas e os olhares que você compartilhou.": [
+    "Your watched films, ratings and shared perspectives.",
+    "Tus películas vistas, puntuaciones y miradas compartidas."
+  ],
+  "filme assistido": [
+    "watched film",
+    "película vista"
+  ],
+  "filmes assistidos": [
+    "watched films",
+    "películas vistas"
+  ],
+  "Depois dos créditos": [
+    "After the credits",
+    "Después de los créditos"
+  ],
+  "Buscar assistido": [
+    "Search watched films",
+    "Buscar película vista"
+  ],
+  "Ordenar assistidos": [
+    "Sort watched films",
+    "Ordenar películas vistas"
+  ],
+  "Assistidos recentes": [
+    "Recently watched",
+    "Vistas recientemente"
+  ],
+  "Minhas melhores notas": [
+    "My highest ratings",
+    "Mis mejores puntuaciones"
+  ],
+  "Não foi possível atualizar seus assistidos.": [
+    "Couldn't update your watched films.",
+    "No pudimos actualizar tus películas vistas."
+  ],
+  "Reunindo suas histórias…": [
+    "Gathering your stories…",
+    "Reuniendo tus historias…"
+  ],
+  "Nenhum filme com esse título.": [
+    "No films with this title.",
+    "No hay películas con este título."
+  ],
+  "O primeiro play vem aí.": [
+    "Your first film is coming.",
+    "Tu primera película está por llegar."
+  ],
+  "Tente outro nome para encontrar um filme da sua lista.": [
+    "Try another name to find a film in your list.",
+    "Prueba otro nombre para encontrar una película en tu lista."
+  ],
+  "Depois de assistir a um filme, abra o match e marque “Já assisti”. Ele vem para cá, e você pode avaliá-lo quando quiser.": [
+    "After watching a film, open the match and select “I've watched it”. It moves here and you can review it anytime.",
+    "Después de ver una película, abre el match y marca «Ya la vi». Aparecerá aquí y podrás valorarla cuando quieras."
+  ],
+  "Assistido": [
+    "Watched",
+    "Vista"
+  ],
+  "Marcado em": [
+    "Marked on",
+    "Marcada el"
+  ],
+  "Você ainda não avaliou": [
+    "You haven't rated it yet",
+    "Todavía no la has valorado"
+  ],
+  "Editar avaliação": [
+    "Edit review",
+    "Editar reseña"
+  ],
+  "Avaliar filme": [
+    "Review film",
+    "Valorar película"
+  ],
+  "Removendo…": [
+    "Removing…",
+    "Eliminando…"
+  ],
+  "Desmarcar assistido": [
+    "Unmark as watched",
+    "Desmarcar como vista"
+  ],
+  "Sua lista é pessoal. Suas avaliações são públicas.": [
+    "Your list is personal. Your reviews are public.",
+    "Tu lista es personal. Tus reseñas son públicas."
+  ],
+  "Seu histórico está salvo na sua conta.": [
+    "Your history is saved to your account.",
+    "Tu historial está guardado en tu cuenta."
+  ],
+  "Seu histórico de visitante fica neste navegador.": [
+    "Your guest history stays in this browser.",
+    "Tu historial de invitado se queda en este navegador."
+  ],
+  "Crie uma conta para preservá-lo.": [
+    "Create an account to keep it.",
+    "Crea una cuenta para conservarlo."
+  ],
+  "Continuar descobrindo filmes": [
+    "Keep discovering films",
+    "Seguir descubriendo películas"
+  ],
+  "Não foi possível sair. Tente novamente.": [
+    "Couldn't sign out. Try again.",
+    "No pudimos cerrar sesión. Inténtalo de nuevo."
+  ],
+  "Sua conta": [
+    "Your account",
+    "Tu cuenta"
+  ],
+  "Prévia do perfil": [
+    "Profile preview",
+    "Vista previa del perfil"
+  ],
+  " · Perfil privado": [
+    " · Private profile",
+    " · Perfil privado"
+  ],
+  "Seu olhar sobre o cinema.": [
+    "Your view of cinema.",
+    "Tu mirada al cine."
+  ],
+  "Ver perfil": [
+    "View profile",
+    "Ver perfil"
+  ],
+  "Minha conta": [
+    "My account",
+    "Mi cuenta"
+  ],
+  "Meu perfil": [
+    "My profile",
+    "Mi perfil"
+  ],
+  "Saindo…": [
+    "Signing out…",
+    "Cerrando sesión…"
+  ],
+  "Sair da conta": [
+    "Sign out",
+    "Cerrar sesión"
+  ],
+  "Digite a mesma senha novamente.": [
+    "Enter the same password again.",
+    "Introduce la misma contraseña de nuevo."
+  ],
+  "As senhas não coincidem.": [
+    "Passwords don't match.",
+    "Las contraseñas no coinciden."
+  ],
+  "Continue para confirmar a senha.": [
+    "Keep typing to confirm your password.",
+    "Sigue escribiendo para confirmar tu contraseña."
+  ],
+  "Senhas coincidem.": [
+    "Passwords match.",
+    "Las contraseñas coinciden."
+  ],
+  "Confirmar senha": [
+    "Confirm password",
+    "Confirmar contraseña"
+  ],
+  "Repita sua senha": [
+    "Repeat your password",
+    "Repite tu contraseña"
+  ],
+  "Ocultar confirmação de senha": [
+    "Hide password confirmation",
+    "Ocultar confirmación de contraseña"
+  ],
+  "Mostrar confirmação de senha": [
+    "Show password confirmation",
+    "Mostrar confirmación de contraseña"
+  ],
+  "Comece sua senha": [
+    "Start your password",
+    "Empieza tu contraseña"
+  ],
+  "Fraca": [
+    "Weak",
+    "Débil"
+  ],
+  "Razoável": [
+    "Fair",
+    "Aceptable"
+  ],
+  "Boa": [
+    "Good",
+    "Buena"
+  ],
+  "Forte": [
+    "Strong",
+    "Fuerte"
+  ],
+  "Força da senha": [
+    "Password strength",
+    "Seguridad de la contraseña"
+  ],
+  "Padrão fácil de adivinhar": [
+    "Easy to guess",
+    "Fácil de adivinar"
+  ],
+  " Padrão fácil de adivinhar.": [
+    " Easy to guess.",
+    " Fácil de adivinar."
+  ],
+  "O mínimo é 8 caracteres. Os outros itens ajudam a fortalecer a senha.": [
+    "The minimum is 8 characters. The other suggestions help strengthen your password.",
+    "El mínimo es de 8 caracteres. Las otras sugerencias ayudan a reforzar tu contraseña."
+  ],
+  "Maiúsculas e minúsculas": [
+    "Uppercase and lowercase letters",
+    "Mayúsculas y minúsculas"
+  ],
+  "Um número": [
+    "A number",
+    "Un número"
+  ],
+  "Um símbolo": [
+    "A symbol",
+    "Un símbolo"
+  ],
+  "Participantes da sessão": [
+    "Session participants",
+    "Participantes de la sesión"
+  ],
+  "Perfis públicos da comunidade": [
+    "Public community profiles",
+    "Perfiles públicos de la comunidad"
+  ],
+  "Perfis públicos da comunidade · sessão ilustrativa": [
+    "Public community profiles · illustrative session",
+    "Perfiles públicos de la comunidad · sesión ilustrativa"
+  ],
+  "Comunidade indisponível agora · sessão ilustrativa": [
+    "Community unavailable · illustrative session",
+    "Comunidad no disponible · sesión ilustrativa"
+  ],
+  "Uma sessão ilustrativa do MovieMatch": [
+    "An illustrative MovieMatch session",
+    "Una sesión ilustrativa de MovieMatch"
+  ],
+  "Não foi possível atualizar participantes.": [
+    "Couldn't update participants.",
+    "No pudimos actualizar los participantes."
+  ],
+  "Perfil público": [
+    "Public profile",
+    "Perfil público"
+  ],
+  "Fora da página, participa do consenso": [
+    "Away from the page, still part of the consensus",
+    "Fuera de la página, sigue participando en el consenso"
+  ],
+  "Perfil privado": [
+    "Private profile",
+    "Perfil privado"
+  ],
+  "Esta pessoa mantém o perfil privado.": [
+    "This person keeps their profile private.",
+    "Esta persona mantiene su perfil privado."
+  ],
+  "Use JPG, PNG ou WebP com até 6 MB.": [
+    "Use JPG, PNG or WebP up to 6 MB.",
+    "Usa JPG, PNG o WebP de hasta 6 MB."
+  ],
+  "Esse endereço já está em uso. Escolha outro.": [
+    "This address is already taken. Choose another.",
+    "Esta dirección ya está en uso. Elige otra."
+  ],
+  "Não foi possível salvar todas as alterações. Seus textos continuam aqui.": [
+    "Couldn't save all changes. Your text is still here.",
+    "No pudimos guardar todos los cambios. Tus textos siguen aquí."
+  ],
+  "Seu cinema, com sua cara.": [
+    "Your cinema, your style.",
+    "Tu cine, a tu manera."
+  ],
+  "Fechar edição de perfil": [
+    "Close profile editor",
+    "Cerrar edición del perfil"
+  ],
+  "Prévia da capa": [
+    "Cover preview",
+    "Vista previa de la portada"
+  ],
+  "Alterar capa": [
+    "Change cover",
+    "Cambiar portada"
+  ],
+  "Prévia da foto de perfil": [
+    "Profile photo preview",
+    "Vista previa de la foto de perfil"
+  ],
+  "JPG, PNG ou WebP · até 6 MB. As fotos são públicas por link e só serão enviadas ao salvar.": [
+    "JPG, PNG or WebP · up to 6 MB. Photos are public via their link and only uploaded when you save.",
+    "JPG, PNG o WebP · hasta 6 MB. Las fotos son públicas mediante su enlace y solo se suben al guardar."
+  ],
+  "Nome público": [
+    "Public name",
+    "Nombre público"
+  ],
+  "Endereço do perfil": [
+    "Profile address",
+    "Dirección del perfil"
+  ],
+  "Bio": [
+    "Bio",
+    "Biografía"
+  ],
+  "Gêneros e privacidade": [
+    "Genres and privacy",
+    "Géneros y privacidad"
+  ],
+  "Gêneros preferidos · até cinco": [
+    "Favorite genres · up to five",
+    "Géneros favoritos · hasta cinco"
+  ],
+  "O que aparece no perfil": [
+    "What appears on your profile",
+    "Lo que aparece en tu perfil"
+  ],
+  "Mostrar favoritos": [
+    "Show favorites",
+    "Mostrar favoritos"
+  ],
+  "Mostrar minhas avaliações neste perfil": [
+    "Show my reviews on this profile",
+    "Mostrar mis reseñas en este perfil"
+  ],
+  "Avaliações publicadas continuam visíveis no filme. Assistidos e salas são privados.": [
+    "Published reviews remain visible on the film. Watched films and rooms are private.",
+    "Las reseñas publicadas siguen visibles en la película. Las vistas y las salas son privadas."
+  ],
+  "Cancelar": [
+    "Cancel",
+    "Cancelar"
+  ],
+  "Salvando…": [
+    "Saving…",
+    "Guardando…"
+  ],
+  "Salvar perfil": [
+    "Save profile",
+    "Guardar perfil"
+  ],
+  "Não foi possível consultar se a sala está salva.": [
+    "Couldn't check whether the room is saved.",
+    "No pudimos consultar si la sala está guardada."
+  ],
+  "Não foi possível salvar a sala. Tente novamente.": [
+    "Couldn't save the room. Try again.",
+    "No pudimos guardar la sala. Inténtalo de nuevo."
+  ],
+  "Salva": [
+    "Saved",
+    "Guardada"
+  ],
+  "Salvar sala": [
+    "Save room",
+    "Guardar sala"
+  ],
+  "Salvar esta sala": [
+    "Save this room",
+    "Guardar esta sala"
+  ],
+  "Fechar opção de salvar": [
+    "Close save option",
+    "Cerrar opción de guardar"
+  ],
+  "Nome da sala": [
+    "Room name",
+    "Nombre de la sala"
+  ],
+  "A sala fica disponível enquanto alguém do grupo a mantiver salva.": [
+    "The room stays available while someone in the group keeps it saved.",
+    "La sala sigue disponible mientras alguien del grupo la mantenga guardada."
+  ],
+  "Continuar outro dia?": [
+    "Continue another day?",
+    "¿Continuar otro día?"
+  ],
+  "Entre para salvar esta sala. Votar continua sem cadastro.": [
+    "Sign in to save this room. Voting still works without an account.",
+    "Inicia sesión para guardar esta sala. Votar sigue sin requerir una cuenta."
+  ],
+  "Entrar ou criar conta": [
+    "Sign in or create an account",
+    "Entrar o crear una cuenta"
+  ],
+  "Informação sobre publicidade": [
+    "Advertising information",
+    "Información sobre publicidad"
+  ],
+  "Os anúncios ajudam a manter o MovieMatch gratuito. Se estiverem indisponíveis, você pode continuar normalmente.": [
+    "Ads help keep MovieMatch free. If they're unavailable, you can continue as usual.",
+    "Los anuncios ayudan a mantener MovieMatch gratis. Si no están disponibles, puedes continuar normalmente."
+  ],
+  "Saiba mais": [
+    "Learn more",
+    "Más información"
+  ],
+  "Anúncio": [
+    "Advertisement",
+    "Anuncio"
+  ],
+  "Em breve publicidade aqui": [
+    "Advertising coming soon",
+    "Próximamente publicidad aquí"
+  ],
+  "Confirme sua idade": [
+    "Confirm your age",
+    "Confirma tu edad"
+  ],
+  "Para ativar conteúdo adulto, informe sua data de nascimento. Ela será usada somente para confirmar se você tem 18 anos ou mais e não será armazenada.": [
+    "To enable adult content, enter your birth date. It is only used to verify you're 18 or older and won't be stored.",
+    "Para activar contenido para adultos, introduce tu fecha de nacimiento. Solo se usa para verificar que tienes al menos 18 años y no se guarda."
+  ],
+  "Data de nascimento": [
+    "Date of birth",
+    "Fecha de nacimiento"
+  ],
+  "Você precisa ter 18 anos ou mais.": [
+    "You must be 18 or older.",
+    "Debes tener al menos 18 años."
+  ],
+  "Informe a data para continuar.": [
+    "Enter the date to continue.",
+    "Introduce la fecha para continuar."
+  ],
+  "Confirmar": [
+    "Confirm",
+    "Confirmar"
+  ],
+  "Início": [
+    "Home",
+    "Inicio"
+  ],
+  "Assistidos": [
+    "Watched",
+    "Vistas"
+  ],
+  "Menu de navegação": [
+    "Navigation menu",
+    "Menú de navegación"
+  ],
+  "Navegação principal no celular": [
+    "Mobile navigation",
+    "Navegación móvil"
+  ],
+  "Não foi possível carregar suas salas.": [
+    "Couldn't load your rooms.",
+    "No pudimos cargar tus salas."
+  ],
+  "Não foi possível remover. Tente novamente.": [
+    "Couldn't remove it. Try again.",
+    "No pudimos eliminarlo. Inténtalo de nuevo."
+  ],
+  "O próximo play está aqui": [
+    "Your next film starts here",
+    "Tu próxima película empieza aquí"
+  ],
+  "Continue de onde parou.": [
+    "Pick up where you left off.",
+    "Continúa donde lo dejaste."
+  ],
+  "Suas salas salvas, com os votos e matches do grupo.": [
+    "Your saved rooms, with the group's votes and matches.",
+    "Tus salas guardadas, con los votos y matches del grupo."
+  ],
+  "Buscando suas salas…": [
+    "Looking for your rooms…",
+    "Buscando tus salas…"
+  ],
+  "Salva em": [
+    "Saved on",
+    "Guardada el"
+  ],
+  "O grupo pode continuar daqui.": [
+    "The group can continue from here.",
+    "El grupo puede continuar desde aquí."
+  ],
+  "Retomar": [
+    "Resume",
+    "Retomar"
+  ],
+  "Se ninguém mais salvou esta sala, ela voltará a expirar em 24 horas.": [
+    "If no one else saved this room, it will expire in 24 hours.",
+    "Si nadie más guardó esta sala, volverá a caducar en 24 horas."
+  ],
+  "Remover da minha lista": [
+    "Remove from my list",
+    "Eliminar de mi lista"
+  ],
+  "A próxima sessão começa com você.": [
+    "The next session starts with you.",
+    "La próxima sesión empieza contigo."
+  ],
+  "Crie uma sala e use “Salvar sala” para encontrá-la aqui depois.": [
+    "Create a room and select “Save room” to find it here later.",
+    "Crea una sala y usa «Guardar sala» para encontrarla aquí después."
+  ],
+  "Exemplo de uma sessão": [
+    "Example session",
+    "Ejemplo de una sesión"
+  ],
+  "3 de 3 participantes curtiram": [
+    "3 out of 3 participants liked it",
+    "A 3 de 3 participantes les gustó"
+  ],
+  "Carregando detalhes…": [
+    "Loading details…",
+    "Cargando detalles…"
+  ],
+  "Classificação": [
+    "Age rating",
+    "Clasificación por edades"
+  ],
+  "Preparando os detalhes do seu próximo filme.": [
+    "Preparing details for your next film.",
+    "Preparando los detalles de tu próxima película."
+  ],
+  "A sinopse não está disponível agora. Você pode consultar mais informações no TMDB.": [
+    "The synopsis is unavailable. You can find more information on TMDB.",
+    "La sinopsis no está disponible. Puedes consultar más información en TMDB."
+  ],
+  "Já viu esse filme? Marque para guardá-lo nos seus assistidos. Ele sai apenas da sua lista de matches.": [
+    "Already watched this film? Mark it to save it to your watched list. It only leaves your own matches list.",
+    "¿Ya viste esta película? Márcala para guardarla en tu lista de vistas. Solo sale de tu propia lista de matches."
+  ],
+  "Marcando…": [
+    "Marking…",
+    "Marcando…"
+  ],
+  "Já assisti": [
+    "I've watched it",
+    "Ya la vi"
+  ],
+  "Ver avaliações": [
+    "View reviews",
+    "Ver reseñas"
+  ],
+  "Onde assistir": [
+    "Where to watch",
+    "Dónde ver"
+  ],
+  "Consultando as plataformas…": [
+    "Checking platforms…",
+    "Consultando plataformas…"
+  ],
+  "Nenhuma plataforma informada para esta região.": [
+    "No platforms listed for this region.",
+    "No hay plataformas indicadas para esta región."
+  ],
+  "Consultar disponibilidade": [
+    "Check availability",
+    "Consultar disponibilidad"
+  ],
+  "Buscar onde assistir": [
+    "Find where to watch",
+    "Buscar dónde ver"
+  ],
+  "Disponibilidade:": [
+    "Availability:",
+    "Disponibilidad:"
+  ],
+  "via TMDB.": [
+    "via TMDB.",
+    "a través de TMDB."
+  ],
+  "Mais sobre o filme no TMDB": [
+    "More about the film on TMDB",
+    "Más sobre la película en TMDB"
+  ],
+  "Uma prévia antes do play": [
+    "A preview before the film",
+    "Un avance antes de la película"
+  ],
+  "Voltar à seleção": [
+    "Back to the selection",
+    "Volver a la selección"
+  ],
+  "Sem pôster disponível": [
+    "No poster available",
+    "Póster no disponible"
+  ],
+  "Pôster": [
+    "Poster",
+    "Póster"
+  ],
+  "Sinopse": [
+    "Synopsis",
+    "Sinopsis"
+  ],
+  "A história": [
+    "The story",
+    "La historia"
+  ],
+  "Sinopse do filme": [
+    "Film synopsis",
+    "Sinopsis de la película"
+  ],
+  "Sinopse indisponível no momento.": [
+    "Synopsis currently unavailable.",
+    "Sinopsis no disponible en este momento."
+  ],
+  "Preparando a sinopse…": [
+    "Preparing synopsis…",
+    "Preparando la sinopsis…"
+  ],
+  "Conheça o filme": [
+    "Discover the film",
+    "Conoce la película"
+  ],
+  "Avaliações dos usuários": [
+    "User reviews",
+    "Reseñas de usuarios"
+  ],
+  "Avaliações": [
+    "Reviews",
+    "Reseñas"
+  ],
+  "Pôster indisponível": [
+    "Poster unavailable",
+    "Póster no disponible"
+  ],
+  "Preparando o pôster": [
+    "Preparing poster",
+    "Preparando el póster"
+  ],
+  "Pôster indisponível de": [
+    "Poster unavailable for",
+    "Póster no disponible de"
+  ],
+  "Não foi possível consultar os votos. Tente novamente.": [
+    "Could not load votes. Please try again.",
+    "No se pudieron cargar los votos. Inténtalo de nuevo."
+  ],
+  "Não foi possível carregar as avaliações. Tente novamente.": [
+    "Could not load reviews. Please try again.",
+    "No se pudieron cargar las reseñas. Inténtalo de nuevo."
+  ],
+  "Adicionado aos seus assistidos. A avaliação é opcional.": [
+    "Added to your watched films. Reviewing is optional.",
+    "Añadido a tus películas vistas. La reseña es opcional."
+  ],
+  "Sua avaliação foi publicada.": [
+    "Your review was published.",
+    "Tu reseña se ha publicado."
+  ],
+  "Não foi possível salvar sua avaliação. Seus textos continuam aqui para tentar novamente.": [
+    "Could not save your review. Your text is still here so you can retry.",
+    "No se pudo guardar tu reseña. Tu texto sigue aquí para volver a intentarlo."
+  ],
+  "Avaliação excluída. O filme continua nos seus assistidos.": [
+    "Review deleted. The film stays in your watched list.",
+    "Reseña eliminada. La película sigue en tu lista de vistas."
+  ],
+  "Não foi possível excluir a avaliação. Tente novamente.": [
+    "Could not delete the review. Please try again.",
+    "No se pudo eliminar la reseña. Inténtalo de nuevo."
+  ],
+  "Não foi possível carregar mais avaliações. Tente novamente.": [
+    "Could not load more reviews. Please try again.",
+    "No se pudieron cargar más reseñas. Inténtalo de nuevo."
+  ],
+  "Seu voto foi salvo. Não foi possível atualizar as contagens agora.": [
+    "Your vote was saved. Counts could not be updated right now.",
+    "Tu voto se ha guardado. No se pudieron actualizar los recuentos ahora."
+  ],
+  "Não foi possível salvar seu voto. Tente novamente.": [
+    "Could not save your vote. Please try again.",
+    "No se pudo guardar tu voto. Inténtalo de nuevo."
+  ],
+  "Comunidade MovieMatch": [
+    "MovieMatch community",
+    "Comunidad MovieMatch"
+  ],
+  "O que ficou": [
+    "What stayed with you",
+    "Lo que quedó"
+  ],
+  "depois do play.": [
+    "after the credits.",
+    "después del play."
+  ],
+  "Fechar avaliações": [
+    "Close reviews",
+    "Cerrar reseñas"
+  ],
+  "avaliação": [
+    "review",
+    "reseña"
+  ],
+  "avaliações": [
+    "reviews",
+    "reseñas"
+  ],
+  "Reunindo as avaliações…": [
+    "Gathering reviews…",
+    "Reuniendo las reseñas…"
+  ],
+  "Sua avaliação": [
+    "Your review",
+    "Tu reseña"
+  ],
+  "Seu olhar merece uma conta.": [
+    "Your perspective deserves an account.",
+    "Tu mirada merece una cuenta."
+  ],
+  "Entre para dar estrelas, publicar comentários e votar nas avaliações. Ler a comunidade e marcar seus assistidos continuam livres.": [
+    "Sign in to rate films, post comments and vote on reviews. Reading reviews and tracking watched films remain free.",
+    "Entra para puntuar películas, publicar comentarios y votar reseñas. Leer las reseñas y marcar películas vistas sigue siendo libre."
+  ],
+  "Este filme está nos seus assistidos.": [
+    "This film is in your watched list.",
+    "Esta película está en tu lista de vistas."
+  ],
+  "Já viu esse filme?": [
+    "Already seen this film?",
+    "¿Ya has visto esta película?"
+  ],
+  "Adicione aos seus assistidos para dar uma nota e compartilhar o que achou.": [
+    "Add it to your watched list to rate it and share your thoughts.",
+    "Añádela a tu lista de vistas para puntuarla y compartir tu opinión."
+  ],
+  "Na sua lista de assistidos": [
+    "In your watched list",
+    "En tu lista de vistas"
+  ],
+  "Sua opinião pode mudar.": [
+    "Your opinion can change.",
+    "Tu opinión puede cambiar."
+  ],
+  "Que nota merece?": [
+    "How would you rate it?",
+    "¿Qué nota merece?"
+  ],
+  "Ótimo": [
+    "Great",
+    "Muy buena"
+  ],
+  "Sua nota de 1 a 5 estrelas": [
+    "Your rating from 1 to 5 stars",
+    "Tu puntuación de 1 a 5 estrellas"
+  ],
+  "Escolha sua nota": [
+    "Choose your rating",
+    "Elige tu puntuación"
+  ],
+  "Publicando como": [
+    "Posting as",
+    "Publicando como"
+  ],
+  "Seu comentário": [
+    "Your comment",
+    "Tu comentario"
+  ],
+  "opcional": [
+    "optional",
+    "opcional"
+  ],
+  "O que fez esse filme valer o play?": [
+    "What made this film worth watching?",
+    "¿Qué hizo que valiera la pena ver esta película?"
+  ],
+  "Meu comentário contém spoilers": [
+    "My comment contains spoilers",
+    "Mi comentario contiene spoilers"
+  ],
+  "Seu apelido, nota e comentário ficam visíveis para todos os usuários. Sua lista de assistidos é pessoal.": [
+    "Your display name, rating and comment are visible to all users. Your watched list is personal.",
+    "Tu nombre público, puntuación y comentario son visibles para todos los usuarios. Tu lista de vistas es personal."
+  ],
+  "Salvar avaliação": [
+    "Save review",
+    "Guardar reseña"
+  ],
+  "Excluir minha avaliação": [
+    "Delete my review",
+    "Eliminar mi reseña"
+  ],
+  "Excluir sua nota e comentário públicos?": [
+    "Delete your public rating and comment?",
+    "¿Eliminar tu puntuación y comentario públicos?"
+  ],
+  "Confirmar exclusão": [
+    "Confirm deletion",
+    "Confirmar eliminación"
+  ],
+  "Avaliações da comunidade": [
+    "Community reviews",
+    "Reseñas de la comunidad"
+  ],
+  "Outros olhares.": [
+    "Other perspectives.",
+    "Otras miradas."
+  ],
+  "Atualizar contagens": [
+    "Refresh counts",
+    "Actualizar recuentos"
+  ],
+  "Ninguém avaliou ainda. O primeiro olhar pode ser o seu.": [
+    "No reviews yet. Yours could be the first.",
+    "Aún no hay reseñas. La primera puede ser la tuya."
+  ],
+  "Carregando…": [
+    "Loading…",
+    "Cargando…"
+  ],
+  "Mostrar comentário com spoilers": [
+    "Show comment with spoilers",
+    "Mostrar comentario con spoilers"
+  ],
+  "Outras pessoas podem votar na sua avaliação.": [
+    "Other people can vote on your review.",
+    "Otras personas pueden votar tu reseña."
+  ],
+  "Recomendações amplas": [
+    "Broad recommendations",
+    "Recomendaciones amplias"
+  ],
+  "Nenhum filtro adicional está limitando os resultados.": [
+    "No additional filters are limiting the results.",
+    "Ningún filtro adicional limita los resultados."
+  ],
+  "Seleção atual": [
+    "Current selection",
+    "Selección actual"
+  ],
+  "Uma pausa.": [
+    "A short break.",
+    "Una pausa."
+  ],
+  "Mais histórias.": [
+    "More stories.",
+    "Más historias."
+  ],
+  "A publicidade ajuda a manter o MovieMatch gratuito. Seu próximo filme está logo ali.": [
+    "Ads help keep MovieMatch free. Your next film is just ahead.",
+    "La publicidad ayuda a mantener MovieMatch gratuito. Tu próxima película está cerca."
+  ],
+  "Deslize para continuar": [
+    "Swipe to continue",
+    "Desliza para continuar"
+  ],
+  "Este card não conta como like/dislike": [
+    "This card does not count as a vote",
+    "Esta tarjeta no cuenta como voto"
+  ],
+  "Clássicos": [
+    "Classics",
+    "Clásicos"
+  ],
+  "Últimos 5 anos": [
+    "Last 5 years",
+    "Últimos 5 años"
+  ],
+  "Até 100 min": [
+    "Up to 100 min",
+    "Hasta 100 min"
+  ],
+  "100–140 min": [
+    "100–140 min",
+    "100–140 min"
+  ],
+  "1 gênero": [
+    "1 genre",
+    "1 género"
+  ],
+  "1 gênero excluído": [
+    "1 excluded genre",
+    "1 género excluido"
+  ],
+  "Conteúdo adulto": [
+    "Adult content",
+    "Contenido para adultos"
+  ],
+  "Personalizar": [
+    "Customize",
+    "Personalizar"
+  ],
+  "Encontre o filme certo": [
+    "Find the right film",
+    "Encuentra la película adecuada"
+  ],
+  "Ajuste apenas o que importa. As opções extras ficam organizadas abaixo para não poluir a tela.": [
+    "Adjust what matters. Additional options are organized below.",
+    "Ajusta lo que importa. Las opciones adicionales se organizan abajo."
+  ],
+  "Streaming, região e forma de disponibilidade.": [
+    "Streaming, region and availability type.",
+    "Streaming, región y tipo de disponibilidad."
+  ],
+  "Seus streamings": [
+    "Your streaming services",
+    "Tus servicios de streaming"
+  ],
+  "Selecione um ou mais. A busca usa OU entre eles.": [
+    "Select one or more. Results include any selected service.",
+    "Selecciona uno o más. Los resultados incluyen cualquiera de los servicios seleccionados."
+  ],
+  "Tipo de oferta": [
+    "Availability type",
+    "Tipo de oferta"
+  ],
+  "Região do catálogo": [
+    "Catalogue region",
+    "Región del catálogo"
+  ],
+  "Gêneros": [
+    "Genres",
+    "Géneros"
+  ],
+  "Quero ver": [
+    "Want to watch",
+    "Quiero ver"
+  ],
+  "Quero evitar": [
+    "Prefer to avoid",
+    "Prefiero evitar"
+  ],
+  "Período e duração": [
+    "Release dates and duration",
+    "Fechas de estreno y duración"
+  ],
+  "Defina quando o filme foi lançado e quanto tempo ele pode durar.": [
+    "Choose when the film was released and how long it can be.",
+    "Elige cuándo se estrenó la película y cuánto puede durar."
+  ],
+  "Ano de lançamento": [
+    "Release year",
+    "Año de estreno"
+  ],
+  "Até": [
+    "To",
+    "Hasta"
+  ],
+  "Duração": [
+    "Duration",
+    "Duración"
+  ],
+  "Mínimo": [
+    "Minimum",
+    "Mínimo"
+  ],
+  "Máximo": [
+    "Maximum",
+    "Máximo"
+  ],
+  "Nota mínima, idioma original e forma de ordenar os resultados.": [
+    "Minimum rating, original language and result sorting.",
+    "Nota mínima, idioma original y orden de resultados."
+  ],
+  "Nota mínima": [
+    "Minimum rating",
+    "Nota mínima"
+  ],
+  "Idioma original": [
+    "Original language",
+    "Idioma original"
+  ],
+  "Ordenar resultados": [
+    "Sort results",
+    "Ordenar resultados"
+  ],
+  "Avançado": [
+    "Advanced",
+    "Avanzado"
+  ],
+  "Popularidade mínima": [
+    "Minimum popularity",
+    "Popularidad mínima"
+  ],
+  "Sem mínimo": [
+    "No minimum",
+    "Sin mínimo"
+  ],
+  "Requer confirmação de maioridade. A data de nascimento não é armazenada.": [
+    "Requires age confirmation. Your birth date is not stored.",
+    "Requiere confirmar la mayoría de edad. No se guarda tu fecha de nacimiento."
+  ],
+  "Permitir conteúdo 18+": [
+    "Allow 18+ content",
+    "Permitir contenido para mayores de 18"
+  ],
+  "Ativado nesta seleção": [
+    "Enabled in this selection",
+    "Activado en esta selección"
+  ],
+  "Filtros aplicados": [
+    "Filters applied",
+    "Filtros aplicados"
+  ],
+  "Você tem alterações que ainda não foram aplicadas.": [
+    "You have changes that have not been applied yet.",
+    "Tienes cambios que todavía no se han aplicado."
+  ],
+  "Não foi possível copiar o link. Tente outra opção de compartilhamento.": [
+    "Could not copy the link. Try another sharing option.",
+    "No se pudo copiar el enlace. Prueba otra opción para compartir."
+  ],
+  "MovieMatch — junte-se à minha sessão": [
+    "MovieMatch — join my session",
+    "MovieMatch — únete a mi sesión"
+  ],
+  "Não foi possível compartilhar. Você pode copiar o link.": [
+    "Could not share. You can copy the link.",
+    "No se pudo compartir. Puedes copiar el enlace."
+  ],
+  "Compartilhar sessão": [
+    "Share session",
+    "Compartir sesión"
+  ],
+  "Convidar para a sessão": [
+    "Invite to session",
+    "Invitar a la sesión"
+  ],
+  "Copiar link": [
+    "Copy link",
+    "Copiar enlace"
+  ],
+  "Mais opções": [
+    "More options",
+    "Más opciones"
+  ],
+  "Passo": [
+    "Pass",
+    "Paso"
+  ],
+  "Não quero assistir": [
+    "Do not want to watch",
+    "No quiero verla"
+  ],
+  "Desfazer último voto": [
+    "Undo last vote",
+    "Deshacer el último voto"
+  ],
+  "PASSO": [
+    "PASS",
+    "PASO"
+  ],
+  "QUERO VER": [
+    "WANT TO WATCH",
+    "QUIERO VER"
+  ],
+  "A escolha de todos": [
+    "Everyone's choice",
+    "La elección de todos"
+  ],
+  "Deu": [
+    "It's a",
+    "¡Hay"
+  ],
+  "match.": [
+    "match.",
+    "match!"
+  ],
+  "Continuar": [
+    "Continue",
+    "Continuar"
+  ],
+  "Ver matches": [
+    "View matches",
+    "Ver matches"
+  ],
+  "Testes": [
+    "Testing",
+    "Pruebas"
+  ],
+  "Abrir tutorial de votação": [
+    "Open voting tutorial",
+    "Abrir tutorial de votación"
+  ],
+  "Sua sessão": [
+    "Your session",
+    "Tu sesión"
+  ],
+  "Filtros": [
+    "Filters",
+    "Filtros"
+  ],
+  "Ver matches, há novos matches": [
+    "View matches, new matches available",
+    "Ver matches, hay nuevos matches"
+  ],
+  "Bem-vindo à sessão": [
+    "Welcome to the session",
+    "Bienvenido a la sesión"
+  ],
+  "Próximo": [
+    "Next",
+    "Siguiente"
+  ],
+  "Começar a votar": [
+    "Start voting",
+    "Empezar a votar"
+  ],
+  "Seu gosto entra": [
+    "Your taste takes",
+    "Tu gusto entra"
+  ],
+  "em cena.": [
+    "the stage.",
+    "en escena."
+  ],
+  "Curtiu o filme? Vá de coração. Não combina com você? Pode passar. Mudou de ideia? Desfaça o último voto.": [
+    "Like the film? Tap the heart. Not for you? Pass. Changed your mind? Undo your last vote.",
+    "¿Te gusta la película? Pulsa el corazón. ¿No es para ti? Pasa. ¿Cambiaste de opinión? Deshaz tu último voto."
+  ],
+  "Quero assistir": [
+    "Want to watch",
+    "Quiero verla"
+  ],
+  "Desfazer": [
+    "Undo",
+    "Deshacer"
+  ],
+  "No celular, você também pode arrastar o pôster para votar.": [
+    "On mobile, you can also drag the poster to vote.",
+    "En el móvil también puedes arrastrar el póster para votar."
+  ],
+  "O catálogo.": [
+    "The catalogue.",
+    "El catálogo."
+  ],
+  "Do jeito de vocês.": [
+    "Your way.",
+    "A vuestra manera."
+  ],
+  "Use os filtros para escolher gêneros, duração, nota e plataformas. Os filtros valem para toda a sessão; cada pessoa continua votando do seu jeito.": [
+    "Use filters to choose genres, duration, rating and platforms. Filters apply to the whole session; everyone votes independently.",
+    "Usa los filtros para elegir géneros, duración, puntuación y plataformas. Los filtros se aplican a toda la sesión; cada persona vota a su manera."
+  ],
+  "Junte o grupo.": [
+    "Bring the group together.",
+    "Reúne al grupo."
+  ],
+  "Toque em compartilhar para enviar o convite ou passe o código": [
+    "Tap share to send an invitation, or share the code",
+    "Pulsa compartir para enviar una invitación o comparte el código"
+  ],
+  "O match aparece quando todos os participantes atuais curtem o filme, com pelo menos duas pessoas na sessão.": [
+    "A match appears when all current participants like the film, with at least two people in the session.",
+    "El match aparece cuando todos los participantes actuales quieren ver la película, con al menos dos personas en la sesión."
+  ],
+  "A escolha é de vocês.": [
+    "The choice is yours.",
+    "La elección es vuestra."
+  ],
+  "Abra os matches para ver sinopse, trailer e onde assistir.": [
+    "Open matches to see the synopsis, trailer and where to watch.",
+    "Abre los matches para ver sinopsis, tráiler y dónde verla."
+  ],
+  "Quem fecha a aba continua fazendo parte da sessão.": [
+    "Closing the tab does not remove you from the session.",
+    "Cerrar la pestaña no te elimina de la sesión."
+  ],
+  "Já sei como funciona": [
+    "I already know how it works",
+    "Ya sé cómo funciona"
+  ],
+  "Voltar ao topo": [
+    "Back to top",
+    "Volver arriba"
+  ],
+  "Filmes do grupo": [
+    "Group films",
+    "Películas del grupo"
+  ],
+  "Use as setas para escolher um filme": [
+    "Use the arrows to choose a film",
+    "Usa las flechas para elegir una película"
+  ],
+  "Próximo filme": [
+    "Next film",
+    "Siguiente película"
+  ],
+  "Filme": [
+    "Film",
+    "Película"
+  ],
+  "Sua nota": [
+    "Your rating",
+    "Tu puntuación"
+  ],
+  "Carregando sessão…": [
+    "Loading session…",
+    "Cargando sesión…"
+  ],
+  "Ver detalhes de {0}": [
+    "View details for {0}",
+    "Ver detalles de {0}"
+  ],
+  "Votos na avaliação de {0}": [
+    "Votes on {0}'s review",
+    "Votos en la reseña de {0}"
+  ],
+  "Trailer de {0}": [
+    "Trailer for {0}",
+    "Tráiler de {0}"
+  ],
+  "Pôster de {0}": [
+    "Poster for {0}",
+    "Póster de {0}"
+  ],
+  "Sessão {0}": [
+    "Session {0}",
+    "Sesión {0}"
+  ],
+  "{0} online": [
+    "{0} online",
+    "{0} en línea"
+  ],
+  "Filme {0} de {1}: {2}": [
+    "Film {0} of {1}: {2}",
+    "Película {0} de {1}: {2}"
+  ],
+  "{0} gêneros": [
+    "{0} genres",
+    "{0} géneros"
+  ],
+  "{0} gêneros excluídos": [
+    "{0} excluded genres",
+    "{0} géneros excluidos"
+  ],
+  "{0} streamings": [
+    "{0} streaming services",
+    "{0} servicios de streaming"
+  ],
+  "Ação": [
+    "Action",
+    "Acción"
+  ],
+  "Aventura": [
+    "Adventure",
+    "Aventura"
+  ],
+  "Animação": [
+    "Animation",
+    "Animación"
+  ],
+  "Comédia": [
+    "Comedy",
+    "Comedia"
+  ],
+  "Crime": [
+    "Crime",
+    "Crimen"
+  ],
+  "Documentário": [
+    "Documentary",
+    "Documental"
+  ],
+  "Drama": [
+    "Drama",
+    "Drama"
+  ],
+  "Família": [
+    "Family",
+    "Familia"
+  ],
+  "Fantasia": [
+    "Fantasy",
+    "Fantasía"
+  ],
+  "História": [
+    "History",
+    "Historia"
+  ],
+  "Terror": [
+    "Horror",
+    "Terror"
+  ],
+  "Música": [
+    "Music",
+    "Música"
+  ],
+  "Mistério": [
+    "Mystery",
+    "Misterio"
+  ],
+  "Romance": [
+    "Romance",
+    "Romance"
+  ],
+  "Ficção científica": [
+    "Science fiction",
+    "Ciencia ficción"
+  ],
+  "Guerra": [
+    "War",
+    "Guerra"
+  ],
+  "Faroeste": [
+    "Western",
+    "Western"
+  ],
+  "Qualquer": [
+    "Any",
+    "Cualquiera"
+  ],
+  "Selecionar": [
+    "Select",
+    "Seleccionar"
+  ],
+  "Assinatura": [
+    "Subscription",
+    "Suscripción"
+  ],
+  "Gratuito": [
+    "Free",
+    "Gratis"
+  ],
+  "Com anúncios": [
+    "With ads",
+    "Con anuncios"
+  ],
+  "Aluguel": [
+    "Rental",
+    "Alquiler"
+  ],
+  "Compra": [
+    "Purchase",
+    "Compra"
+  ],
+  "Popularidade (↓)": [
+    "Popularity (↓)",
+    "Popularidad (↓)"
+  ],
+  "Popularidade (↑)": [
+    "Popularity (↑)",
+    "Popularidad (↑)"
+  ],
+  "Nota (↓)": [
+    "Rating (↓)",
+    "Nota (↓)"
+  ],
+  "Nota (↑)": [
+    "Rating (↑)",
+    "Nota (↑)"
+  ],
+  "Votos (↓)": [
+    "Votes (↓)",
+    "Votos (↓)"
+  ],
+  "Votos (↑)": [
+    "Votes (↑)",
+    "Votos (↑)"
+  ],
+  "Lançamento (recente)": [
+    "Release date (newest)",
+    "Estreno (reciente)"
+  ],
+  "Lançamento (antigo)": [
+    "Release date (oldest)",
+    "Estreno (antiguo)"
+  ],
+  "Bilheteria (↓)": [
+    "Revenue (↓)",
+    "Taquilla (↓)"
+  ],
+  "Bilheteria (↑)": [
+    "Revenue (↑)",
+    "Taquilla (↑)"
+  ],
+  "Título A→Z": [
+    "Title A→Z",
+    "Título A→Z"
+  ],
+  "Título Z→A": [
+    "Title Z→A",
+    "Título Z→A"
+  ],
+  "Estante experimental": [
+    "Experimental shelf",
+    "Estantería experimental"
+  ],
+  "Carrossel": [
+    "Carousel",
+    "Carrusel"
+  ],
+  "Testar estante ThreeUI": [
+    "Try the ThreeUI shelf",
+    "Probar la estantería ThreeUI"
+  ],
+  "Referência original com sete ferramentas. Os filmes do grupo continuam disponíveis abaixo.": [
+    "Original reference with seven tools. Your group's films remain available below.",
+    "Referencia original con siete herramientas. Las películas del grupo siguen disponibles abajo."
+  ],
+  "Filme adicionado aos seus assistidos. Os matches dos outros participantes continuam iguais.": [
+    "Film added to your watched list. Other participants' matches stay the same.",
+    "Película añadida a tus vistas. Los matches de los demás participantes no cambian."
+  ],
+  "Lista copiada. Pronta para compartilhar.": [
+    "List copied. Ready to share.",
+    "Lista copiada. Lista para compartir."
+  ],
+  "Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.": [
+    "Keep discovering films. A match appears when all current participants like a film, with at least two people.",
+    "Seguid descubriendo películas. El match aparece cuando todos los participantes actuales quieren verla, con al menos dos personas."
+  ],
+  "Limpar busca": [
+    "Clear search",
+    "Borrar búsqueda"
+  ],
+  "Continuar votando": [
+    "Continue voting",
+    "Seguir votando"
+  ],
+  "Deslize pelos filmes que conquistaram o grupo": [
+    "Swipe through the films your group loved",
+    "Desliza entre las películas que le gustaron al grupo"
+  ],
+  "Match em ": [
+    "Matched on ",
+    "Match el "
+  ],
+  "Erro desconhecido": [
+    "Unknown error",
+    "Error desconocido"
+  ],
+  "Um novo caminho para o play": [
+    "A new path to your next film",
+    "Un nuevo camino hacia tu próxima película"
+  ],
+  "Preparando mais filmes.": [
+    "Preparing more films.",
+    "Preparando más películas."
+  ],
+  "Seu voto": [
+    "Your vote",
+    "Tu voto"
+  ],
+  "Filme removido dos seus assistidos.": [
+    "Film removed from your watched list.",
+    "Película eliminada de tu lista de vistas."
+  ],
+  "Voltar aos matches": [
+    "Back to matches",
+    "Volver a los matches"
+  ],
+  "Ver meus matches": [
+    "View my matches",
+    "Ver mis matches"
+  ],
+  "Abrir menu do perfil": [
+    "Open profile menu",
+    "Abrir menú del perfil"
+  ],
+  "Menu do perfil": [
+    "Profile menu",
+    "Menú del perfil"
+  ],
+  "As senhas coincidem.": [
+    "Passwords match.",
+    "Las contraseñas coinciden."
+  ],
+  "Participa sem cadastro.": [
+    "Joining without an account.",
+    "Participa sin cuenta."
+  ],
+  "A imagem foi atualizada. ": [
+    "Image updated. ",
+    "Imagen actualizada. "
+  ],
+  "Use ": [
+    "Use ",
+    "Usa "
+  ],
+  "Escolher foto de capa": [
+    "Choose cover photo",
+    "Elegir foto de portada"
+  ],
+  "Escolher foto de perfil": [
+    "Choose profile photo",
+    "Elegir foto de perfil"
+  ],
+  "Foto de capa": [
+    "Cover photo",
+    "Foto de portada"
+  ],
+  "Foto de perfil": [
+    "Profile photo",
+    "Foto de perfil"
+  ],
+  "Sala salva, editar nome": [
+    "Saved room, edit name",
+    "Sala guardada, editar nombre"
+  ],
+  "Dispensar aviso de publicidade": [
+    "Dismiss ad notice",
+    "Cerrar aviso de publicidad"
+  ],
+  "Deixar de salvar": [
+    "Remove from saved rooms",
+    "Dejar de guardar"
+  ],
+  "Pôster de ": [
+    "Poster for ",
+    "Póster de "
+  ],
+  "Fechar detalhes": [
+    "Close details",
+    "Cerrar detalles"
+  ],
+  "Voto removido.": [
+    "Vote removed.",
+    "Voto eliminado."
+  ],
+  "Seu voto foi salvo.": [
+    "Your vote was saved.",
+    "Tu voto se ha guardado."
+  ],
+  "Anos 90": [
+    "1990s",
+    "Años 90"
+  ],
+  "Fechar filtros": [
+    "Close filters",
+    "Cerrar filtros"
+  ],
+  "Escolha o que quer ver e o que prefere evitar.": [
+    "Choose what you want to watch and what you prefer to avoid.",
+    "Elige lo que quieres ver y lo que prefieres evitar."
+  ],
+  "Qualidade e idioma": [
+    "Quality and language",
+    "Calidad e idioma"
+  ],
+  "Ajustes menos usados para refinar ainda mais a busca.": [
+    "Additional settings to refine your search.",
+    "Ajustes adicionales para afinar la búsqueda."
+  ],
+  "Limpar filtros": [
+    "Clear filters",
+    "Borrar filtros"
+  ],
+  "Link copiado!": [
+    "Link copied!",
+    "¡Enlace copiado!"
+  ],
+  "Fechar compartilhamento": [
+    "Close sharing",
+    "Cerrar opciones para compartir"
+  ],
+  "Fechar match": [
+    "Close match",
+    "Cerrar match"
+  ],
+  "Sala de testes com votos iniciais de exemplo": [
+    "Test room with example votes",
+    "Sala de pruebas con votos de ejemplo"
+  ],
+  "Como votar": [
+    "How to vote",
+    "Cómo votar"
+  ],
+  "Abrir filtros": [
+    "Open filters",
+    "Abrir filtros"
+  ],
+  "Como votar no MovieMatch": [
+    "How to vote on MovieMatch",
+    "Cómo votar en MovieMatch"
+  ],
+  "Pular tutorial": [
+    "Skip tutorial",
+    "Saltar tutorial"
+  ],
+  "Filme anterior": [
+    "Previous film",
+    "Película anterior"
+  ],
+  "Pôster indisponível de ": [
+    "Poster unavailable for ",
+    "Póster no disponible de "
+  ],
+  "Foto de {0}": [
+    "Photo of {0}",
+    "Foto de {0}"
+  ]
+}

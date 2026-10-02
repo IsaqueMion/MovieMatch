@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../hooks/useLocale'
 import { useEffect, useRef, useState } from 'react'
 
 
@@ -54,6 +55,7 @@ export default function AdSlot({
   fallbackHref,
   fallbackImgSrc,
 }: AdSlotProps) {
+  useLocale()
   const ref = useRef<HTMLDivElement | null>(null)
   const [visible, setVisible] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
@@ -135,11 +137,11 @@ export default function AdSlot({
         style={{ width, height }}
       >
         {fallbackImgSrc ? (
-          <img src={fallbackImgSrc} alt="Anúncio" className="w-full h-full object-cover" />
+          <img src={fallbackImgSrc} alt={t("Anúncio")} className="w-full h-full object-cover" />
         ) : (
           <div className="text-center">
-            <div className="text-[10px] uppercase tracking-wide text-white/50">Anúncio</div>
-            <div className="mt-1 text-white/80 text-sm">Em breve publicidade aqui</div>
+            <div className="text-[10px] uppercase tracking-wide text-white/50">{t("Anúncio")}</div>
+            <div className="mt-1 text-white/80 text-sm">{t("Em breve publicidade aqui")}</div>
           </div>
         )}
       </div>

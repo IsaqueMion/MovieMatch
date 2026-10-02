@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../../hooks/useLocale'
 import FilterButton from './FilterButton'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import {
@@ -97,7 +98,7 @@ function providerLabel(ids: number[]): string {
     )
   }
 
-  return `${ids.length} streamings`
+  return t("{0} streamings", [ids.length])
 }
 
 function languageLabel(value: string): string {
@@ -122,6 +123,7 @@ export default function FilterModal({
   onClose,
   onApply,
 }: Props) {
+  const { locale } = useLocale()
   const reducedMotion = usePrefersReducedMotion()
   const [draft, setDraft] = useState<DiscoverFilters>(() =>
     cloneFilters(filters),
@@ -164,18 +166,18 @@ export default function FilterModal({
   const isDirty = filtersSig(draft) !== filtersSig(filters)
 
   const yearPresets = [
-    { label: 'Clássicos', range: [1950, 1979] },
-    { label: 'Anos 90', range: [1990, 1999] },
+    { label: t("Clássicos"), range: [1950, 1979] },
+    { label: t("Anos 90"), range: [1990, 1999] },
     { label: '2000+', range: [2000, currentYear] },
     {
-      label: 'Últimos 5 anos',
+      label: t("Últimos 5 anos"),
       range: [Math.max(1900, currentYear - 5), currentYear],
     },
   ]
 
   const runtimePresets = [
-    { label: 'Até 100 min', range: [40, 100] },
-    { label: '100–140 min', range: [100, 140] },
+    { label: t("Até 100 min"), range: [40, 100] },
+    { label: t("100–140 min"), range: [100, 140] },
     { label: '140+ min', range: [140, 300] },
   ]
 
@@ -202,8 +204,8 @@ export default function FilterModal({
         key: 'genres',
         label:
           draft.genres?.length === 1
-            ? '1 gênero'
-            : `${draft.genres?.length ?? 0} gêneros`,
+            ? t("1 gênero")
+            : t("{0} gêneros", [draft.genres?.length ?? 0]),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -217,8 +219,8 @@ export default function FilterModal({
         key: 'excludeGenres',
         label:
           draft.excludeGenres?.length === 1
-            ? '1 gênero excluído'
-            : `${draft.excludeGenres?.length ?? 0} gêneros excluídos`,
+            ? t("1 gênero excluído")
+            : t("{0} gêneros excluídos", [draft.excludeGenres?.length ?? 0]),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -347,7 +349,7 @@ export default function FilterModal({
     if (draft.includeAdult) {
       items.push({
         key: 'adult',
-        label: 'Conteúdo adulto',
+        label: t("Conteúdo adulto"),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -435,7 +437,7 @@ export default function FilterModal({
         >
           <motion.button
             type="button"
-            aria-label="Fechar filtros"
+            aria-label={t("Fechar filtros")}
             className="absolute inset-0 cursor-default bg-black/70 backdrop-blur-md"
             onClick={onClose}
             initial={{ opacity: 0 }}
@@ -463,22 +465,15 @@ export default function FilterModal({
                       <SlidersHorizontal className="h-4 w-4" />
                     </span>
 
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">
-                      Personalizar
-                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">{t("Personalizar")}</span>
                   </div>
 
                   <h2
                     id="filters-title"
                     className="text-2xl font-semibold tracking-tight text-white sm:text-[28px]"
-                  >
-                    Encontre o filme certo
-                  </h2>
+                  >{t("Encontre o filme certo")}</h2>
 
-                  <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/50">
-                    Ajuste apenas o que importa. As opções extras ficam
-                    organizadas abaixo para não poluir a tela.
-                  </p>
+                  <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/50">{t("Ajuste apenas o que importa. As opções extras ficam organizadas abaixo para não poluir a tela.")}</p>
                 </div>
 
                 <FilterButton
@@ -499,8 +494,8 @@ export default function FilterModal({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-5">
               <div className="mx-auto space-y-3">
                 <FilterSection
-                  title="Onde assistir"
-                  description="Streaming, região e forma de disponibilidade."
+                  title={t("Onde assistir")}
+                  description={t("Streaming, região e forma de disponibilidade.")}
                   icon={<Tv className="h-4 w-4" />}
                   badge={streamingBadge}
                   defaultOpen
@@ -508,12 +503,8 @@ export default function FilterModal({
                   <div>
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div>
-                        <h5 className="text-sm font-medium text-white/85">
-                          Seus streamings
-                        </h5>
-                        <p className="text-xs text-white/40">
-                          Selecione um ou mais. A busca usa OU entre eles.
-                        </p>
+                        <h5 className="text-sm font-medium text-white/85">{t("Seus streamings")}</h5>
+                        <p className="text-xs text-white/40">{t("Selecione um ou mais. A busca usa OU entre eles.")}</p>
                       </div>
                     </div>
 
@@ -552,9 +543,7 @@ export default function FilterModal({
 
                   <div className="mt-5 grid gap-4 border-t border-white/10 pt-4 sm:grid-cols-2">
                     <div>
-                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
-                        Tipo de oferta
-                      </span>
+                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Tipo de oferta")}</span>
 
                       <div className="flex flex-wrap gap-2">
                         {MONETIZATION_OPTIONS.map(({ k, label }) => {
@@ -590,9 +579,7 @@ export default function FilterModal({
                     </div>
 
                     <div>
-                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
-                        Região do catálogo
-                      </span>
+                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Região do catálogo")}</span>
 
                       <Select
                         buttonComponent={FilterButton}
@@ -603,15 +590,15 @@ export default function FilterModal({
                             watchRegion: value,
                           }))
                         }
-                        options={REGIONS}
+                        options={REGIONS.map(option => ({ ...option, label: `${new Intl.DisplayNames([locale], { type: 'region' }).of(option.value)} (${option.value})` }))}
                       />
                     </div>
                   </div>
                 </FilterSection>
 
                 <FilterSection
-                  title="Gêneros"
-                  description="Escolha o que quer ver e o que prefere evitar."
+                  title={t("Gêneros")}
+                  description={t("Escolha o que quer ver e o que prefere evitar.")}
                   icon={<Tags className="h-4 w-4" />}
                   badge={genresBadge}
                   defaultOpen
@@ -620,9 +607,7 @@ export default function FilterModal({
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                        <span className="text-sm font-medium text-white/80">
-                          Quero ver
-                        </span>
+                        <span className="text-sm font-medium text-white/80">{t("Quero ver")}</span>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -662,7 +647,7 @@ export default function FilterModal({
                                 })
                               }}
                             >
-                              {genre.name}
+                              {t(genre.name)}
                             </FilterChip>
                           )
                         })}
@@ -672,9 +657,7 @@ export default function FilterModal({
                     <div className="border-t border-white/10 pt-4 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
                       <div className="mb-2 flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full bg-rose-400" />
-                        <span className="text-sm font-medium text-white/80">
-                          Quero evitar
-                        </span>
+                        <span className="text-sm font-medium text-white/80">{t("Quero evitar")}</span>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -715,7 +698,7 @@ export default function FilterModal({
                                 })
                               }}
                             >
-                              {genre.name}
+                              {t(genre.name)}
                             </FilterChip>
                           )
                         })}
@@ -725,17 +708,15 @@ export default function FilterModal({
                 </FilterSection>
 
                 <FilterSection
-                  title="Período e duração"
-                  description="Defina quando o filme foi lançado e quanto tempo ele pode durar."
+                  title={t("Período e duração")}
+                  description={t("Defina quando o filme foi lançado e quanto tempo ele pode durar.")}
                   icon={<CalendarRange className="h-4 w-4" />}
                   badge={periodBadge}
                 >
                   <div className="grid gap-6 lg:grid-cols-2">
                     <div>
                       <div className="mb-3 flex items-center justify-between gap-3">
-                        <span className="text-sm font-medium text-white/80">
-                          Ano de lançamento
-                        </span>
+                        <span className="text-sm font-medium text-white/80">{t("Ano de lançamento")}</span>
                         <span className="rounded-lg bg-white/[0.055] px-2 py-1 text-xs tabular-nums text-white/50">
                           {yearMin}–{yearMax}
                         </span>
@@ -780,7 +761,7 @@ export default function FilterModal({
                         />
 
                         <NumberField
-                          label="Até"
+                          label={t("Até")}
                           value={yearMax}
                           min={yearMin}
                           max={currentYear}
@@ -799,9 +780,7 @@ export default function FilterModal({
 
                     <div className="border-t border-white/10 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
                       <div className="mb-3 flex items-center justify-between gap-3">
-                        <span className="text-sm font-medium text-white/80">
-                          Duração
-                        </span>
+                        <span className="text-sm font-medium text-white/80">{t("Duração")}</span>
                         <span className="rounded-lg bg-white/[0.055] px-2 py-1 text-xs tabular-nums text-white/50">
                           {runtimeMin}–{runtimeMax} min
                         </span>
@@ -830,7 +809,7 @@ export default function FilterModal({
 
                       <div className="mt-4 grid grid-cols-2 gap-2">
                         <NumberField
-                          label="Mínimo"
+                          label={t("Mínimo")}
                           value={runtimeMin}
                           min={40}
                           max={runtimeMax}
@@ -848,7 +827,7 @@ export default function FilterModal({
                         />
 
                         <NumberField
-                          label="Máximo"
+                          label={t("Máximo")}
                           value={runtimeMax}
                           min={runtimeMin}
                           max={300}
@@ -870,16 +849,14 @@ export default function FilterModal({
                 </FilterSection>
 
                 <FilterSection
-                  title="Qualidade e idioma"
-                  description="Nota mínima, idioma original e forma de ordenar os resultados."
+                  title={t("Qualidade e idioma")}
+                  description={t("Nota mínima, idioma original e forma de ordenar os resultados.")}
                   icon={<Star className="h-4 w-4" />}
                   badge={qualityBadge}
                 >
                   <div className="grid gap-5 md:grid-cols-3">
                     <div>
-                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
-                        Nota mínima
-                      </span>
+                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Nota mínima")}</span>
 
                       <div className="flex flex-wrap gap-2">
                         {ratingPresets.map((value) => (
@@ -893,7 +870,7 @@ export default function FilterModal({
                               }))
                             }
                           >
-                            {value === 0 ? 'Qualquer' : `${value}+`}
+                            {value === 0 ? t("Qualquer") : `${value}+`}
                           </FilterChip>
                         ))}
                       </div>
@@ -917,9 +894,7 @@ export default function FilterModal({
                     </div>
 
                     <div>
-                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
-                        Idioma original
-                      </span>
+                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Idioma original")}</span>
 
                       <Select
                         buttonComponent={FilterButton}
@@ -930,14 +905,12 @@ export default function FilterModal({
                             language: value,
                           }))
                         }
-                        options={LANGUAGES}
+                        options={LANGUAGES.map(option => ({ ...option, label: option.value ? new Intl.DisplayNames([locale], { type: 'language' }).of(option.value) ?? option.label : t(option.label) }))}
                       />
                     </div>
 
                     <div>
-                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
-                        Ordenar resultados
-                      </span>
+                      <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Ordenar resultados")}</span>
 
                       <Select
                         buttonComponent={FilterButton}
@@ -955,8 +928,8 @@ export default function FilterModal({
                 </FilterSection>
 
                 <FilterSection
-                  title="Avançado"
-                  description="Ajustes menos usados para refinar ainda mais a busca."
+                  title={t("Avançado")}
+                  description={t("Ajustes menos usados para refinar ainda mais a busca.")}
                   icon={<Settings2 className="h-4 w-4" />}
                   badge={advancedBadge}
                 >
@@ -964,9 +937,7 @@ export default function FilterModal({
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Gauge className="h-4 w-4 text-white/40" />
-                        <span className="text-sm font-medium text-white/80">
-                          Popularidade mínima
-                        </span>
+                        <span className="text-sm font-medium text-white/80">{t("Popularidade mínima")}</span>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -981,7 +952,7 @@ export default function FilterModal({
                               }))
                             }
                           >
-                            {value === 0 ? 'Sem mínimo' : `${value}+ votos`}
+                            {value === 0 ? t("Sem mínimo") : `${value}+ votos`}
                           </FilterChip>
                         ))}
                       </div>
@@ -1006,15 +977,10 @@ export default function FilterModal({
                     <div className="sm:border-l sm:border-white/10 sm:pl-5">
                       <div className="mb-2 flex items-center gap-2">
                         <Film className="h-4 w-4 text-white/40" />
-                        <span className="text-sm font-medium text-white/80">
-                          Conteúdo adulto
-                        </span>
+                        <span className="text-sm font-medium text-white/80">{t("Conteúdo adulto")}</span>
                       </div>
 
-                      <p className="mb-3 text-xs leading-relaxed text-white/45">
-                        Requer confirmação de maioridade. A data de nascimento
-                        não é armazenada.
-                      </p>
+                      <p className="mb-3 text-xs leading-relaxed text-white/45">{t("Requer confirmação de maioridade. A data de nascimento não é armazenada.")}</p>
 
                       <FilterButton
                         type="button"
@@ -1036,12 +1002,10 @@ export default function FilterModal({
                         }`}
                       >
                         <span>
-                          <span className="block text-sm font-medium text-white/85">
-                            Permitir conteúdo 18+
-                          </span>
+                          <span className="block text-sm font-medium text-white/85">{t("Permitir conteúdo 18+")}</span>
                           <span className="mt-0.5 block text-xs text-white/40">
                             {draft.includeAdult
-                              ? 'Ativado nesta seleção'
+                              ? t("Ativado nesta seleção")
                               : 'Desativado'}
                           </span>
                         </span>
@@ -1068,8 +1032,8 @@ export default function FilterModal({
                   type="button"
                   onClick={resetAll}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/55 transition hover:bg-white/[0.075] hover:text-white"
-                  title="Limpar filtros"
-                  aria-label="Limpar filtros"
+                  title={t("Limpar filtros")}
+                  aria-label={t("Limpar filtros")}
                 >
                   <RotateCcw className="h-4 w-4" />
                 </FilterButton>
@@ -1078,9 +1042,7 @@ export default function FilterModal({
                   type="button"
                   onClick={onClose}
                   className="hidden h-11 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/65 transition hover:bg-white/[0.075] hover:text-white sm:block"
-                >
-                  Cancelar
-                </FilterButton>
+                >{t("Cancelar")}</FilterButton>
 
                 <FilterButton
                   type="button"
@@ -1093,14 +1055,12 @@ export default function FilterModal({
                     ? `Aplicar ${activeItems.length || ''} ${
                         activeItems.length === 1 ? 'filtro' : 'filtros'
                       }`.trim()
-                    : 'Filtros aplicados'}
+                    : t("Filtros aplicados")}
                 </FilterButton>
               </div>
 
               {isDirty ? (
-                <p className="mt-2 text-center text-[11px] text-amber-200/55">
-                  Você tem alterações que ainda não foram aplicadas.
-                </p>
+                <p className="mt-2 text-center text-[11px] text-amber-200/55">{t("Você tem alterações que ainda não foram aplicadas.")}</p>
               ) : null}
             </footer>
           </motion.div>

@@ -1,3 +1,4 @@
+import { translate as t } from '../../hooks/useLocale'
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import {
   forwardRef,
@@ -178,16 +179,12 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           <motion.div
             style={{ opacity: dislikeOpacity }}
             className="rounded-lg border-2 border-red-500/70 text-red-500/90 px-3 py-1.5 font-semibold rotate-[-6deg] bg-black/20"
-          >
-            PASSO
-          </motion.div>
+          >{t("PASSO")}</motion.div>
 
           <motion.div
             style={{ opacity: likeOpacity }}
             className="rounded-lg border-2 border-emerald-500/70 text-emerald-400 px-3 py-1.5 font-semibold rotate-[6deg] bg-black/20"
-          >
-            QUERO VER
-          </motion.div>
+          >{t("QUERO VER")}</motion.div>
         </div>
 
         <div

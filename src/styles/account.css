@@ -17,19 +17,26 @@
 
 /* Efferd auth-2 composition, using the MovieMatch palette and existing controls. */
 .account-entry{min-height:100svh}
+.account-form-transition{animation:account-mode-enter .24s ease-out}
+.account-language{position:absolute;right:24px;top:24px}.account-menu{display:flex;align-items:center;gap:10px}
+.account-page .language-select{display:inline-flex}
+@media(max-width:479px){.account-entry .account-entry-panel{padding-top:150px}.account-language{top:76px;right:24px}}
+@keyframes account-mode-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.account-form-transition{animation:none}}
+@media(max-width:899px){.account-entry-panel{min-height:1120px}}
 .account-entry .account-auth{display:grid;grid-template-columns:1fr 1fr;min-height:100svh}
-.account-story{position:relative;display:flex;flex-direction:column;justify-content:space-between;isolation:isolate;overflow:hidden;padding:40px;border-right:1px solid var(--cinema-line);background:#111915}
+.account-story{position:sticky;top:0;height:100svh;display:flex;flex-direction:column;justify-content:space-between;isolation:isolate;overflow:hidden;padding:40px;border-right:1px solid var(--cinema-line);background:#111915}
 .account-story>.cinema-brand{align-self:flex-start;position:relative;z-index:1}.account-story .cinema-brand>svg,.account-mobile-brand>svg{color:var(--cinema-accent)}
 .account-paths{position:absolute;inset:0;z-index:-1;color:var(--cinema-accent);opacity:.38;pointer-events:none;mask-image:linear-gradient(to bottom,transparent,black 18%,black 58%,transparent 90%)}
 .account-floating-paths{position:absolute;inset:0;width:100%;height:100%}
 .account-story-copy{padding-top:14rem;max-width:36rem}.account-story-copy>.cinema-eyebrow{color:#b7c4bc;font-size:.65rem}
 .account-story-title{font-family:var(--cinema-display);font-size:clamp(2.5rem,4vw,4.5rem);line-height:1.04;letter-spacing:-.045em;margin:1.25rem 0}.account-story-title>span{color:var(--cinema-accent)}
 .account-story-copy>p:not(.cinema-eyebrow):not(.account-story-title){max-width:29rem;font-size:.875rem;line-height:1.8;color:#b4c1b8}.account-story-signature{display:block;margin-top:2rem;font-size:.7rem;color:#8d9e93}
-.account-entry-panel{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:100svh;padding:100px 40px 56px;background:radial-gradient(ellipse at 100% 0,#1a211b80,transparent 70%),var(--cinema-bg)}
+.account-entry-panel{position:relative;display:flex;align-items:flex-start;justify-content:center;min-width:0;min-height:max(100svh,1120px);padding:100px 40px 56px;background:radial-gradient(ellipse at 100% 0,#1a211b80,transparent 70%),var(--cinema-bg)}
 .account-guest-link{position:absolute;left:40px;top:28px;display:inline-flex;align-items:center;gap:.5rem;min-height:44px;font-size:.8rem;color:#c6cec8}.account-guest-link:hover{color:var(--cinema-accent)}
 .account-entry .account-form{width:100%;max-width:400px;min-width:0;padding:0;background:none;border:0;border-radius:0}
-.account-entry .account-form>h1{font-size:clamp(2rem,2.8vw,2.6rem);font-family:var(--cinema-display);line-height:1.08;letter-spacing:-.045em;margin:.75rem 0}
-.account-form>.cinema-eyebrow{font-size:.65rem;color:#9ba9a0;margin:0}.account-form-description{font-size:.875rem;line-height:1.7;color:#a9b5ad;margin:0 0 1.75rem}
+.account-entry .account-form-transition>h1{font-size:clamp(2rem,2.8vw,2.6rem);font-family:var(--cinema-display);line-height:1.08;letter-spacing:-.045em;margin:.75rem 0}
+.account-form-transition>.cinema-eyebrow{font-size:.65rem;color:#9ba9a0;margin:0}.account-form-description{font-size:.875rem;line-height:1.7;color:#a9b5ad;margin:0 0 1.75rem}
 .account-entry .account-mobile-brand{display:none}
 .account-mode-switch{display:grid;grid-template-columns:1fr 1fr;background:#1a231d;border:1px solid #2e3a32;border-radius:10px;padding:4px;margin-bottom:1.75rem;gap:4px}
 .account-mode-switch button{border:0;background:none;border-radius:7px;font-size:.8rem;color:#a4b1a8;cursor:pointer;transition:background .18s,color .18s}
@@ -46,8 +53,8 @@
 .account-form>a{display:block;margin-top:1.5rem;color:var(--cinema-accent);font-size:.8rem}
 .account-legal{border-top:1px solid #2d3931;margin:1.75rem 0 0;padding-top:1.25rem;font-size:.7rem;line-height:1.9;color:#8e9d93}.account-legal a{color:#b8c5bd;text-decoration:underline;text-underline-offset:3px}
 .account-auth-error,.account-auth-message{padding:.875rem 1rem;border-radius:8px;font-size:.8rem;line-height:1.7;margin:0 0 1.25rem;overflow-wrap:anywhere}.account-auth-error{border:1px solid #a6574a;color:#ffc0b5;background:#51271d44}.account-auth-message{border:1px solid #426b53;color:#b7efce;background:#1e3f2b55}
-@media(max-width:1023px){.account-entry .account-auth{grid-template-columns:1fr}.account-story{display:none}.account-entry-panel{padding:110px 24px 48px}.account-guest-link{left:24px;top:24px}.account-entry .account-mobile-brand{display:inline-flex;font-size:22px;margin:0 0 2rem}.account-entry .account-form>h1{font-size:2.25rem}}
-@media(max-width:359px){.account-entry-panel{padding-inline:20px}.account-guest-link{left:20px}.account-entry .account-form>h1{font-size:2rem}}
+@media(max-width:1023px){.account-entry .account-auth{grid-template-columns:1fr}.account-story{display:none}.account-entry-panel{padding:110px 24px 48px}.account-guest-link{left:24px;top:24px}.account-entry .account-mobile-brand{display:inline-flex;font-size:22px;margin:0 0 2rem}.account-entry .account-form-transition>h1{font-size:2.25rem}}
+@media(max-width:359px){.account-entry-panel{padding-inline:20px}.account-guest-link{left:20px}.account-entry .account-form-transition>h1{font-size:2rem}}
 @media(prefers-reduced-motion:reduce){.account-mode-switch button,.account-input-group{transition:none}}
 
 /* Origin UI navbar3 and Kokonut profile-dropdown references, with real MovieMatch actions. */

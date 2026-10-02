@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useLocale } from './useLocale'
 
 type PageMetaOptions = {
   title: string
@@ -33,8 +34,10 @@ export function usePageMeta({
   description,
   robots = 'index,follow',
 }: PageMetaOptions) {
+  const { t, locale } = useLocale()
   useEffect(() => {
-    document.title = title
+    document.documentElement.lang = locale
+    document.title = t(title)
 
     const descriptionMeta =
       getOrCreateMeta('description')
@@ -42,13 +45,14 @@ export function usePageMeta({
       getOrCreateMeta('robots')
 
     descriptionMeta.content =
-      description
+      t(description)
     robotsMeta.content =
       robots
-    getOrCreateMeta('og:title', 'property').content = title
-    getOrCreateMeta('og:description', 'property').content = description
-    getOrCreateMeta('twitter:title').content = title
-    getOrCreateMeta('twitter:description').content = description
+    getOrCreateMeta('og:title', 'property').content = t(title)
+    getOrCreateMeta('og:description', 'property').content = t(description)
+    getOrCreateMeta('og:locale', 'property').content = locale.replace('-', '_')
+    getOrCreateMeta('twitter:title').content = t(title)
+    getOrCreateMeta('twitter:description').content = t(description)
 
     const canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
     if (robots.includes('noindex')) {
@@ -65,5 +69,7 @@ export function usePageMeta({
     title,
     description,
     robots,
+    t,
+    locale,
   ])
 }

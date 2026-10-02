@@ -20,8 +20,8 @@ const uid='cccccccc-cccc-4ccc-8ccc-cccccccccccc',pid='dddddddd-dddd-4ddd-8ddd-dd
 const makeUser=(guest=false)=>({id:uid,aud:'authenticated',role:'authenticated',is_anonymous:guest,email:guest?undefined:'luna@example.test',email_confirmed_at:guest?undefined:'2026-10-01T12:00:00Z',app_metadata:{},user_metadata:{}})
 const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:uid,aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture'
 const session=user=>({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user})
-async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false}={}){
-  const context=await browser.newContext({viewport:{width,height},serviceWorkers:'block'})
+async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false,locale='pt-BR'}={}){
+  const context=await browser.newContext({locale,viewport:{width,height},serviceWorkers:'block'})
   const state={user:makeUser(guest),profile:{id:pid,handle:'luna',display_name:'Luna',bio:'Histórias que ficam.',genres:[878],avatar_path:null,cover_path:null,is_public:!privateProfile,show_favorites:true,show_reviews:true},favorites:[],rooms:[{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sexta do grupo',saved_at:'2026-10-01T12:00:00Z'}],requests:[],errors:[],fail:false}
   if(loggedIn)await context.addInitScript(({value,key})=>{if(!sessionStorage.getItem('fixture:account-seeded')){localStorage.setItem(key,JSON.stringify(value));sessionStorage.setItem('fixture:account-seeded','1')}},{value:session(state.user),key:storageKey})
   await context.route(/https:\/\/[^/]+\.supabase\.co\//,async route=>{
@@ -189,7 +189,7 @@ test('salas salvas e perfil privado apresentam estados corretos',async()=>{
 for(const width of [320,390,768,1440])test(`home em ${width}px: navegação de visitante e perfil com teclado, fora do menu e salas privadas`,async()=>{
   const guest=await fixture({path:'/',width,loggedIn:false})
   try{
-    await guest.page.locator('.home-navigation').waitFor();await guest.page.evaluate(()=>document.fonts.ready)
+    await guest.page.locator('.home-navigation').waitFor({state:'attached'});await guest.page.evaluate(()=>document.fonts.ready)
     assert.equal(await guest.page.locator('#minhas-salas').count(),0)
     assert.equal(guest.state.requests.some(x=>/auth\/v1|my_profile|my_saved_sessions/.test(x.path)),false)
     await guest.page.locator('.home-header').getByRole('link',{name:'Entrar',exact:true}).waitFor()
@@ -240,4 +240,33 @@ test('falha ao remover sala conserva os dados; confirmação pode ser cancelada'
     state.fail=false;await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)
     assert.deepEqual(state.errors,[])
   }finally{await context.close()}
+})
+
+test('idioma automático e manual preserva os campos; painel e fundo ficam estáveis ao trocar acesso',async()=>{
+  const {context,page,state}=await fixture({path:'/conta',loggedIn:false,width:1440,height:884,locale:'en-US'})
+  try{
+    await page.getByRole('heading',{name:'The session continues.'}).waitFor()
+    const story=await page.locator('.account-story').boundingBox(), panel=await page.locator('.account-entry-panel').boundingBox()
+    assert.ok(await page.locator('.account-floating-paths path').count() > 0)
+    await page.getByRole('group',{name:'Account access'}).getByRole('button',{name:'Create account',exact:true}).click()
+    await page.getByLabel('Password',{exact:true}).fill('Mm!7zQp9')
+    await page.getByLabel('Interface language',{exact:true}).selectOption('es')
+    await page.getByRole('heading',{name:'Tu cine empieza aquí.'}).waitFor()
+    assert.equal(await page.getByLabel('Contraseña',{exact:true}).inputValue(),'Mm!7zQp9')
+    const nextStory=await page.locator('.account-story').boundingBox(), nextPanel=await page.locator('.account-entry-panel').boundingBox()
+    assert.equal(nextStory.height,story.height);assert.equal(nextStory.y,story.y);assert.equal(nextPanel.height,panel.height)
+    assert.equal(await page.locator('html').getAttribute('lang'),'es-ES')
+    await page.emulateMedia({reducedMotion:'reduce'})
+    assert.equal(await page.locator('.account-form-transition').evaluate(el=>getComputedStyle(el).animationName),'none')
+    await page.reload();await page.getByRole('heading',{name:'Tu cine empieza aquí.'}).waitFor()
+    assert.equal(await page.getByLabel('Contraseña',{exact:true}).inputValue(),'')
+    assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/')),false);assert.deepEqual(state.errors,[])
+  }finally{await context.close()}
+  const mobile=await fixture({path:'/conta',loggedIn:false,width:320,locale:'es-MX'})
+  try{
+    await mobile.page.getByRole('heading',{name:'La sesión continúa.'}).waitFor()
+    const link=await mobile.page.locator('.account-guest-link').boundingBox(), language=await mobile.page.locator('.account-language').boundingBox()
+    assert.ok(language.y>=link.y+link.height)
+    assert.equal(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+  }finally{await mobile.context.close()}
 })

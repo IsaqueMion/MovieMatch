@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../hooks/useLocale'
 import { useState } from 'react'
 
 type Props = {
@@ -7,6 +8,7 @@ type Props = {
 }
 
 export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
+  useLocale()
   const [birthdate, setBirthdate] = useState<string>('')
   const [touched, setTouched] = useState(false)
 
@@ -19,15 +21,10 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
       <div className="relative z-10 w-[min(92vw,28rem)] rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white">
-        <h3 className="text-lg font-semibold">Confirme sua idade</h3>
-        <p className="text-sm text-white/70 mt-1">
-          Para ativar conteúdo adulto, informe sua data de nascimento.
-          Ela será usada somente para confirmar se você tem 18 anos ou mais e não será armazenada.
-        </p>
+        <h3 className="text-lg font-semibold">{t("Confirme sua idade")}</h3>
+        <p className="text-sm text-white/70 mt-1">{t("Para ativar conteúdo adulto, informe sua data de nascimento. Ela será usada somente para confirmar se você tem 18 anos ou mais e não será armazenada.")}</p>
 
-        <label className="block mt-4 text-sm">
-          Data de nascimento
-          <input
+        <label className="block mt-4 text-sm">{t("Data de nascimento")}<input
             type="date"
             value={birthdate}
             onChange={(e) => setBirthdate(e.target.value)}
@@ -39,23 +36,19 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
         </label>
 
         {touched && !!birthdate && age !== null && age < 18 ? (
-          <p className="mt-2 text-rose-300 text-sm">Você precisa ter 18 anos ou mais.</p>
+          <p className="mt-2 text-rose-300 text-sm">{t("Você precisa ter 18 anos ou mais.")}</p>
         ) : null}
         {touched && !birthdate ? (
-          <p className="mt-2 text-amber-300 text-sm">Informe a data para continuar.</p>
+          <p className="mt-2 text-amber-300 text-sm">{t("Informe a data para continuar.")}</p>
         ) : null}
 
         <div className="mt-5 flex items-center justify-end gap-2">
-          <button onClick={onCancel} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15">
-            Cancelar
-          </button>
+          <button onClick={onCancel} className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15">{t("Cancelar")}</button>
           <button
             onClick={() => valid && onConfirm(birthdate)}
             disabled={!valid}
             className="px-3 py-1.5 rounded-md bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white"
-          >
-            Confirmar
-          </button>
+          >{t("Confirmar")}</button>
         </div>
       </div>
     </div>

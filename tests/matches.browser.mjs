@@ -35,7 +35,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill() })
 
 async function fixture({ count = 5, width = 1440, empty = false, invalid = false, listFailure = false, detailsFailure = false, liveImages = false, missingPoster = false } = {}) {
-  const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
+  const ctx = await browser.newContext({ locale: 'pt-BR', serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
   const uid = '11111111-1111-4111-8111-111111111111'
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
@@ -206,7 +206,7 @@ test('coverflow navega por botões e teclado, respeita movimento reduzido e abre
       const m = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.coverflow-card[aria-hidden="false"]')).transform)
       return Math.abs(m.m13) < .001
     })
-    const detailsRequest = page.waitForRequest('**/functions/v1/movie_details*')
+    const detailsRequest = page.waitForResponse('**/functions/v1/movie_details*')
     await page.getByRole('button', { name: 'Explorar o filme' }).click()
     await page.getByRole('dialog').waitFor()
     assert.equal(await page.locator('.matches-dialog h2').innerText(), movies[1].title)
@@ -260,4 +260,23 @@ test('arrastar o coverflow seleciona outro filme sem abrir os detalhes', async (
     await page.waitForFunction(() => document.querySelector('.coverflow-caption h3')?.textContent !== 'Interestelar')
     assert.equal(await page.getByRole('dialog').count(), 0)
   } finally { await ctx.close() }
+})
+
+test('estante oficial renderiza sete volumes, navega e abre sem alterar os matches', {skip:!process.env.LIVE_THREEUI}, async () => {
+  const {ctx,page,state}=await fixture()
+  try{
+    await page.getByRole('button',{name:'Estante experimental',exact:true}).click()
+    const shelf=page.frameLocator('iframe[title="Working Volumes — Seven Tools for Making"]')
+    await shelf.locator('#experience.webgl-ready').waitFor({timeout:60000})
+    await page.locator('.matches-shelf-experiment iframe').scrollIntoViewIfNeeded()
+    if(process.env.VISUAL_CAPTURE_DIR) await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/threeui-shelf.png'})
+    assert.equal(await shelf.locator('#markers [role=tab]').count(),7)
+    assert.ok(await shelf.locator('#scene').evaluate(canvas=>canvas.width>0&&canvas.height>0))
+    await shelf.locator('#next').click();await shelf.locator('#selection-title').filter({hasText:'Claude Code'}).waitFor()
+    await shelf.locator('#inspect').click();await shelf.locator('#detail-panel[aria-hidden=false]').waitFor()
+    await shelf.locator('#toggle-book').click();await page.waitForTimeout(1200)
+    await shelf.locator('#close-detail').click();await shelf.locator('#detail-panel[aria-hidden=true]').waitFor()
+    await page.getByRole('button',{name:'Carrossel',exact:true}).click();await page.locator('.coverflow-caption h3').filter({hasText:'Interestelar'}).waitFor()
+    assert.equal(state.movies.length,5);assert.equal(state.detailsCalls,0)
+  }finally{await ctx.close()}
 })

@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../../hooks/useLocale'
 import FilterButton from './FilterButton'
 import { Sparkles, X } from 'lucide-react'
 
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export default function ActiveFiltersSummary({ items }: Props) {
+  useLocale()
   if (items.length === 0) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3">
@@ -20,12 +22,8 @@ export default function ActiveFiltersSummary({ items }: Props) {
         </span>
 
         <div className="min-w-0">
-          <p className="text-sm font-medium text-white/90">
-            Recomendações amplas
-          </p>
-          <p className="text-xs text-white/50">
-            Nenhum filtro adicional está limitando os resultados.
-          </p>
+          <p className="text-sm font-medium text-white/90">{t("Recomendações amplas")}</p>
+          <p className="text-xs text-white/50">{t("Nenhum filtro adicional está limitando os resultados.")}</p>
         </div>
       </div>
     )
@@ -36,9 +34,7 @@ export default function ActiveFiltersSummary({ items }: Props) {
       <div className="mb-2 flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-emerald-300" />
-          <span className="text-xs font-medium text-white/70">
-            Seleção atual
-          </span>
+          <span className="text-xs font-medium text-white/70">{t("Seleção atual")}</span>
         </div>
 
         <span className="text-[11px] text-white/40">

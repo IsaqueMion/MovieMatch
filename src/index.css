@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+.language-select{display:inline-flex;align-items:center;gap:.4rem;color:#c5d2ca;min-height:44px;font-size:.75rem}
+.language-select select{color:inherit;background:#152019;border:1px solid #34483b;border-radius:8px;padding:.5rem;max-width:120px;cursor:pointer}
+.language-select select:focus-visible{outline:2px solid #73edba;outline-offset:3px}
+
 /* Shared cinematic foundations. */
 html, body, #root { height: 100%; }
 

@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -34,7 +35,10 @@ jobs:
         run: pnpm lint
 
       - name: Unit tests
-        run: pnpm test
+        run: |
+          pnpm test
+          node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/locale.test.ts
+          node --test tests/localized-functions.test.mjs tests/shelf-source.test.mjs
 
       - name: Production build
         run: pnpm build
