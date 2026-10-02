@@ -128,6 +128,8 @@ export default function FilterModal({
   const [draft, setDraft] = useState<DiscoverFilters>(() =>
     cloneFilters(filters),
   )
+  const regionCodes: string[] = REGIONS.map(option => option.value)
+  if (draft.watchRegion && /^[A-Z]{2}$/.test(draft.watchRegion) && !regionCodes.includes(draft.watchRegion)) regionCodes.push(draft.watchRegion)
 
   const wasOpenRef = useRef(false)
   const previousIsAdultRef = useRef(isAdult)
@@ -590,7 +592,7 @@ export default function FilterModal({
                             watchRegion: value,
                           }))
                         }
-                        options={REGIONS.map(option => ({ ...option, label: `${new Intl.DisplayNames([locale], { type: 'region' }).of(option.value)} (${option.value})` }))}
+                        options={regionCodes.map(value => ({ value, label: `${new Intl.DisplayNames([locale], { type: 'region' }).of(value)} (${value})` }))}
                       />
                     </div>
                   </div>

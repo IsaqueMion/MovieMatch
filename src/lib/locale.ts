@@ -12,14 +12,14 @@ export function chooseLanguage(preferences: readonly string[], saved?: string | 
 }
 
 export function browserLanguage(): Language {
-  if (typeof navigator === 'undefined') return 'pt'
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'pt'
   let saved: string | null = null
   try { saved = localStorage.getItem(LANGUAGE_KEY) } catch { /* Preferences still work without storage. */ }
   return chooseLanguage(navigator.languages || [navigator.language], saved)
 }
 
 export function preferredRegion(): string {
-  if (typeof navigator === 'undefined') return 'BR'
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'BR'
   for (const preference of navigator.languages || [navigator.language]) {
     try { const region = new Intl.Locale(preference).region; if (region && /^[A-Z]{2}$/.test(region)) return region } catch { /* Ignore malformed browser preferences. */ }
   }

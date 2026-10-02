@@ -55,6 +55,19 @@ test('trocar idioma no swipe preserva filme, votos e região; metadados usam o n
     assert.equal(state.reactions.length,1)
   }finally{await ctx.close()}
 })
+
+test('nova sala usa a região do navegador, separada do idioma escolhido manualmente',async()=>{
+  const {ctx,page,state}=await context({locale:'en-CA',serviceWorkers:'block'})
+  try{
+    await page.goto(baseUrl)
+    await page.getByLabel('Interface language',{exact:true}).selectOption('es')
+    await page.getByRole('button',{name:'Crear una sesión',exact:true}).click()
+    await page.waitForURL(sessionUrl.href)
+    const setting=state.requests.find(x=>x.path.includes('/rest/v1/session_filters')&&x.method==='POST')
+    assert.equal(setting.body.watch_region,'CA')
+    assert.equal(state.creates,1)
+  }finally{await ctx.close()}
+})
 after(async () => { await browser?.close(); server?.kill() })
 
 async function context(options = {}) {

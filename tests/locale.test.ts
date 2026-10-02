@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chooseLanguage } from '../src/lib/locale.ts'
+import { browserLanguage, chooseLanguage, preferredRegion } from '../src/lib/locale.ts'
 
 test('language follows saved choice, then supported browser preferences, then English', () => {
   assert.equal(chooseLanguage(['en-GB'], 'es'), 'es')
@@ -8,4 +8,7 @@ test('language follows saved choice, then supported browser preferences, then En
   assert.equal(chooseLanguage(['PT-PT']), 'pt')
   assert.equal(chooseLanguage(['de-DE'], 'bad'), 'en')
   assert.equal(chooseLanguage([]), 'en')
+  // Node exposes navigator too; the build must not inherit the runner's language.
+  assert.equal(browserLanguage(), 'pt')
+  assert.equal(preferredRegion(), 'BR')
 })
