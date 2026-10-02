@@ -1,6 +1,6 @@
 import { translate as t, useLocale } from '../hooks/useLocale'
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Mail, Clapperboard, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { claimGuestTransfer, discardGuestTransfer, hasAccount, prepareGuestTransfer, safeReturnTo } from '../lib/account'
@@ -16,6 +16,7 @@ import '../styles/account.css'
 export default function Account() {
   useLocale()
   const account = useAccount()
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const returnTo = safeReturnTo(params.get('voltar'))
   const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'password'>(params.get('recuperar') ? 'password' : params.get('modo') === 'cadastro' ? 'signup' : 'login')
@@ -42,7 +43,7 @@ export default function Account() {
   }, [])
   async function continueToRoom() {
     setBusy(true); setError('')
-    try { await claimGuestTransfer(); window.location.replace('/') }
+    try { await claimGuestTransfer(); navigate('/', { replace: true }) }
     catch (cause) { setError(cause instanceof Error ? cause.message : t("Não foi possível retomar seu histórico.")); setBusy(false) }
   }
   async function submit(event: FormEvent) {
@@ -65,7 +66,7 @@ export default function Account() {
           : await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (result.error) throw result.error
         setPassword(''); setConfirmation('')
-        if (hasAccount(result.data.user) && result.data.session) { await claimGuestTransfer(); window.location.replace('/'); return }
+        if (hasAccount(result.data.user) && result.data.session) { await claimGuestTransfer(); navigate('/', { replace: true }); return }
         setMessage(t("Confira seu e-mail para confirmar a conta. Depois entre nesta mesma aba para preservar o histórico de visitante."))
       }
     } catch (cause) {
@@ -95,7 +96,7 @@ export default function Account() {
             <button type="button" aria-pressed={mode === 'signup'} disabled={busy} onClick={() => changeMode('signup')}>{t("Criar conta")}</button>
           </div> : null}
       {error || account.error ? <p className="account-auth-error" role="alert">{error || account.error}</p> : null}{message ? <p className="account-auth-message" role="status">{message}</p> : null}
-      {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>{t("Continuar para o início")}</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm(t("Continuar apenas com o histórico da conta? O histórico de visitante não será transferido."))) { discardGuestTransfer(); window.location.replace('/') } }}>{t("Continuar apenas com o histórico da conta")}</button> : null}<Link to="/perfil">{t("Personalizar meu perfil")}</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>{t("Este link não está ativo.") + " "}<button onClick={() => changeMode('reset')}>{t("Solicitar novo link de recuperação")}</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? t("Criar conta") : mode === 'login' ? t("Entrar") : t("Recuperar senha")}>
+      {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>{t("Continuar para o início")}</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm(t("Continuar apenas com o histórico da conta? O histórico de visitante não será transferido."))) { discardGuestTransfer(); navigate('/', { replace: true }) } }}>{t("Continuar apenas com o histórico da conta")}</button> : null}<Link to="/perfil">{t("Personalizar meu perfil")}</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>{t("Este link não está ativo.") + " "}<button onClick={() => changeMode('reset')}>{t("Solicitar novo link de recuperação")}</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? t("Criar conta") : mode === 'login' ? t("Entrar") : t("Recuperar senha")}>
         {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">{t("E-mail")}</label><div className="account-input-group"><Mail size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
         {mode !== 'reset' ? <div className="account-field"><label htmlFor="account-password">{t("Senha")}</label><div className="account-input-group" data-assisted={assisted}><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" onFocus={() => setConfirming(false)} type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? t("Sua senha") : t("Pelo menos 8 caracteres")} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} />{assisted ? <PasswordMatchDots password={password} value={confirmation} /> : null}<button className="account-password-toggle" type="button" aria-label={showPassword ? t("Ocultar senha") : t("Mostrar senha")} aria-pressed={showPassword} disabled={busy} onClick={() => { setConfirming(false); setShowPassword(!showPassword) }}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode === 'login' ? <button className="account-forgot-password" type="button" disabled={busy} onClick={() => changeMode('reset')}>{t("Esqueci minha senha")}</button> : <div hidden={assisted}><small id="account-password-hint">{t("Use pelo menos 8 caracteres.")}</small><PasswordStrength value={password} /></div>}</div> : null}
         {mode === 'signup' || mode === 'password' ? <PasswordConfirmation password={password} value={confirmation} onChange={setConfirmation} onFocus={() => setConfirming(true)} disabled={busy} /> : null}

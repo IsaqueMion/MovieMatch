@@ -20,8 +20,9 @@ const uid='cccccccc-cccc-4ccc-8ccc-cccccccccccc',pid='dddddddd-dddd-4ddd-8ddd-dd
 const makeUser=(guest=false)=>({id:uid,aud:'authenticated',role:'authenticated',is_anonymous:guest,email:guest?undefined:'luna@example.test',email_confirmed_at:guest?undefined:'2026-10-01T12:00:00Z',app_metadata:{},user_metadata:{}})
 const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:uid,aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture'
 const session=user=>({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user})
-async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false,locale='pt-BR'}={}){
+async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false,locale='pt-BR',blockedStorage=false}={}){
   const context=await browser.newContext({locale,viewport:{width,height},serviceWorkers:'block'})
+  if(blockedStorage)await context.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Storage blocked','SecurityError')}}))
   const state={user:makeUser(guest),profile:{id:pid,handle:'luna',display_name:'Luna',bio:'Histórias que ficam.',genres:[878],avatar_path:null,cover_path:null,is_public:!privateProfile,show_favorites:true,show_reviews:true},favorites:[],rooms:[{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sexta do grupo',saved_at:'2026-10-01T12:00:00Z'}],requests:[],errors:[],fail:false}
   if(loggedIn)await context.addInitScript(({value,key})=>{if(!sessionStorage.getItem('fixture:account-seeded')){localStorage.setItem(key,JSON.stringify(value));sessionStorage.setItem('fixture:account-seeded','1')}},{value:session(state.user),key:storageKey})
   await context.route(/https:\/\/[^/]+\.supabase\.co\//,async route=>{
@@ -66,6 +67,18 @@ test('login transfere visitante e volta ao início, mesmo com retorno antigo; se
     assert.ok(state.requests.findIndex(x=>x.path.includes('prepare_guest_transfer'))<state.requests.findIndex(x=>x.path.includes('/auth/v1/token')))
     assert.equal(state.requests.filter(x=>x.path.includes('claim_guest_transfer')).length,1)
     assert.equal(await page.evaluate(()=>sessionStorage.getItem('mm:guest-transfer')),null)
+    await page.reload();await page.getByRole('button',{name:'Abrir menu do perfil',exact:true}).waitFor();await page.getByRole('heading',{name:'Continue de onde parou.'}).waitFor()
+    assert.deepEqual(state.errors,[])
+  }finally{await context.close()}
+})
+test('login mantém a conta no início quando o navegador bloqueia localStorage',async()=>{
+  const {context,page,state}=await fixture({path:'/conta',loggedIn:false,blockedStorage:true})
+  try{
+    await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByLabel('Senha',{exact:true}).fill('correct-password')
+    const documentStart=await page.evaluate(()=>performance.timeOrigin)
+    await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL(base+'/')
+    await page.getByRole('button',{name:'Abrir menu do perfil',exact:true}).waitFor();await page.getByRole('heading',{name:'Continue de onde parou.'}).waitFor()
+    assert.equal(await page.evaluate(()=>performance.timeOrigin),documentStart)
     assert.deepEqual(state.errors,[])
   }finally{await context.close()}
 })
