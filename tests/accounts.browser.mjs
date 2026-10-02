@@ -20,7 +20,7 @@ const uid='cccccccc-cccc-4ccc-8ccc-cccccccccccc',pid='dddddddd-dddd-4ddd-8ddd-dd
 const makeUser=(guest=false)=>({id:uid,aud:'authenticated',role:'authenticated',is_anonymous:guest,email:guest?undefined:'luna@example.test',email_confirmed_at:guest?undefined:'2026-10-01T12:00:00Z',app_metadata:{},user_metadata:{}})
 const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:uid,aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture'
 const session=user=>({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user})
-async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false,locale='pt-BR',blockedStorage=false}={}){
+async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false,locale='pt-BR',blockedStorage=false,unavailableEditor=false}={}){
   const context=await browser.newContext({locale,viewport:{width,height},serviceWorkers:'block'})
   if(blockedStorage)await context.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Storage blocked','SecurityError')}}))
   const state={user:makeUser(guest),profile:{id:pid,handle:'luna',display_name:'Luna',bio:'Histórias que ficam.',genres:[878],avatar_path:null,cover_path:null,is_public:!privateProfile,show_favorites:true,show_reviews:true},favorites:[],rooms:[{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sexta do grupo',saved_at:'2026-10-01T12:00:00Z'}],requests:[],errors:[],fail:false}
@@ -53,6 +53,7 @@ async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)})
   })
   await context.route(/googlesyndication|fundingchoicesmessages/,route=>route.abort())
+  if(unavailableEditor)await context.route(/\/assets\/ProfileEditorDialog-[^/]+\.js$/,route=>route.fulfill({status:503,contentType:'text/javascript',body:''}))
   const page=await context.newPage();page.setDefaultTimeout(5000);page.on('pageerror',error=>state.errors.push(error.message));await page.goto(base+path)
   return {context,page,state}
 }
@@ -155,8 +156,8 @@ test('confirmação acompanha cada caractere, bloqueia divergência e aceita oit
     assert.deepEqual(state.errors,[])
   }finally{await context.close()}
 })
-test('avatar amplia antes da prévia; edição abre na home, cancela sem salvar, preserva falha e atualiza identidade',async()=>{
-  const {context,page,state}=await fixture({path:'/',width:1440})
+test('avatar amplia antes da prévia; edição abre na home sem buscar outro módulo, cancela sem salvar, preserva falha e atualiza identidade',async()=>{
+  const {context,page,state}=await fixture({path:'/',width:1440,unavailableEditor:true})
   try{
     const trigger=page.getByRole('button',{name:'Abrir menu do perfil',exact:true}),preview=page.getByRole('region',{name:'Prévia do perfil'})
     await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();await trigger.hover();await preview.waitFor({state:'visible'});await page.waitForTimeout(250)
@@ -249,7 +250,7 @@ test('sair da conta preserva estado em falha e remove salas e perfil após suces
 test('falha ao remover sala conserva os dados; confirmação pode ser cancelada',async()=>{
   const {context,page,state}=await fixture({path:'/#minhas-salas'})
   try{
-    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();await page.getByRole('button',{name:'Cancelar',exact:true}).click()
+    await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();const remove=page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'});assert.equal(await remove.innerText(),'Excluir');assert.equal(await remove.locator('.lucide-trash-2').count(),1);await remove.click();await page.getByRole('button',{name:'Cancelar',exact:true}).click()
     assert.equal(state.requests.filter(x=>x.method==='DELETE').length,0)
     await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();state.fail=true;await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByRole('alert').filter({hasText:'Não foi possível remover.'}).waitFor()
     assert.equal(state.rooms.length,1);await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor()
