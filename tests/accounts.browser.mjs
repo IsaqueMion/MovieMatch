@@ -72,13 +72,16 @@ test('login transfere visitante e volta ao início, mesmo com retorno antigo; se
   }finally{await context.close()}
 })
 test('login mantém a conta no início quando o navegador bloqueia localStorage',async()=>{
-  const {context,page,state}=await fixture({path:'/conta',loggedIn:false,blockedStorage:true})
+  const {context,page,state}=await fixture({path:'/conta',height:600,loggedIn:false,blockedStorage:true})
   try{
     await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByLabel('Senha',{exact:true}).fill('correct-password')
     const documentStart=await page.evaluate(()=>performance.timeOrigin)
-    await page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL(base+'/')
+    const submit=page.getByRole('form',{name:'Entrar',exact:true}).getByRole('button',{name:'Entrar',exact:true})
+    await submit.scrollIntoViewIfNeeded();assert.ok(await page.evaluate(()=>scrollY)>0)
+    await submit.click();await page.waitForURL(base+'/')
     await page.getByRole('button',{name:'Abrir menu do perfil',exact:true}).waitFor();await page.getByRole('heading',{name:'Continue de onde parou.'}).waitFor()
     assert.equal(await page.evaluate(()=>performance.timeOrigin),documentStart)
+    assert.equal(await page.evaluate(()=>scrollY),0)
     assert.deepEqual(state.errors,[])
   }finally{await context.close()}
 })
