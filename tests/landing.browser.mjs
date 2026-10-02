@@ -606,13 +606,16 @@ for (const [width, height] of [[390, 844], [768, 1024], [1074, 884], [1101, 884]
       await page.goto(sessionUrl.href)
       await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.swipe-poster-image')?.classList.contains('is-ready'))
+      await page.locator('.swipe-header-members .member-avatar-trigger').first().waitFor()
       await page.evaluate(() => document.fonts.ready)
       const layout = await page.evaluate(() => {
         const bounds = element => { const r = element.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height } }
-        return { poster: bounds(document.querySelector('.swipe-poster-frame')), buttons: [...document.querySelectorAll('.cinema-vote-button')].map(bounds), tabs: [...document.querySelectorAll('.swipe-carousel-tabs button')].map(bounds), header: bounds(document.querySelector('.swipe-header')), scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight, height: innerHeight, width: innerWidth }
+        return { poster: bounds(document.querySelector('.swipe-poster-frame')), members: bounds(document.querySelector('.swipe-header-members')), actions: bounds(document.querySelector('.swipe-header-actions')), buttons: [...document.querySelectorAll('.cinema-vote-button')].map(bounds), tabs: [...document.querySelectorAll('.swipe-carousel-tabs button')].map(bounds), header: bounds(document.querySelector('.swipe-header')), scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight, height: innerHeight, width: innerWidth }
       })
       assert.ok(Math.abs(layout.poster.width / layout.poster.height - 2 / 3) < .01, JSON.stringify(layout.poster))
       assert.ok(layout.poster.height > 140)
+      assert.ok(Math.abs((layout.members.left + layout.members.right) / 2 - width / 2) < 2, JSON.stringify(layout.members))
+      assert.ok(layout.members.top <= layout.actions.top + 1, JSON.stringify(layout))
       assert.ok(Math.abs((layout.poster.left + layout.poster.right) / 2 - width / 2) < 2, JSON.stringify(layout.poster))
       const voteCenter = (Math.min(...layout.buttons.map(button => button.left)) + Math.max(...layout.buttons.map(button => button.right))) / 2
       assert.ok(Math.abs(voteCenter - width / 2) < 2, JSON.stringify(layout.buttons))

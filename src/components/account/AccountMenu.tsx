@@ -1,13 +1,12 @@
 import { translate as t, useLocale } from '../../hooks/useLocale'
-import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Bookmark, ChevronDown, Film, LogOut, Settings2, UserRound } from 'lucide-react'
 import { useAccount } from '../../hooks/useAccount'
 import { accountHref, mediaUrl, myProfile, type Profile } from '../../lib/account'
 import { supabase } from '../../lib/supabase'
 import '../../styles/account.css'
-
-const ProfileEditorDialog = lazy(() => import('./ProfileEditorDialog'))
+import ProfileEditorDialog from './ProfileEditorDialog'
 
 export default function AccountMenu() {
   useLocale()
@@ -77,6 +76,6 @@ export default function AccountMenu() {
         </div> : null}
       </> : <Link className="account-login-link" to={typeof window === 'undefined' ? '/conta' : accountHref()}><UserRound size={17} aria-hidden="true" /><span>{t("Entrar")}</span></Link>}
     </div>
-    {editorOpen && profile && account.registered ? <Suspense fallback={<span role="status">{t("Abrindo edição…")}</span>}><ProfileEditorDialog profile={profile} onClose={() => setEditorOpen(false)} /></Suspense> : null}
+    {editorOpen && profile && account.registered ? <ProfileEditorDialog profile={profile} onClose={() => setEditorOpen(false)} /> : null}
   </nav>
 }

@@ -34,12 +34,12 @@ before(async () => {
 })
 after(async () => { await browser?.close(); server?.kill() })
 
-async function fixture({ count = 5, width = 1440, empty = false, invalid = false, listFailure = false, detailsFailure = false, liveImages = false, missingPoster = false } = {}) {
+async function fixture({ count = 5, width = 1440, empty = false, invalid = false, listFailure = false, detailsFailure = false, liveImages = false, missingPoster = false, registered = false } = {}) {
   const ctx = await browser.newContext({ locale: 'pt-BR', serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
   const uid = '11111111-1111-4111-8111-111111111111'
-  const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
+  const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: !registered, ...(registered ? {email:'fixture@example.test',email_confirmed_at:'2026-10-01T12:00:00Z'} : {}), app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
-  const state = { listFailure, requests: [], movies: empty ? [] : structuredClone(movies).slice(0, count), detailsCalls: 0 }
+  const state = { listFailure, requests: [], movies: empty ? [] : structuredClone(movies).slice(0, count), detailsCalls: 0, saved: false, saveFailure: false }
   if (missingPoster) state.movies[0].poster_url = null
   await ctx.addInitScript(() => {
     window.copiedMatchList = ''
@@ -52,6 +52,12 @@ async function fixture({ count = 5, width = 1440, empty = false, invalid = false
     state.requests.push(path)
     let result = []
     if (path.includes('/auth/v1/')) result = path.endsWith('/user') ? user : { access_token: token, token_type: 'bearer', expires_in: 3600, refresh_token: 'fixture', user }
+    else if (path.includes('/rpc/my_saved_sessions')) result = state.saved ? [{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sessão DEMO01'}] : []
+    else if (path.includes('/rpc/my_profile')) result = {id:uid,handle:'fixture',display_name:'Cinema',bio:'',genres:[],is_public:true,show_favorites:true,show_reviews:true,avatar_path:null,cover_path:null}
+    else if (path.includes('/rpc/save_session') || path.includes('/rest/v1/saved_sessions')) {
+      if(state.saveFailure)return route.fulfill({status:503,contentType:'application/json',body:'{"message":"Unavailable"}'})
+      state.saved = request.method() !== 'DELETE';result = {session_id:'22222222-2222-4222-8222-222222222222'}
+    }
     else if (path.includes('/rpc/join_session')) {
       if (invalid) return route.fulfill({ status: 400, contentType: 'application/json', body: '{"code":"P0002","message":"Expired"}' })
       result = [{ id: '22222222-2222-4222-8222-222222222222', code: 'DEMO01' }]
@@ -82,6 +88,23 @@ async function fixture({ count = 5, width = 1440, empty = false, invalid = false
   await page.locator('.matches-selection[aria-busy="false"]').waitFor()
   return { ctx, page, state }
 }
+
+for(const width of [390,957])test(`salvar sala em ${width}px: ícone, confirmação breve e falha sem alterar estado`,async()=>{
+  const {ctx,page,state}=await fixture({width,registered:true})
+  try{
+    const save=page.getByRole('button',{name:'Salvar sala',exact:true})
+    await save.waitFor();await page.waitForFunction(()=>!document.querySelector('.account-save-trigger')?.disabled)
+    assert.equal(await save.innerText(),'');assert.equal(await save.getAttribute('aria-pressed'),'false')
+    const size=await save.boundingBox();assert.ok(Math.abs(size.width-size.height)<1)
+    await save.click();await page.getByRole('status').filter({hasText:'Sala salva.'}).waitFor();assert.equal(state.saved,true)
+    const unsave=page.getByRole('button',{name:'Deixar de salvar sala',exact:true});assert.equal(await unsave.getAttribute('aria-pressed'),'true')
+    await page.getByRole('status').filter({hasText:'Sala salva.'}).waitFor({state:'detached'})
+    state.saveFailure=true;await unsave.click();await page.getByRole('alert').filter({hasText:'Não foi possível remover.'}).waitFor();assert.equal(await unsave.getAttribute('aria-pressed'),'true')
+    state.saveFailure=false;await unsave.click();await page.getByRole('status').filter({hasText:'Sala removida da sua lista.'}).waitFor();assert.equal(state.saved,false);assert.equal(await save.getAttribute('aria-pressed'),'false')
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/save-room-${width}.png`})
+  }finally{await ctx.close()}
+})
 
 for (const width of [390, 768, 1440]) {
   test(`matches em ${width}px: identidade, consenso, pôsteres e detalhes acessíveis`, async () => {

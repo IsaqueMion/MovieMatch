@@ -142,14 +142,13 @@
 
 @container (max-width: 180px) { .swipe-carousel-tabs { width: 94px; flex-wrap: wrap; justify-content: center; bottom: 6px; } }
 
-/* Main navigation above a quieter room/presence strip. */
-.swipe-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 24px;padding-bottom:8px}
-.swipe-header>.cinema-brand{grid-column:1;grid-row:1}
-.swipe-header>.swipe-navigation{grid-column:2;grid-row:1;justify-content:flex-end}
-.swipe-header>.account-menu{grid-column:3;grid-row:1}
-.swipe-header .swipe-session:has(.profile-avatars),.swipe-header>.swipe-session{display:flex;grid-column:1/-1;grid-row:2;order:0;flex-wrap:nowrap;width:100%;gap:12px;min-height:40px;padding-top:5px}
-.swipe-header .swipe-session>.profile-avatars{margin-left:auto;min-width:0}
-.swipe-header .swipe-session .profile-avatar-list{max-width:min(45vw,360px);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+/* Participants stay centered above the room information. */
+.swipe-header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px 16px;padding-bottom:8px}
+.swipe-header>.cinema-brand{grid-column:1;grid-row:1;justify-self:start}
+.swipe-header-members{grid-column:2;grid-row:1;justify-self:center;min-width:0;max-width:min(26vw,360px)}
+.swipe-header-members .profile-avatar-list{max-width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.swipe-header-actions{grid-column:3;grid-row:1;display:flex;align-items:center;justify-content:flex-end;gap:16px;min-width:0}
+.swipe-header>.swipe-session{display:flex;grid-column:1/-1;grid-row:2;order:0;flex-wrap:nowrap;width:100%;gap:12px;min-height:24px;padding-top:0}
 .swipe-more{position:relative}
 .swipe-more>summary{list-style:none;display:grid;place-items:center;width:40px;height:40px;cursor:pointer;border:1px solid var(--cinema-line);border-radius:50%;color:var(--cinema-muted)}
 .swipe-more>summary::-webkit-details-marker{display:none}
@@ -158,9 +157,9 @@
 .swipe-more-panel>a,.swipe-more-panel>button,.swipe-more-panel .swipe-tool{display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:44px;width:100%;padding:10px;border:0;border-radius:8px;font-size:12px;color:var(--cinema-ink)}
 .swipe-more-panel>a:hover,.swipe-more-panel>button:hover{background:#ffffff08}
 .swipe-more-panel .account-save-popover{top:0;right:0;width:min(300px,calc(100vw - 40px))}
-@media(max-width:899px){.swipe-header{gap:6px 12px}.swipe-header .swipe-session:has(.profile-avatars){display:flex}.swipe-header .swipe-tool>span{display:none}.swipe-header .swipe-tool{width:40px;padding:0}.swipe-more-panel .swipe-tool{width:100%;padding:10px}.swipe-more-panel .swipe-tool>span{display:inline}.swipe-header .swipe-session strong{font-size:11px}.swipe-header .swipe-session .profile-avatar-list{max-width:45vw}.swipe-header .account-login-link>span{display:none}.swipe-header .account-login-link{width:40px;padding:0;justify-content:center}}
-@media(max-width:639px){.swipe-header{margin-inline:16px;gap:6px 8px}.swipe-header>.swipe-navigation{gap:5px}.swipe-header .cinema-brand{font-size:18px}.swipe-header .swipe-tool,.swipe-more>summary,.swipe-header .cinema-share-trigger{width:36px;height:40px}.swipe-header .swipe-session{font-size:9px;gap:8px}.swipe-header .swipe-online{gap:4px}.swipe-more-panel .swipe-tool{width:100%}}
-@media(max-width:359px){.swipe-header .cinema-brand{font-size:0;min-width:28px;gap:0}.swipe-header .cinema-brand-dot{display:none}}
+@media(max-width:899px){.swipe-header{grid-template-columns:minmax(0,1fr) auto;gap:6px 12px}.swipe-header-members{grid-column:1/-1;grid-row:1;max-width:min(70vw,360px)}.swipe-header>.cinema-brand{grid-row:2}.swipe-header-actions{grid-column:2;grid-row:2;gap:12px}.swipe-header>.swipe-session{grid-row:3}.swipe-header .swipe-tool>span{display:none}.swipe-header .swipe-tool{width:40px;padding:0}.swipe-more-panel .swipe-tool{width:100%;padding:10px}.swipe-more-panel .swipe-tool>span{display:inline}.swipe-header .swipe-session strong{font-size:11px}.swipe-header .account-login-link>span{display:none}.swipe-header .account-login-link{width:40px;padding:0;justify-content:center}}
+@media(max-width:639px){.swipe-header{margin-inline:16px;gap:6px 8px}.swipe-header .swipe-navigation{gap:5px}.swipe-header .cinema-brand{font-size:18px}.swipe-header .swipe-tool,.swipe-more>summary,.swipe-header .cinema-share-trigger{width:36px;height:40px}.swipe-header .swipe-session{font-size:9px;gap:8px}.swipe-header .swipe-online{gap:4px}.swipe-more-panel .swipe-tool{width:100%}}
+@media(max-width:479px){.swipe-header .cinema-brand{font-size:0;min-width:28px;gap:0}.swipe-header .cinema-brand-dot{display:none}}
 #root:has(.swipe-page)>.site-language-footer{height:52px;flex-shrink:0;padding:4px 24px;background:#000}
 .swipe-page{height:calc(100dvh - 52px);max-height:calc(100dvh - 52px)}
-@media(max-height:500px) and (min-width:640px){.swipe-header{grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;padding-block:8px}.swipe-header .swipe-session:has(.profile-avatars){grid-column:2;grid-row:1;padding-top:0;gap:6px}.swipe-header>.swipe-navigation{grid-column:3}.swipe-header>.account-menu{grid-column:4}.swipe-header .swipe-session .profile-avatar-list{max-width:100px}.swipe-header .swipe-session .profile-avatars{margin-left:0}.swipe-header .cinema-brand{font-size:0;min-width:28px;gap:0}.swipe-header .cinema-brand-dot{display:none}.swipe-stage-heading{display:none}}
+@media(max-height:500px) and (min-width:640px){.swipe-header{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding-block:8px}.swipe-header>.cinema-brand{grid-row:1;font-size:0;min-width:28px;gap:0}.swipe-header>.swipe-session{grid-column:1;grid-row:1;width:auto;margin-left:40px;gap:6px}.swipe-header-members{grid-column:2;grid-row:1;max-width:100px}.swipe-header-actions{grid-column:3;grid-row:1;gap:8px}.swipe-header .cinema-brand-dot{display:none}.swipe-stage-heading{display:none}}

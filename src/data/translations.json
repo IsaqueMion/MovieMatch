@@ -2571,6 +2571,10 @@
     "Photo of {0}",
     "Foto de {0}"
   ],
+  "Excluir": ["Delete", "Eliminar"],
+  "Deixar de salvar sala": ["Unsave room", "Dejar de guardar sala"],
+  "Sala salva.": ["Room saved.", "Sala guardada."],
+  "Sala removida da sua lista.": ["Room removed from your list.", "Sala eliminada de tu lista."],
   "Mais opções da sessão": [
     "More session options",
     "Más opciones de la sesión"
