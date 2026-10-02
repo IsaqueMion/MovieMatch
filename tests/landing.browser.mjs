@@ -197,7 +197,7 @@ test('Gateway Flow mantém a fonte registrada, preenche a tela e reage sem bloqu
   } finally { await ctx.close() }
 })
 
-for (const width of [320, 390, 768, 1440]) {
+for (const width of [320, 390, 768, 781, 1440]) {
   test('home em ' + width + 'px: layout, fontes locais e pôsteres distintos, sem autenticação', async () => {
     const { ctx, page, state } = await context({ viewport: { width, height: 1000 } })
     try {
@@ -226,6 +226,15 @@ for (const width of [320, 390, 768, 1440]) {
       assert.equal(await page.getByRole('button', { name: 'Entrar', exact: true }).isDisabled(), true)
       await page.locator('#session-code').press('Backspace')
       assert.equal(await page.locator('#session-code').inputValue(), 'AB')
+      const example = page.locator('.cinema-match-example')
+      await example.scrollIntoViewIfNeeded()
+      const alignment = await example.evaluate(element => {
+        const poster = element.querySelector('.cinema-poster').getBoundingClientRect()
+        const card = element.querySelector('figcaption').getBoundingClientRect()
+        return Math.abs(poster.x + poster.width / 2 - card.x - card.width / 2)
+      })
+      assert.ok(alignment < 1, 'Session card must share the poster center')
+      if (process.env.VISUAL_CAPTURE_DIR) await example.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/home-session-card-${width}.png` })
     } finally { await ctx.close() }
   })
 }
@@ -588,7 +597,7 @@ test('retorno ao topo aparece após rolar, respeita movimento reduzido e devolve
   } finally { await ctx.close() }
 })
 
-for (const [width, height] of [[390, 844], [768, 1024], [1101, 884], [1440, 900], [320, 568], [390, 1000], [844, 390]]) {
+for (const [width, height] of [[390, 844], [768, 1024], [1074, 884], [1101, 884], [1440, 900], [320, 568], [390, 1000], [844, 390]]) {
   test(`swipe editorial ${width}x${height}: pôster 2:3 e controles dentro da tela`, async () => {
     const { ctx, page } = await context({ viewport: { width, height }, reducedMotion: 'reduce' })
     try {
@@ -607,6 +616,8 @@ for (const [width, height] of [[390, 844], [768, 1024], [1101, 884], [1440, 900]
       assert.ok(Math.abs((layout.poster.left + layout.poster.right) / 2 - width / 2) < 2, JSON.stringify(layout.poster))
       const voteCenter = (Math.min(...layout.buttons.map(button => button.left)) + Math.max(...layout.buttons.map(button => button.right))) / 2
       assert.ok(Math.abs(voteCenter - width / 2) < 2, JSON.stringify(layout.buttons))
+      const centers = layout.buttons.map(button => (button.top + button.bottom) / 2)
+      assert.ok(Math.max(...centers) - Math.min(...centers) < 1, JSON.stringify(layout.buttons))
       assert.equal(await page.locator('.swipe-film-copy').count(), 0)
       assert.ok(layout.scrollWidth <= width)
       assert.ok(layout.scrollHeight <= height + 1)

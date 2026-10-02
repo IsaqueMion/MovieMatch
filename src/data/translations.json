@@ -2379,22 +2379,6 @@
     "Title Z→A",
     "Título Z→A"
   ],
-  "Estante experimental": [
-    "Experimental shelf",
-    "Estantería experimental"
-  ],
-  "Carrossel": [
-    "Carousel",
-    "Carrusel"
-  ],
-  "Testar estante ThreeUI": [
-    "Try the ThreeUI shelf",
-    "Probar la estantería ThreeUI"
-  ],
-  "Referência original com sete ferramentas. Os filmes do grupo continuam disponíveis abaixo.": [
-    "Original reference with seven tools. Your group's films remain available below.",
-    "Referencia original con siete herramientas. Las películas del grupo siguen disponibles abajo."
-  ],
   "Filme adicionado aos seus assistidos. Os matches dos outros participantes continuam iguais.": [
     "Film added to your watched list. Other participants' matches stay the same.",
     "Película añadida a tus vistas. Los matches de los demás participantes no cambian."
@@ -2590,29 +2574,5 @@
   "Mais opções da sessão": [
     "More session options",
     "Más opciones de la sesión"
-  ],
-  "Estante dos matches": [
-    "Match bookshelf",
-    "Estantería de matches"
-  ],
-  "Os filmes que uniram o grupo.": [
-    "The films that brought everyone together.",
-    "Las películas que unieron al grupo."
-  ],
-  "Selecionar filme": [
-    "Select film",
-    "Seleccionar película"
-  ],
-  "{0} filmes": [
-    "{0} films",
-    "{0} películas"
-  ],
-  "Role, use as setas ou selecione um filme": [
-    "Scroll, use arrows or select a film",
-    "Desplázate, usa las flechas o selecciona una película"
-  ],
-  "Preparando seus matches…": [
-    "Preparing your matches…",
-    "Preparando tus matches…"
   ]
 }
