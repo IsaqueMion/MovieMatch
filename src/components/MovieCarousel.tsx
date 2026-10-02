@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
-import { AlignLeft, Film, Play } from 'lucide-react'
+import { AlignLeft, Film, MessageSquare, Play } from 'lucide-react'
 import type { MovieDetails } from '../lib/functions'
 import { tmdbPosterSrcs } from '../lib/images'
 import catalogue from '../data/landingMovies.json'
@@ -11,12 +11,13 @@ type Props = {
   details?: MovieDetails
   fullHeight?: boolean
   edgeToEdge?: boolean
+  onReviews?: () => void
 }
 type SlideKind = 'poster' | 'trailer' | 'synopsis'
 const slideLabels = { poster: 'Pôster', trailer: 'Trailer', synopsis: 'Sinopse' }
 const slideIcons = { poster: Film, trailer: Play, synopsis: AlignLeft }
 
-export default function MovieCarousel({ title, year, poster_url, details, fullHeight = true, edgeToEdge = false }: Props) {
+export default function MovieCarousel({ title, year, poster_url, details, fullHeight = true, edgeToEdge = false, onReviews }: Props) {
   const id = useId()
   const trailerKey = details?.trailer?.key
   const slides = useMemo<SlideKind[]>(() => trailerKey ? ['poster', 'trailer', 'synopsis'] : ['poster', 'synopsis'], [trailerKey])
@@ -24,7 +25,7 @@ export default function MovieCarousel({ title, year, poster_url, details, fullHe
   useEffect(() => { setSlide('poster') }, [poster_url, title])
   const active = slides.includes(slide) ? slide : 'poster'
 
-  return <div className={`swipe-carousel${fullHeight ? '' : ' is-natural-height'}${edgeToEdge ? ' is-edge-to-edge' : ''}`} onKeyDown={event => event.stopPropagation()}>
+  return <div className={`swipe-carousel${fullHeight ? '' : ' is-natural-height'}${edgeToEdge ? ' is-edge-to-edge' : ''}`}>
     <div className="swipe-carousel-slides">
       <FadeSlide id={`${id}-poster`} tabId={`${id}-tab-poster`} visible={active === 'poster'}>
         <PosterResponsive title={title} year={year} poster_url={poster_url} edgeToEdge={edgeToEdge} />
@@ -43,24 +44,18 @@ export default function MovieCarousel({ title, year, poster_url, details, fullHe
         </div>
       </FadeSlide>
     </div>
-    <div className="swipe-carousel-tabs" role="tablist" aria-label="Conheça o filme" data-interactive="true">
-      {slides.map((kind, index) => {
+    <div className="swipe-carousel-tabs" role="group" aria-label="Conheça o filme" data-interactive="true">
+      {slides.map(kind => {
         const Icon = slideIcons[kind]
-        return <button key={kind} id={`${id}-tab-${kind}`} role="tab" type="button" aria-label={slideLabels[kind]} aria-selected={kind === active} aria-controls={`${id}-${kind}`} tabIndex={kind === active ? 0 : -1} onClick={() => setSlide(kind)} onKeyDown={event => {
-          const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? slides.length - 1 : direction ? (index + direction + slides.length) % slides.length : -1
-          if (next < 0) return
-          event.preventDefault()
-          setSlide(slides[next])
-          document.getElementById(`${id}-tab-${slides[next]}`)?.focus({ preventScroll: true })
-        }}><Icon size={14} aria-hidden="true" /><span>{slideLabels[kind]}</span></button>
+        return <button key={kind} id={`${id}-tab-${kind}`} type="button" aria-label={slideLabels[kind]} title={slideLabels[kind]} aria-pressed={kind === active} aria-controls={`${id}-${kind}`} onClick={() => setSlide(kind)}><Icon size={14} aria-hidden="true" /><span>{slideLabels[kind]}</span></button>
       })}
+      {onReviews ? <button type="button" onClick={onReviews} aria-label="Avaliações dos usuários" title="Avaliações dos usuários"><MessageSquare size={14} aria-hidden="true" /><span>Avaliações</span></button> : null}
     </div>
   </div>
 }
 
 function FadeSlide({ id, tabId, visible, children }: { id: string; tabId: string; visible: boolean; children: ReactNode }) {
-  return <div id={id} role="tabpanel" aria-labelledby={tabId} aria-hidden={!visible} inert={!visible} className={`swipe-carousel-slide${visible ? ' is-visible' : ''}`}>{children}</div>
+  return <div id={id} role="region" aria-labelledby={tabId} aria-hidden={!visible} inert={!visible} className={`swipe-carousel-slide${visible ? ' is-visible' : ''}`}>{children}</div>
 }
 
 function PosterResponsive({ title, year, poster_url, edgeToEdge }: { title: string; year: number | null; poster_url: string; edgeToEdge: boolean }) {

@@ -1,8 +1,24 @@
 {
   "rewrites": [
-    { "source": "/join", "destination": "/" },
-    { "source": "/s/(.*)", "destination": "/" },
-    { "source": "/swipe/(.*)", "destination": "/" },
-    { "source": "/(.*)", "destination": "/" }
+    { "source": "/conta", "destination": "/session.html" },
+    { "source": "/perfil", "destination": "/session.html" },
+    { "source": "/p/:handle", "destination": "/session.html" },
+    { "source": "/salas", "destination": "/session.html" },
+    { "source": "/join", "destination": "/session.html" },
+    { "source": "/s/:code", "destination": "/session.html" },
+    { "source": "/s/:code/matches", "destination": "/session.html" },
+    { "source": "/s/:code/assistidos", "destination": "/session.html" },
+    { "source": "/assistidos", "destination": "/session.html" }
+  ],
+  "headers": [
+    { "source": "/conta", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/perfil", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/p/:handle", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/salas", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/s/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/assistidos", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/join", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/session.html", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
+    { "source": "/offline.html", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] }
   ]
 }

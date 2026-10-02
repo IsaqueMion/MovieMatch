@@ -4,7 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacidade — MovieMatch</title>
-  <meta name="description" content="Política de Privacidade do MovieMatch" />
+  <meta name="description" content="Saiba como o MovieMatch usa sessões anônimas, votos, assistidos pessoais, avaliações públicas e cookies." />
+  <link rel="canonical" href="https://moviematch-three.vercel.app/privacy.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MovieMatch" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:title" content="Privacidade — MovieMatch" />
+  <meta property="og:description" content="Saiba como o MovieMatch usa sessões anônimas, votos, assistidos pessoais, avaliações públicas e cookies." />
+  <meta property="og:url" content="https://moviematch-three.vercel.app/privacy.html" />
+  <meta property="og:image" content="https://moviematch-three.vercel.app/og-image-v2.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="MovieMatch — encontre um filme para assistir em grupo" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Privacidade — MovieMatch" />
+  <meta name="twitter:description" content="Saiba como o MovieMatch usa sessões anônimas, votos, assistidos pessoais, avaliações públicas e cookies." />
+  <meta name="twitter:image" content="https://moviematch-three.vercel.app/og-image-v2.png" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <meta name="theme-color" content="#0b0f10" />
   <style>
@@ -30,12 +45,14 @@
     </header>
 
     <h1>Política de Privacidade</h1>
-    <p>Última atualização: 04/09/2026</p>
+    <p>Última atualização: 01/10/2026</p>
 
     <h2>1. Informações que coletamos</h2>
     <ul>
       <li><strong>Autenticação anônima</strong> (Supabase): um identificador de usuário anônimo para salvar sua participação em sessões.</li>
       <li><strong>Dados de sessão</strong>: código da sessão, membros, filtros aplicados, filmes listados e suas reações (like/dislike).</li>
+      <li><strong>Filmes assistidos</strong>: sua lista pessoal de filmes, a data da marcação e o identificador anônimo responsável pelo histórico.</li>
+      <li><strong>Avaliações opcionais</strong>: apelido público, nota de 1 a 5 estrelas, comentário, indicação de spoilers e datas de publicação e edição.</li>
       <li><strong>Verificação de maioridade</strong>: caso você opte por ativar conteúdo adulto, a data de nascimento informada é usada apenas no momento da verificação para calcular se você tem 18 anos ou mais. A data de nascimento completa não é armazenada; salvamos somente o status de maioridade.</li>
       <li><strong>Consentimento de anúncios</strong> (Google): conforme a sua escolha na mensagem de consentimento, quando aplicável.</li>
       <li><strong>Cookies e armazenamento local</strong>: usados para lembrar preferências, progresso no swipe e outras informações necessárias ao funcionamento do serviço.</li>
@@ -45,6 +62,7 @@
     <ul>
       <li>Operar o serviço (criar/entrar em sessões, sincronizar likes, calcular matches).</li>
       <li>Aplicar filtros e recuperar catálogos de filmes.</li>
+      <li>Manter seu histórico pessoal e apresentar as avaliações que você escolher publicar.</li>
       <li>Exibir publicidade quando permitido por você.</li>
       <li>Melhorias e segurança do serviço.</li>
     </ul>
@@ -52,12 +70,15 @@
     <h2>3. Compartilhamento</h2>
     <p>Podemos compartilhar dados com provedores estritamente necessários para o funcionamento:
       <strong>Supabase</strong> (banco de dados/autenticação) e <strong>Google</strong> (AdSense/Funding Choices). Não vendemos seus dados.</p>
+    <p>Sua lista de assistidos é pessoal. Ao salvar uma avaliação, seu apelido, nota e comentário ficam visíveis para os usuários do MovieMatch, inclusive participantes com autenticação anônima. Esses registros públicos não exibem seu identificador de autenticação ou seu histórico pessoal. Evite colocar informações pessoais no apelido ou no comentário.</p>
 
     <h2>4. Cookies</h2>
     <p>Usamos cookies/armazenamento local para manter sua sessão anônima, preferências e consentimento de anúncios. Você pode limpar isso no seu navegador.</p>
+    <p>Limpar os dados do navegador pode fazer você perder o acesso ao histórico e às avaliações associados àquela identidade anônima. Isso não apaga automaticamente os registros salvos no banco.</p>
 
     <h2>5. Retenção</h2>
     <p>Guardamos os dados necessários pelo tempo adequado ao funcionamento do serviço. A data de nascimento usada na verificação de maioridade não é armazenada. Dados de sessão, reações, preferências e o status de maioridade podem permanecer enquanto forem necessários para manter as funcionalidades associadas ao usuário anônimo.</p>
+    <p>O histórico de assistidos não depende da duração de uma sessão de votação. Em <a href="/assistidos">Meus assistidos</a>, você pode desmarcar um filme para excluir seu registro e a avaliação vinculada a ele. Também pode editar ou excluir somente sua avaliação, mantendo o filme no histórico. Essas ações exigem acesso à mesma identidade anônima que criou os registros.</p>
 
     <h2>6. Seus direitos</h2>
     <p>Dependendo da sua região, você pode ter direitos relacionados ao acesso, correção e exclusão de dados. Como o MovieMatch utiliza autenticação anônima, algumas solicitações podem depender da identificação técnica da sessão ou do usuário anônimo correspondente.</p>

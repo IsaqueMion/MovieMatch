@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 
 const posterFixture = await readFile(new URL('../public/demo/interstellar.jpg', import.meta.url))
 const catalogue = JSON.parse(await readFile(new URL('../src/data/landingMovies.json', import.meta.url), 'utf8'))
@@ -31,10 +32,14 @@ after(async () => { await browser?.close(); server?.kill() })
 
 async function context(options = {}) {
   const { tutorial = false, ...browserOptions } = options
-  const ctx = await browser.newContext({ serviceWorkers: 'block', ...browserOptions })
-  if (!tutorial) await ctx.addInitScript(() => localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1'))
+  const ctx = await browser.newContext({ ...browserOptions })
+  // Block the app worker by its route: Playwright's global blocker reads
+  // navigator.serviceWorker inside sandboxed child frames and throws.
+  await ctx.route('**/sw.js', route => route.abort())
+  if (!tutorial) await ctx.addInitScript(() => { if (window === window.top) localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1') })
   // Every test intercepts Supabase, including failures, so this suite never writes live data.
   const state = { requests: [], reactions: [], creates: 0 }
+  const publicMembers = ['Luna','Leo','Ana'].map((display_name,index)=>({id:String(index+1),handle:display_name.toLowerCase(),display_name,bio:'Histórias que ficam.',avatar_path:null,cover_path:null}))
   const uid = '11111111-1111-4111-8111-111111111111'
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, created_at: new Date().toISOString(), app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.test'
@@ -53,7 +58,9 @@ async function context(options = {}) {
     } else if (path.includes('/rpc/join_session')) {
       if (['BAD001', 'OLD001'].includes(body?.p_code)) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'P0002', message: 'Session not found or expired' }) })
       result = [{ id: '22222222-2222-4222-8222-222222222222', code: 'DEMO01' }]
-    } else if (path.includes('/rpc/touch_session_presence')) result = 2
+    } else if (path.includes('/rpc/community_profiles')) result = publicMembers
+    else if (path.includes('/rpc/session_participants')) result = [{...publicMembers[0],member_key:1,online:true},{member_key:2,id:null,handle:null,display_name:'Convidado',bio:null,avatar_path:null,cover_path:null,online:false},{member_key:3,id:null,handle:null,display_name:'Perfil privado',bio:null,avatar_path:null,cover_path:null,online:true}]
+    else if (path.includes('/rpc/touch_session_presence')) result = 2
     else if (path.includes('/rpc/check_session_match')) result = [{ is_match: false, member_count: 2, like_count: 1 }]
     else if (path.includes('/rpc/list_session_matches')) result = []
     else if (path.includes('/rest/v1/users')) result = { id: uid, is_adult: false, is_premium: false }
@@ -71,7 +78,68 @@ async function context(options = {}) {
   return { ctx, page, state }
 }
 
-for (const width of [390, 768, 1440]) {
+test('Gateway Flow mantém a fonte registrada, preenche a tela e reage sem bloquear os votos', async () => {
+  for (const [path, sha] of [
+    ['neuform-isolated/NeuformBatchEffects.tsx', 'dc68c51bea26b922965de44b4fb8d6c432607508fb2b61e16ed60d245da1a69f'],
+    ['neuform-isolated/sources/gateway-flow.html', 'c5a1de43138ffba96b9f0ecdcf3c054ae251ec94344e88c6ad502bae362b17d0'],
+    ['threeui.css', 'efe4447139f1358dd8e9be68edf6fa46cbefbd1de423a4d6c439ca61d2c8eccf'],
+  ]) assert.equal(createHash('sha256').update(await readFile(new URL('../src/shaders/' + path, import.meta.url))).digest('hex'), sha)
+  const { ctx, page, state } = await context({ viewport: { width: 1440, height: 900 } })
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  try {
+    await page.goto(sessionUrl.href)
+    const element = page.locator('.swipe-background iframe')
+    await element.waitFor()
+    assert.equal(await element.getAttribute('sandbox'), 'allow-scripts')
+    assert.equal(await element.getAttribute('tabindex'), '-1')
+    assert.equal(await page.locator('.swipe-background').evaluate(el => el.inert), true)
+    const frame = await element.elementHandle().then(el => el.contentFrame())
+    await frame.waitForFunction(() => document.body?.hasAttribute('data-threeui-ready') && document.querySelector('#flow-canvas')?.width > 0)
+    const pixels = () => frame.evaluate(() => {
+      const c = document.querySelector('#flow-canvas')
+      const data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+      let lit = 0, hash = 0
+      for (let i = 3; i < data.length; i += 4) { if (data[i]) lit++; hash = (hash * 31 + data[i]) | 0 }
+      return { lit, hash }
+    })
+    await frame.waitForFunction(() => {
+      const c = document.querySelector('#flow-canvas')
+      return c && c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some((v, i) => i % 4 === 3 && v > 0)
+    })
+    const first = await pixels()
+    assert.ok(first.lit > 1000, 'authored trajectories must be painted')
+    await delay(150)
+    assert.notEqual((await pixels()).hash, first.hash, 'particles must animate')
+    await frame.evaluate(() => { window.testClicks = []; window.addEventListener('click', e => window.testClicks.push([e.clientX, e.clientY])) })
+    await page.mouse.click(20, 250)
+    await frame.waitForFunction(() => window.testClicks.length === 1)
+    assert.deepEqual(await frame.evaluate(() => window.testClicks[0]), [20, 250])
+    for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
+      await page.setViewportSize({ width, height })
+      await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height && document.querySelector('#flow-canvas').width === width * devicePixelRatio, { width, height })
+      const bounds = await element.boundingBox()
+      assert.deepEqual(bounds, { x: 0, y: 0, width, height })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/gateway-flow-${width}x${height}.png` })
+    }
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
+    await page.waitForFunction(() => !document.querySelector('.is-undo').disabled)
+    assert.equal(state.reactions.at(-1).value, 1)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await element.waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.is-undo').disabled)
+    assert.equal(await page.getByRole('button', { name: 'Quero assistir', exact: true }).isVisible(), true)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await element.waitFor()
+    await page.locator('.swipe-header a[href="/"]').first().click()
+    await element.waitFor({ state: 'detached' })
+    assert.deepEqual(errors, [])
+  } finally { await ctx.close() }
+})
+
+for (const width of [320, 390, 768, 1440]) {
   test('home em ' + width + 'px: layout, fontes locais e pôsteres distintos, sem autenticação', async () => {
     const { ctx, page, state } = await context({ viewport: { width, height: 1000 } })
     try {
@@ -87,7 +155,7 @@ for (const width of [390, 768, 1440]) {
       const sources = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src))
       assert.equal(sources.length, 18)
       assert.equal(new Set(sources).size, 18)
-      assert.equal(state.requests.length, 0)
+      assert.equal(state.requests.filter(request => !request.path.includes('/rpc/community_profiles')).length, 0)
       assert.deepEqual(errors, [])
       await page.keyboard.press('Tab')
       assert.equal(await page.locator('.cinema-skip-link').evaluate(element => element === document.activeElement), true)
@@ -96,7 +164,7 @@ for (const width of [390, 768, 1440]) {
       assert.equal(await page.locator('#session-code').evaluate(element => element === document.activeElement), true)
       await page.locator('#session-code').fill('abc')
       await page.locator('#session-code').press('Enter')
-      assert.equal(state.requests.length, 0)
+      assert.equal(state.requests.filter(request => !request.path.includes('/rpc/community_profiles')).length, 0)
       assert.equal(await page.getByRole('button', { name: 'Entrar', exact: true }).isDisabled(), true)
       await page.locator('#session-code').press('Backspace')
       assert.equal(await page.locator('#session-code').inputValue(), 'AB')
@@ -230,7 +298,7 @@ test('rede lenta e recarga mostram miniaturas locais antes da imagem nítida, se
       })
       assert.deepEqual(dimensions, [24, 36])
       assert.equal(await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).isEnabled(), true)
-      assert.equal(state.requests.length, 0)
+      assert.equal(state.requests.filter(request => !request.path.includes('/rpc/community_profiles')).length, 0)
       if (process.env.VISUAL_CAPTURE_DIR && visit === 0) {
         await page.getByRole('button', { name: 'Pausar animação dos pôsteres' }).click()
         await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/cinema-loading-390.png' })
@@ -258,9 +326,9 @@ test('novos controles permitem curtir, desfazer e recusar; foco e movimento redu
     await page.goto(baseUrl)
     await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
     await page.waitForURL('**/s/DEMO01')
-    const like = page.getByRole('button', { name: 'Like', exact: true })
+    const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
     const undo = page.getByRole('button', { name: 'Desfazer', exact: true })
-    const dislike = page.getByRole('button', { name: 'Dislike', exact: true })
+    const dislike = page.getByRole('button', { name: 'Passo', exact: true })
     await like.waitFor()
     await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-like').disabled)
     assert.equal(await undo.isDisabled(), true)
@@ -370,6 +438,12 @@ for (const reducedMotion of ['no-preference', 'reduce']) {
       await page.goto(sessionUrl.href)
       const loader = page.locator('.cinema-session-loader')
       await loader.waitFor()
+      for (const viewport of [{width:320,height:568},{width:390,height:844},{width:768,height:1024},{width:1440,height:900},{width:844,height:390}]) {
+        await page.setViewportSize(viewport)
+        const center = await loader.locator('.cinema-wave-orb').evaluate(el => { const r=el.getBoundingClientRect(); return {x:r.left+r.width/2-innerWidth/2,y:r.top+r.height/2-innerHeight/2} })
+        assert.ok(Math.abs(center.x)<1 && Math.abs(center.y)<1, `Loader not centered in ${viewport.width}x${viewport.height}: ${JSON.stringify(center)}`)
+      }
+      await page.setViewportSize({width:390,height:844})
       assert.equal(await loader.locator('.cinema-wave').count(), 4)
       assert.equal(await loader.locator('.cinema-wave-bar').count(), 96)
       assert.equal(await loader.getAttribute('role'), 'status')
@@ -456,14 +530,14 @@ test('retorno ao topo aparece após rolar, respeita movimento reduzido e devolve
   } finally { await ctx.close() }
 })
 
-for (const [width, height] of [[390, 844], [768, 1024], [1440, 900], [320, 568], [390, 1000], [844, 390]]) {
+for (const [width, height] of [[390, 844], [768, 1024], [1101, 884], [1440, 900], [320, 568], [390, 1000], [844, 390]]) {
   test(`swipe editorial ${width}x${height}: pôster 2:3 e controles dentro da tela`, async () => {
     const { ctx, page } = await context({ viewport: { width, height }, reducedMotion: 'reduce' })
     try {
       const errors = []
       page.on('pageerror', error => errors.push(error.message))
       await page.goto(sessionUrl.href)
-      await page.getByRole('button', { name: 'Like', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.swipe-poster-image')?.classList.contains('is-ready'))
       await page.evaluate(() => document.fonts.ready)
       const layout = await page.evaluate(() => {
@@ -472,6 +546,10 @@ for (const [width, height] of [[390, 844], [768, 1024], [1440, 900], [320, 568],
       })
       assert.ok(Math.abs(layout.poster.width / layout.poster.height - 2 / 3) < .01, JSON.stringify(layout.poster))
       assert.ok(layout.poster.height > 140)
+      assert.ok(Math.abs((layout.poster.left + layout.poster.right) / 2 - width / 2) < 2, JSON.stringify(layout.poster))
+      const voteCenter = (Math.min(...layout.buttons.map(button => button.left)) + Math.max(...layout.buttons.map(button => button.right))) / 2
+      assert.ok(Math.abs(voteCenter - width / 2) < 2, JSON.stringify(layout.buttons))
+      assert.equal(await page.locator('.swipe-film-copy').count(), 0)
       assert.ok(layout.scrollWidth <= width)
       assert.ok(layout.scrollHeight <= height + 1)
       assert.ok(layout.buttons.every(button => button.top >= 0 && button.bottom <= height && button.left >= 0 && button.right <= width), JSON.stringify(layout.buttons))
@@ -482,41 +560,52 @@ for (const [width, height] of [[390, 844], [768, 1024], [1440, 900], [320, 568],
   })
 }
 
-test('abas do filme não votam; o trailer só carrega quando aberto e para ao sair', async () => {
+test('pôster, trailer e sinopse usam clique/Tab; as setas votam mesmo com foco nesses botões', async () => {
   const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   await ctx.route(/\/functions\/v1\/movie_details/, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tmdb_id: 157336, title: 'Interestelar', year: 2014, runtime: 169, vote_average: 8.6, genres: [{ id: 878, name: 'Ficção científica' }], age_rating: '12', trailer: { key: 'fixture' }, overview: 'Uma viagem além das estrelas. '.repeat(80) }) }))
   await ctx.route(/youtube\.com\/embed/, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><button>Reproduzir</button>' }))
   try {
     await page.goto(sessionUrl.href)
-    const poster = page.getByRole('tab', { name: 'Pôster' })
-    const trailer = page.getByRole('tab', { name: 'Trailer' })
+    const poster = page.getByRole('button', { name: 'Pôster', exact: true })
+    const trailer = page.getByRole('button', { name: 'Trailer', exact: true })
     await trailer.waitFor()
     const title = await page.locator('.swipe-film-title').innerText()
-    assert.equal(await page.locator('.swipe-carousel iframe').count(), 0, await page.locator('iframe').evaluateAll(frames => frames.map(frame => frame.src).join(', ')))
-    await poster.focus()
-    await page.keyboard.press('ArrowRight')
+    assert.equal(await page.locator('.swipe-carousel iframe').count(), 0)
+    await trailer.click()
     await page.locator('.swipe-carousel iframe').waitFor()
     assert.equal(await page.locator('.swipe-carousel iframe').getAttribute('title'), `Trailer de ${title}`)
-    assert.equal(await trailer.getAttribute('aria-selected'), 'true')
     assert.equal(state.reactions.length, 0)
-    await page.keyboard.press('ArrowRight')
-    await page.getByRole('tab', { name: 'Sinopse' }).waitFor()
+    await page.keyboard.press('Tab')
+    assert.equal(await page.getByRole('button', { name: 'Sinopse', exact: true }).evaluate(el => el === document.activeElement), true)
+    await page.keyboard.press('Enter')
     await page.locator('.swipe-carousel iframe').waitFor({ state: 'detached' })
-    assert.equal(state.reactions.length, 0)
-    const synopsis = page.getByRole('tabpanel').getByLabel('Sinopse do filme')
+    const synopsis = page.getByRole('region', { name: 'Sinopse', exact: true }).getByLabel('Sinopse do filme')
     await synopsis.focus()
     await page.keyboard.press('ArrowDown')
     assert.equal(state.reactions.length, 0)
     assert.ok(await synopsis.evaluate(element => element.scrollHeight > element.clientHeight))
-    await poster.click()
-    assert.equal(await page.getByRole('tabpanel').count(), 1)
+    await page.getByRole('button', { name: 'Sinopse', exact: true }).focus()
+    await page.keyboard.press('ArrowRight')
+    await page.getByRole('button', { name: 'Desfazer', exact: true }).waitFor({ state: 'visible' })
+    await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-undo')?.disabled)
+    assert.equal(state.reactions.length, 1)
+    assert.equal(state.reactions[0].value, 1)
+    await page.keyboard.press('Backspace')
+    await page.waitForFunction(expected => document.querySelector('.swipe-film-title')?.innerText === expected && document.querySelector('.is-undo').disabled, title)
+    await poster.focus()
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-undo')?.disabled)
+    assert.equal(state.reactions.length, 2)
+    assert.equal(state.reactions[1].value, -1)
   } finally { await ctx.close() }
 })
 
-test('tutorial de três etapas bloqueia atalhos, lembra conclusão e permite reabrir', async () => {
+test('tutorial ao criar sala bloqueia atalhos, não reaparece ao retomar e permite reabrir', async () => {
   const { ctx, page, state } = await context({ tutorial: true, viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   try {
-    await page.goto(sessionUrl.href)
+    await page.goto(baseUrl)
+    await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
+    await page.waitForURL(sessionUrl.href)
     const dialog = page.getByRole('dialog', { name: 'Como votar no MovieMatch' })
     await dialog.waitFor()
     await page.getByRole('heading', { name: /Seu gosto entra/ }).waitFor()
@@ -538,7 +627,7 @@ test('tutorial de três etapas bloqueia atalhos, lembra conclusão e permite rea
     await dialog.waitFor({ state: 'detached' })
     assert.equal(await page.evaluate(() => localStorage.getItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222')), '1')
     await page.reload()
-    await page.getByRole('button', { name: 'Like', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
     assert.equal(await dialog.count(), 0)
     const help = page.getByRole('button', { name: 'Abrir tutorial de votação' })
     await help.click()
@@ -555,7 +644,7 @@ test('Dock amplia os controles com mouse e mantém tamanhos estáveis no toque e
     const { ctx, page } = await context({ viewport: { width: touch ? 390 : 1440, height: 900 }, hasTouch: touch, isMobile: touch })
     try {
       await page.goto(sessionUrl.href)
-      const like = page.getByRole('button', { name: 'Like', exact: true })
+      const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
       await like.waitFor()
       const control = like.locator('..')
       await like.hover()
@@ -618,7 +707,7 @@ test('arrastar o pôster salva um único voto e permite desfazer', async () => {
   const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
   try {
     await page.goto(sessionUrl.href)
-    const like = page.getByRole('button', { name: 'Like', exact: true })
+    const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
     await like.waitFor()
     await page.waitForFunction(() => !document.querySelector('.is-like').disabled)
     const title = await page.locator('.swipe-film-title').innerText()
@@ -641,9 +730,9 @@ test('o match usa o novo diálogo, contém o foco e devolve a votação ao fecha
   await ctx.route(/\/rpc\/check_session_match/, route => route.fulfill({ contentType: 'application/json', body: '[{"is_match":true,"member_count":2,"like_count":2}]' }))
   try {
     await page.goto(sessionUrl.href)
-    await page.getByRole('button', { name: 'Like', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
     await page.waitForFunction(() => !document.querySelector('.is-like').disabled)
-    await page.getByRole('button', { name: 'Like', exact: true }).click()
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Deu match.' })
     await dialog.waitFor()
     assert.equal(state.reactions.length, 1)
@@ -657,5 +746,120 @@ test('o match usa o novo diálogo, contém o foco e devolve a votação ao fecha
     await dialog.waitFor({ state: 'detached' })
     await page.waitForFunction(() => !document.querySelector('.is-like').disabled)
     assert.equal(state.reactions.length, 1)
+  } finally { await ctx.close() }
+})
+
+for (const width of [390, 1101]) {
+  test(`filtros em ${width}px: brilho, seleção, números, menus, limpeza e aplicação sem votos`, async () => {
+    const { ctx, page, state } = await context({ viewport: { width, height: 884 } })
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    try {
+      await page.goto(sessionUrl.href)
+      await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: 'Encontre o filme certo' })
+      const netflix = dialog.getByRole('button', { name: 'Netflix', exact: true })
+      await netflix.waitFor()
+      assert.equal(await dialog.getByRole('button', { name: 'Filtros aplicados' }).isDisabled(), true)
+      assert.equal(await dialog.locator('button:not(.cinema-filter-button)').count(), 0)
+      if (width === 1101) {
+        await netflix.hover()
+        const webgl = await page.evaluate(() => {
+          const gl = document.createElement('canvas').getContext('webgl2')
+          gl?.getExtension('WEBGL_lose_context')?.loseContext()
+          return !!gl
+        })
+        if (webgl) {
+          await netflix.locator('canvas').waitFor()
+          await delay(500)
+          assert.equal(await netflix.locator('.cinema-specular-fx').evaluate(el => getComputedStyle(el).opacity), '1')
+          if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/filters-white-hover.png' })
+          await page.mouse.move(0, 0)
+          await netflix.locator('canvas').waitFor({ state: 'detached' })
+        }
+      }
+      await netflix.click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'true')
+      await dialog.getByTitle('Remover filtro: Netflix', { exact: true }).click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
+      await netflix.click()
+      const region = dialog.getByRole('button', { name: 'Brasil (BR)', exact: true })
+      await region.click()
+      const us = page.getByRole('option', { name: 'Estados Unidos (US)', exact: true })
+      assert.ok((await us.getAttribute('class')).includes('cinema-filter-button'))
+      await us.click()
+      assert.equal(await page.getByRole('listbox').count(), 0)
+      await dialog.getByRole('button', { name: /^Período e duração/ }).click()
+      await dialog.getByRole('button', { name: 'Aumentar De', exact: true }).click()
+      assert.equal(await dialog.getByRole('spinbutton', { name: 'De', exact: true }).inputValue(), '1991')
+      await dialog.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
+      assert.equal(await dialog.getByRole('spinbutton', { name: 'De', exact: true }).inputValue(), '1990')
+      assert.equal(await dialog.getByRole('button', { name: 'Filtros aplicados' }).isDisabled(), true)
+      await netflix.click()
+      await region.click()
+      await page.getByRole('option', { name: 'Estados Unidos (US)', exact: true }).click()
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await netflix.hover()
+      await delay(350)
+      assert.equal(await netflix.locator('canvas').count(), 0)
+      assert.equal(await netflix.evaluate(el => getComputedStyle(el).transform), 'none')
+      await dialog.getByRole('button', { name: /^Aplicar/ }).click()
+      await dialog.waitFor({ state: 'detached' })
+      const saves = state.requests.filter(request => request.path.includes('/rest/v1/session_filters') && request.method === 'POST')
+      assert.equal(saves.length, 1)
+      assert.deepEqual(saves[0].body.providers, [8])
+      assert.equal(saves[0].body.watch_region, 'US')
+      assert.equal(saves[0].body.year_min, 1990)
+      assert.equal(state.reactions.length, 0)
+      await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
+      await dialog.waitFor()
+      await dialog.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Fechar', exact: true }).click()
+      await dialog.waitFor({ state: 'detached' })
+      assert.equal(state.requests.filter(request => request.path.includes('/rest/v1/session_filters') && request.method === 'POST').length, 1)
+      assert.deepEqual(errors, [])
+    } finally { await ctx.close() }
+  })
+}
+
+for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, prévia após ampliação e sala existente sem tutorial`, async () => {
+  const {ctx,page,state}=await context({viewport:{width,height:900}})
+  try {
+    await ctx.addInitScript(() => { if (window === window.top) localStorage.removeItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222') })
+    await page.goto(baseUrl)
+    await page.locator('.cinema-match-example').scrollIntoViewIfNeeded()
+    const community=page.getByRole('group',{name:'Perfis públicos da comunidade'})
+    await community.getByRole('button',{name:/Luna/}).waitFor()
+    assert.equal(await community.getByRole('button').count(),3)
+    assert.equal(state.requests.some(request=>request.path.includes('/auth/v1/')),false)
+    const avatar=community.getByRole('button',{name:/Luna/})
+    await avatar.hover()
+    assert.equal(await page.getByRole('region',{name:'Perfil de Luna'}).count(),0)
+    const preview=page.getByRole('region',{name:'Perfil de Luna'})
+    await preview.waitFor();assert.equal(await preview.getByRole('link',{name:'Ver perfil'}).getAttribute('href'),'/p/luna')
+    assert.equal(await avatar.locator('span').evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).a>1),true)
+    const bounds=await preview.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width&&bounds.y>=0&&bounds.y+bounds.height<=900)
+    await page.keyboard.press('Escape');await preview.waitFor({state:'detached'})
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
+    assert.equal(await page.getByRole('dialog',{name:'Como votar no MovieMatch'}).count(),0)
+    const participants=page.getByRole('group',{name:'Participantes da sessão'})
+    await participants.getByRole('button',{name:/Luna/}).waitFor()
+    assert.equal(await participants.getByRole('button').count(),3)
+    const guest=participants.getByRole('button',{name:/Convidado/});await guest.click()
+    const guestPreview=page.getByRole('region',{name:'Perfil de Convidado'});await guestPreview.waitFor();assert.equal(await guestPreview.getByRole('link').count(),0)
+    await page.keyboard.press('Escape');await guestPreview.waitFor({state:'detached'})
+    await participants.getByRole('button',{name:/Perfil privado/}).focus()
+    const privatePreview=page.getByRole('region',{name:'Perfil de Perfil privado'});await privatePreview.waitFor();await page.keyboard.press('ArrowRight');assert.equal(state.reactions.length,0);assert.equal(await privatePreview.getByRole('link').count(),0)
+    const privateBounds=await privatePreview.boundingBox();assert.ok(privateBounds.x>=0&&privateBounds.x+privateBounds.width<=width&&privateBounds.y>=0&&privateBounds.y+privateBounds.height<=900)
+    await page.keyboard.press('Escape');await privatePreview.waitFor({state:'detached'})
+    await page.emulateMedia({reducedMotion:'reduce'});await participants.getByRole('button',{name:/Luna/}).hover()
+    await page.getByRole('region',{name:'Perfil de Luna'}).waitFor()
+    assert.equal(await participants.getByRole('button',{name:/Luna/}).locator('span').evaluate(el=>getComputedStyle(el).transform),'none')
+    await page.keyboard.press('Escape');await page.getByRole('region',{name:'Perfil de Luna'}).waitFor({state:'detached'})
+    assert.equal(state.reactions.length,0)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/swipe-participants-${width}.png`})
   } finally { await ctx.close() }
 })

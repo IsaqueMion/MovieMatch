@@ -8,10 +8,11 @@ type PageMetaOptions = {
 
 function getOrCreateMeta(
   name: string,
+  attribute: 'name' | 'property' = 'name',
 ) {
   const existing =
     document.head.querySelector<HTMLMetaElement>(
-      `meta[name="${name}"]`,
+      `meta[${attribute}="${name}"]`,
     )
 
   if (existing) {
@@ -21,7 +22,7 @@ function getOrCreateMeta(
   const meta =
     document.createElement('meta')
 
-  meta.name = name
+  meta.setAttribute(attribute, name)
   document.head.appendChild(meta)
 
   return meta
@@ -44,6 +45,22 @@ export function usePageMeta({
       description
     robotsMeta.content =
       robots
+    getOrCreateMeta('og:title', 'property').content = title
+    getOrCreateMeta('og:description', 'property').content = description
+    getOrCreateMeta('twitter:title').content = title
+    getOrCreateMeta('twitter:description').content = description
+
+    const canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+    if (robots.includes('noindex')) {
+      canonical?.remove()
+      document.head.querySelector('meta[property="og:url"]')?.remove()
+    } else {
+      const link = canonical ?? document.createElement('link')
+      link.rel = 'canonical'
+      link.href = 'https://moviematch-three.vercel.app/'
+      if (!canonical) document.head.appendChild(link)
+      getOrCreateMeta('og:url', 'property').content = link.href
+    }
   }, [
     title,
     description,

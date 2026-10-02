@@ -206,9 +206,11 @@ test('coverflow navega por botões e teclado, respeita movimento reduzido e abre
       const m = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.coverflow-card[aria-hidden="false"]')).transform)
       return Math.abs(m.m13) < .001
     })
+    const detailsRequest = page.waitForRequest('**/functions/v1/movie_details*')
     await page.getByRole('button', { name: 'Explorar o filme' }).click()
     await page.getByRole('dialog').waitFor()
     assert.equal(await page.locator('.matches-dialog h2').innerText(), movies[1].title)
+    await detailsRequest
     assert.ok(state.requests.some(path => path.includes('movie_details')))
     await page.keyboard.press('Escape')
     await page.emulateMedia({ reducedMotion: 'reduce' })

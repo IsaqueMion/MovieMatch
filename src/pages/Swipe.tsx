@@ -38,11 +38,14 @@ import SwipeCard, {
 import AdSwipeCard from '../components/swipe/AdSwipeCard'
 import SwipeActionButtons from '../components/swipe/SwipeActionButtons'
 import SwipeSessionHeader from '../components/swipe/SwipeSessionHeader'
+import SwipeBackground from '../components/swipe/SwipeBackground'
 import SwipeMatchDialog from '../components/swipe/SwipeMatchDialog'
 import SwipeTutorial, { type SwipeTutorialHandle } from '../components/swipe/SwipeTutorial'
 import CinemaButton from '../components/ui/cinema-button'
 import '../styles/swipe.css'
 import SessionLoader from '../components/ui/session-loader'
+import type { LibraryMovie } from '../lib/movieLibrary'
+const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviewsDialog'))
 import {
   clearProgress,
   filtersSig,
@@ -1345,6 +1348,7 @@ function Swipe() {
 
   // ===== animação imperativa p/ botões/teclas =====
   const cardRef = useRef<SwipeCardHandle | null>(null)
+  const [reviewMovie, setReviewMovie] = useState<LibraryMovie | null>(null)
   const tutorialRef = useRef<SwipeTutorialHandle | null>(null)
 
   // ============== FUNÇÕES ESTÁVEIS ==============
@@ -1759,7 +1763,7 @@ function Swipe() {
   useEffect(() => { undoRef.current = undo }, [undo])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (busy || dragging) return
+      if (busy || dragging || reviewMovie || openFilters || matchModal || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return
       if (document.querySelector('.cinema-share-panel')) return
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
       if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
@@ -1768,7 +1772,7 @@ function Swipe() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [busy, dragging])
+  }, [busy, dragging, reviewMovie, openFilters, matchModal])
   // ===============================================
 
   // A verificação apenas autoriza o usuário a selecionar conteúdo adulto.
@@ -1985,15 +1989,16 @@ function Swipe() {
 
   return (
     <main className="cinema-page swipe-page" id="conteudo">
-      <SwipeSessionHeader code={code ?? ''} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
+      <SwipeBackground />
+      <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />
       <div className="swipe-deck">
-        <div className="swipe-stage-heading"><h1>Uma escolha de cada vez</h1><span><ArrowLeftRight size={14} aria-hidden="true" />Arraste o pôster para votar</span></div>
-        <h1 className="sr-only min-[900px]:hidden">Escolha o próximo filme</h1>
+        <div className="swipe-stage-heading"><p>Uma escolha de cada vez</p><span><ArrowLeftRight size={14} aria-hidden="true" />Arraste o pôster para votar</span></div>
+        <h1 className="sr-only">Escolha o próximo filme</h1>
         <div className="swipe-card-stage">
           {current ? (isAdStep ? <AdSwipeCard ref={cardRef} key={`ad-${i}-${adsShown.current}`} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />
-            : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
+            : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onReviews={() => setReviewMovie(current)} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
             : <div className="swipe-empty" role="status">
               <Film size={34} aria-hidden="true" />
               <p className="cinema-eyebrow">{noResults ? 'Um novo caminho para o play' : 'Mais histórias pela frente'}</p>
@@ -2006,7 +2011,6 @@ function Swipe() {
           <div>
             <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />
           </div>
-          <div className="swipe-keyboard-hint" aria-hidden="true"><span><kbd>←</kbd>Passo</span><span><kbd>→</kbd>Quero ver</span><span><kbd>⌫</kbd>Desfazer</span></div>
         </footer>
       </div>
       {!isPremium ? <>
@@ -2015,6 +2019,7 @@ function Swipe() {
       </> : null}
       <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
       {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
+      {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
       {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
         setLatestMatchAt(0)

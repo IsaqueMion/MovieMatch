@@ -1,3 +1,4 @@
+import FilterButton from './FilterButton'
 import type { ReactNode } from 'react'
 
 type FilterChipProps = {
@@ -23,7 +24,7 @@ export function FilterChip({
   }[tone]
 
   return (
-    <button
+    <FilterButton
       type="button"
       onClick={onClick}
       aria-pressed={active}
@@ -34,7 +35,7 @@ export function FilterChip({
       }`}
     >
       {children}
-    </button>
+    </FilterButton>
   )
 }
 
@@ -72,7 +73,7 @@ export function NumberField({
       </span>
 
       <div className="flex h-10 items-stretch overflow-hidden rounded-xl border border-white/10 bg-neutral-950/30 transition focus-within:border-emerald-400/35 focus-within:ring-2 focus-within:ring-emerald-400/10">
-        <button
+        <FilterButton
           type="button"
           onClick={() => adjust(-step)}
           disabled={value <= min}
@@ -80,11 +81,12 @@ export function NumberField({
           aria-label={`Diminuir ${label}`}
         >
           −
-        </button>
+        </FilterButton>
 
         <div className="relative min-w-0 flex-1">
           <input
             type="number"
+            aria-label={label}
             value={Number(value.toFixed(2))}
             min={min}
             max={max}
@@ -106,7 +108,7 @@ export function NumberField({
           ) : null}
         </div>
 
-        <button
+        <FilterButton
           type="button"
           onClick={() => adjust(step)}
           disabled={value >= max}
@@ -114,7 +116,7 @@ export function NumberField({
           aria-label={`Aumentar ${label}`}
         >
           +
-        </button>
+        </FilterButton>
       </div>
     </label>
   )

@@ -12,7 +12,6 @@ import {
   useMotionValue,
   useTransform,
 } from 'framer-motion'
-import { Clock3, Heart, Star } from 'lucide-react'
 
 import type { MovieDetails } from '../../lib/functions'
 import MovieCarousel from '../MovieCarousel'
@@ -46,6 +45,7 @@ type SwipeCardProps = {
   onDecision: (value: 1 | -1) => void
   fitPoster?: boolean
   edgeToEdgePoster?: boolean
+  onReviews?: () => void
 }
 
 const INTERACTIVE_SELECTOR =
@@ -60,6 +60,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
       onDecision,
       fitPoster = false,
       edgeToEdgePoster = false,
+      onReviews,
     },
     ref,
   ) {
@@ -201,27 +202,11 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               details={details}
               fullHeight
               edgeToEdge={edgeToEdgePoster}
+              onReviews={onReviews}
             />
           </div></div>
 
-          <div
-            className="swipe-film-copy relative z-10 select-text"
-            data-interactive="true"
-          >
-            <p className="cinema-eyebrow swipe-film-eyebrow">Qual vai ser o próximo?</p>
-            <h3 className="swipe-film-title line-clamp-1" title={movie.title}>{movie.title}</h3>
-            <div className="swipe-film-facts" aria-label="Informações do filme">
-              {movie.year ? <span>{movie.year}</span> : null}
-              {details?.runtime ? <span><Clock3 size={14} aria-hidden="true" />{details.runtime} min</span> : null}
-              {details?.age_rating?.trim() ? <span className="swipe-age" aria-label={`Classificação ${details.age_rating}`}>{details.age_rating}</span> : null}
-              {details?.vote_average != null ? <span className="swipe-rating"><Star size={14} aria-hidden="true" />{details.vote_average.toFixed(1)} <small>TMDB</small></span> : null}
-            </div>
-            {details?.genres?.length ? <p className="swipe-film-genres">{details.genres.slice(0, 3).map(genre => genre.name).join(' · ')}</p> : null}
-            <div className="swipe-film-story">
-              <p className="swipe-synopsis">{details ? details.overview || 'Sinopse indisponível no momento.' : 'Preparando os detalhes do filme…'}</p>
-              <p className="swipe-consensus-note"><Heart size={16} aria-hidden="true" /><span>Seu voto faz parte da escolha.<small>O match acontece quando todos curtirem.</small></span></p>
-            </div>
-          </div>
+          <h3 className="swipe-film-title line-clamp-1 sr-only">{movie.title}</h3>
         </div>
       </motion.div>
     )

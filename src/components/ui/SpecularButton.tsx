@@ -2,11 +2,11 @@ import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePref
 // Source: https://reactbits.dev/r/SpecularButton-TS-TW.json
 // Adaptations: native button props, existing cinema styling, delayed interaction-only effects and reduced-motion/WebGL fallback.
 
-import { useRef, useEffect, useState, type CSSProperties, type ReactNode, type MouseEventHandler, type ComponentPropsWithoutRef } from 'react';
+import { useRef, useEffect, useImperativeHandle, useState, type CSSProperties, type ReactNode, type MouseEventHandler, type ComponentPropsWithRef } from 'react';
 
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-export interface SpecularButtonProps extends Omit<ComponentPropsWithoutRef<'button'>, 'size' | 'children'> {
+export interface SpecularButtonProps extends Omit<ComponentPropsWithRef<'button'>, 'size' | 'children'> {
   unstyled?: boolean;
   delay?: number;
   children?: ReactNode;
@@ -117,6 +117,7 @@ void main() {
 `;
 
 const SpecularButton = ({
+  ref,
   children = 'Get Started',
   size = 'lg',
   radius = 18,
@@ -151,6 +152,7 @@ const SpecularButton = ({
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const reducedMotion = useReducedMotion();
   const btnRef = useRef<HTMLButtonElement>(null);
+  useImperativeHandle(ref, () => btnRef.current!, []);
   const fxRef = useRef<HTMLSpanElement>(null);
   const propsRef = useRef<ShaderProps>({} as ShaderProps);
 
@@ -269,7 +271,7 @@ const SpecularButton = ({
       angle += diff * (1 - Math.exp(-dt * 7));
 
       // Shine fades in with pointer proximity unless autoAnimate keeps it on
-      const brightTarget = p.autoAnimate ? 1 : proximityT;
+      const brightTarget = p.autoAnimate || btn.matches(':focus-visible') ? 1 : proximityT;
       bright += (brightTarget - bright) * (1 - Math.exp(-dt * 8));
 
       lineC.set(p.lineColor);

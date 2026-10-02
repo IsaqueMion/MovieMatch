@@ -8,6 +8,7 @@ export type DockItemData = {
   id: string
   icon: ReactNode
   label: string
+  shortcut?: string
   onClick?: () => void
   className?: string
   disabled?: boolean
@@ -46,7 +47,7 @@ function DockItem({ item, mouseX, spring, distance, baseItemSize, magnification,
   const scale = useSpring(targetScale, spring)
   const width = useTransform(scale, value => dimensions.width * value)
   const canMagnify = enabled && !item.disabled
-  return <motion.div ref={ref} className="cinema-dock-item" style={{ width: canMagnify ? width : dimensions.width, height: dimensions.height + 22 }} onFocus={() => {
+  return <motion.div ref={ref} className="cinema-dock-item" style={{ width: canMagnify ? width : dimensions.width, height: dimensions.height + (item.shortcut ? 32 : 22) }} onFocus={() => {
     if (!canMagnify) return
     const bounds = ref.current?.getBoundingClientRect()
     if (bounds) mouseX.set(bounds.left + bounds.width / 2)
@@ -54,7 +55,7 @@ function DockItem({ item, mouseX, spring, distance, baseItemSize, magnification,
     <motion.div className="cinema-dock-control" style={{ scale: canMagnify ? scale : 1, transformOrigin: 'center bottom' }}>
       {renderItem ? renderItem(item) : <button type="button" className={`cinema-dock-default ${item.className ?? ''}`} disabled={item.disabled} onClick={item.onClick} aria-label={item.label} style={{ width: baseItemSize, height: baseItemSize }}>{item.icon}</button>}
     </motion.div>
-    <span className="cinema-dock-label" aria-hidden="true">{item.label}</span>
+    <span className={`cinema-dock-label${item.shortcut ? ' cinema-dock-shortcut' : ''}`} aria-hidden="true">{item.shortcut ? <kbd>{item.shortcut}</kbd> : null}{item.label}</span>
   </motion.div>
 }
 

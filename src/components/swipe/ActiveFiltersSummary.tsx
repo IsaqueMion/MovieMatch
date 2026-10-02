@@ -1,3 +1,4 @@
+import FilterButton from './FilterButton'
 import { Sparkles, X } from 'lucide-react'
 
 export type ActiveFilterItem = {
@@ -47,16 +48,17 @@ export default function ActiveFiltersSummary({ items }: Props) {
 
       <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap">
         {items.map((item) => (
-          <button
+          <FilterButton
             key={item.key}
             type="button"
             onClick={item.onRemove}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-neutral-950/45 px-2.5 py-1.5 text-xs text-white/80 transition hover:border-white/20 hover:bg-neutral-950/70"
             title={`Remover filtro: ${item.label}`}
+            aria-label={`Remover filtro: ${item.label}`}
           >
             <span>{item.label}</span>
             <X className="h-3 w-3 text-white/45" />
-          </button>
+          </FilterButton>
         ))}
       </div>
     </div>

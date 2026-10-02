@@ -4,6 +4,7 @@ import {
 } from 'react'
 import {
   BrowserRouter,
+  Navigate,
   Route,
   Routes,
 } from 'react-router-dom'
@@ -21,6 +22,9 @@ const Swipe = lazy(
 const Matches = lazy(
   () => import('./pages/Matches'),
 )
+const Watched = lazy(() => import('./pages/Watched'))
+const Account = lazy(() => import('./pages/Account'))
+const Profile = lazy(() => import('./pages/Profile'))
 
 function RouteLoading() {
   return (
@@ -56,6 +60,12 @@ export default function App() {
             path="/s/:code/matches"
             element={<Matches />}
           />
+          <Route path="/assistidos" element={<Watched />} />
+          <Route path="/s/:code/assistidos" element={<Watched />} />
+          <Route path="/conta" element={<Account />} />
+          <Route path="/perfil" element={<Profile />} />
+          <Route path="/p/:handle" element={<Profile />} />
+          <Route path="/salas" element={<Navigate to="/#minhas-salas" replace />} />
           <Route
             path="*"
             element={<NotFound />}

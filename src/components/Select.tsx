@@ -3,6 +3,8 @@ import {
   useEffect,
   useRef,
   useState,
+  type ComponentType,
+  type ComponentPropsWithRef,
 } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -17,6 +19,7 @@ type Props = {
   options: readonly Option[]
   placeholder?: string
   className?: string
+  buttonComponent?: ComponentType<ComponentPropsWithRef<'button'>>
 }
 
 type MenuPosition = {
@@ -33,7 +36,9 @@ export default function Select({
   options,
   placeholder = 'Selecionar',
   className = '',
+  buttonComponent,
 }: Props) {
+  const Button = buttonComponent ?? 'button'
   const [open, setOpen] = useState(false)
   const [menuPosition, setMenuPosition] =
     useState<MenuPosition | null>(null)
@@ -210,7 +215,7 @@ export default function Select({
         className={`relative ${className}`}
         data-interactive="true"
       >
-        <button
+        <Button
           ref={buttonRef}
           type="button"
           aria-haspopup="listbox"
@@ -262,7 +267,7 @@ export default function Select({
               clipRule="evenodd"
             />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {open &&
@@ -306,7 +311,7 @@ export default function Select({
                     option.value === value
 
                   return (
-                    <button
+                    <Button
                       key={option.value}
                       type="button"
                       role="option"
@@ -336,7 +341,7 @@ export default function Select({
                       {isSelected ? (
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
                       ) : null}
-                    </button>
+                    </Button>
                   )
                 })}
               </div>

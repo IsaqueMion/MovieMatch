@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Clapperboard, Heart, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
@@ -7,6 +7,9 @@ import LandingSwipePreview from '../components/landing/LandingSwipePreview'
 import catalogue from '../data/landingMovies.json'
 import { selectLandingMovies } from '../lib/landingSelection'
 import CinemaButton from '../components/ui/cinema-button'
+const AccountMenu = lazy(() => import('../components/account/AccountMenu'))
+const HomeNavigation = lazy(() => import('../components/landing/HomeNavigation'))
+const HomeRooms = lazy(() => import('../components/landing/HomeRooms'))
 
 const FEATURED_KEY = 'mm:landing-featured:v1'
 
@@ -43,7 +46,7 @@ export default function Landing() {
   const [failed, setFailed] = useState(false)
   const [busyAction, setBusyAction] = useState<'create' | 'join' | null>(null)
   const [paused, setPaused] = useState(false)
-  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [reducedMotion, setReducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const inputRef = useRef<HTMLInputElement>(null)
   const actionPending = useRef(false)
   const complete = code.length === 6
@@ -112,6 +115,7 @@ export default function Landing() {
         setStatus('Não foi possível criar a sessão. Tente novamente.')
         return
       }
+      try { sessionStorage.setItem('mm:created-session', String(session.id)) } catch { /* Tutorial remains available through Help. */ }
       navigate('/s/' + String(session.code))
     } catch {
       setFailed(true)
@@ -130,15 +134,16 @@ export default function Landing() {
   return (
     <div className="cinema-page">
       <a className="cinema-skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <header className="cinema-header cinema-container">
+      <header className="cinema-header cinema-container home-header">
         <a href="/" className="cinema-brand" aria-label="MovieMatch, página inicial">
           <span className="cinema-brand-mark"><Clapperboard size={22} aria-hidden="true" /></span>
           MovieMatch<span className="cinema-brand-dot">.</span>
         </a>
-        <nav aria-label="Navegação principal">
+        <Suspense fallback={<nav aria-label="Navegação principal">
           <a href="#como-funciona">Como funciona</a>
           <a href="#recursos">A experiência</a>
-        </nav>
+        </nav>}><HomeNavigation /></Suspense>
+        <Suspense fallback={<a href="/conta">Entrar</a>}><AccountMenu /></Suspense>
         <CinemaButton compact tone="secondary" onClick={() => void handleCreate()} disabled={busyAction !== null}>
           {busyAction === 'create' ? 'Criando…' : 'Criar sessão'}
         </CinemaButton>
@@ -170,6 +175,8 @@ export default function Landing() {
             </span>
           </button>
         </ImageStreamHero>
+
+        <Suspense fallback={null}><HomeRooms /></Suspense>
 
         <section className="cinema-join cinema-container" aria-labelledby="join-title">
           <div><p className="cinema-eyebrow">JÁ FOI CONVIDADO?</p><h2 id="join-title">Seu grupo está esperando.</h2></div>
@@ -206,7 +213,7 @@ export default function Landing() {
       </main>
 
       <footer className="cinema-footer cinema-container">
-        <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label="Informações do site"><a href="/privacy.html">Privacidade</a><a href="/terms.html">Termos</a><a href="/ads.html">Publicidade</a></nav></div>
+        <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label="Informações do site"><a href="/assistidos">Meus assistidos</a><a href="/privacy.html">Privacidade</a><a href="/terms.html">Termos</a><a href="/ads.html">Publicidade</a></nav></div>
         <div className="cinema-footer-bottom"><span>Feito para decidir juntos.</span><p>Este produto usa a API do <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>, mas não é endossado ou certificado pelo TMDB.</p></div>
       </footer>
     </div>

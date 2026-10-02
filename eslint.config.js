@@ -20,4 +20,9 @@ export default tseslint.config([
       globals: globals.browser,
     },
   },
+  {
+    // Registered upstream source exports its defaults alongside the components.
+    files: ['src/shaders/neuform-isolated/NeuformBatchEffects.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])
