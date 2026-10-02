@@ -38,6 +38,7 @@ import SwipeCard, {
 import AdSwipeCard from '../components/swipe/AdSwipeCard'
 import SwipeActionButtons from '../components/swipe/SwipeActionButtons'
 import SwipeSessionHeader from '../components/swipe/SwipeSessionHeader'
+import SwipeBackground from '../components/swipe/SwipeBackground'
 import SwipeMatchDialog from '../components/swipe/SwipeMatchDialog'
 import SwipeTutorial, { type SwipeTutorialHandle } from '../components/swipe/SwipeTutorial'
 import CinemaButton from '../components/ui/cinema-button'
@@ -1988,6 +1989,7 @@ function Swipe() {
 
   return (
     <main className="cinema-page swipe-page" id="conteudo">
+      <SwipeBackground />
       <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />

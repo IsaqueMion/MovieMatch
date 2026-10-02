@@ -1,4 +1,7 @@
-.swipe-page { height: 100dvh; max-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; position: relative; background: radial-gradient(ellipse at 28% 45%, #20332a33, transparent 56%), var(--cinema-bg); }
+.swipe-page { height: 100dvh; max-height: 100dvh; display: flex; flex-direction: column; overflow: hidden; overscroll-behavior: none; position: relative; isolation: isolate; background: #000; }
+.swipe-background { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.swipe-page > .swipe-deck { position: relative; z-index: 1; }
+.swipe-page > .swipe-ad { z-index: 1; }
 .swipe-header { z-index: 20; position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 40px; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 18px; border-bottom: 1px solid var(--cinema-line); }
 .swipe-header .cinema-brand { font-size: 22px; }
 .swipe-session { display: flex; align-items: center; gap: 20px; font-size: 11px; color: var(--cinema-muted); }

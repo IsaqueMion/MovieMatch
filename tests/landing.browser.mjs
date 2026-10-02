@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 
 const posterFixture = await readFile(new URL('../public/demo/interstellar.jpg', import.meta.url))
 const catalogue = JSON.parse(await readFile(new URL('../src/data/landingMovies.json', import.meta.url), 'utf8'))
@@ -31,8 +32,11 @@ after(async () => { await browser?.close(); server?.kill() })
 
 async function context(options = {}) {
   const { tutorial = false, ...browserOptions } = options
-  const ctx = await browser.newContext({ serviceWorkers: 'block', ...browserOptions })
-  if (!tutorial) await ctx.addInitScript(() => localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1'))
+  const ctx = await browser.newContext({ ...browserOptions })
+  // Block the app worker by its route: Playwright's global blocker reads
+  // navigator.serviceWorker inside sandboxed child frames and throws.
+  await ctx.route('**/sw.js', route => route.abort())
+  if (!tutorial) await ctx.addInitScript(() => { if (window === window.top) localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1') })
   // Every test intercepts Supabase, including failures, so this suite never writes live data.
   const state = { requests: [], reactions: [], creates: 0 }
   const publicMembers = ['Luna','Leo','Ana'].map((display_name,index)=>({id:String(index+1),handle:display_name.toLowerCase(),display_name,bio:'Histórias que ficam.',avatar_path:null,cover_path:null}))
@@ -73,6 +77,67 @@ async function context(options = {}) {
   await page.routeWebSocket(/supabase\.co/, socket => socket.close())
   return { ctx, page, state }
 }
+
+test('Gateway Flow mantém a fonte registrada, preenche a tela e reage sem bloquear os votos', async () => {
+  for (const [path, sha] of [
+    ['neuform-isolated/NeuformBatchEffects.tsx', 'dc68c51bea26b922965de44b4fb8d6c432607508fb2b61e16ed60d245da1a69f'],
+    ['neuform-isolated/sources/gateway-flow.html', 'c5a1de43138ffba96b9f0ecdcf3c054ae251ec94344e88c6ad502bae362b17d0'],
+    ['threeui.css', 'efe4447139f1358dd8e9be68edf6fa46cbefbd1de423a4d6c439ca61d2c8eccf'],
+  ]) assert.equal(createHash('sha256').update(await readFile(new URL('../src/shaders/' + path, import.meta.url))).digest('hex'), sha)
+  const { ctx, page, state } = await context({ viewport: { width: 1440, height: 900 } })
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  try {
+    await page.goto(sessionUrl.href)
+    const element = page.locator('.swipe-background iframe')
+    await element.waitFor()
+    assert.equal(await element.getAttribute('sandbox'), 'allow-scripts')
+    assert.equal(await element.getAttribute('tabindex'), '-1')
+    assert.equal(await page.locator('.swipe-background').evaluate(el => el.inert), true)
+    const frame = await element.elementHandle().then(el => el.contentFrame())
+    await frame.waitForFunction(() => document.body?.hasAttribute('data-threeui-ready') && document.querySelector('#flow-canvas')?.width > 0)
+    const pixels = () => frame.evaluate(() => {
+      const c = document.querySelector('#flow-canvas')
+      const data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+      let lit = 0, hash = 0
+      for (let i = 3; i < data.length; i += 4) { if (data[i]) lit++; hash = (hash * 31 + data[i]) | 0 }
+      return { lit, hash }
+    })
+    await frame.waitForFunction(() => {
+      const c = document.querySelector('#flow-canvas')
+      return c && c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some((v, i) => i % 4 === 3 && v > 0)
+    })
+    const first = await pixels()
+    assert.ok(first.lit > 1000, 'authored trajectories must be painted')
+    await delay(150)
+    assert.notEqual((await pixels()).hash, first.hash, 'particles must animate')
+    await frame.evaluate(() => { window.testClicks = []; window.addEventListener('click', e => window.testClicks.push([e.clientX, e.clientY])) })
+    await page.mouse.click(20, 250)
+    await frame.waitForFunction(() => window.testClicks.length === 1)
+    assert.deepEqual(await frame.evaluate(() => window.testClicks[0]), [20, 250])
+    for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
+      await page.setViewportSize({ width, height })
+      await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height && document.querySelector('#flow-canvas').width === width * devicePixelRatio, { width, height })
+      const bounds = await element.boundingBox()
+      assert.deepEqual(bounds, { x: 0, y: 0, width, height })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/gateway-flow-${width}x${height}.png` })
+    }
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
+    await page.waitForFunction(() => !document.querySelector('.is-undo').disabled)
+    assert.equal(state.reactions.at(-1).value, 1)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await element.waitFor({ state: 'detached' })
+    await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.is-undo').disabled)
+    assert.equal(await page.getByRole('button', { name: 'Quero assistir', exact: true }).isVisible(), true)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await element.waitFor()
+    await page.locator('.swipe-header a[href="/"]').first().click()
+    await element.waitFor({ state: 'detached' })
+    assert.deepEqual(errors, [])
+  } finally { await ctx.close() }
+})
 
 for (const width of [320, 390, 768, 1440]) {
   test('home em ' + width + 'px: layout, fontes locais e pôsteres distintos, sem autenticação', async () => {
@@ -761,7 +826,7 @@ for (const width of [390, 1101]) {
 for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, prévia após ampliação e sala existente sem tutorial`, async () => {
   const {ctx,page,state}=await context({viewport:{width,height:900}})
   try {
-    await ctx.addInitScript(() => localStorage.removeItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222'))
+    await ctx.addInitScript(() => { if (window === window.top) localStorage.removeItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222') })
     await page.goto(baseUrl)
     await page.locator('.cinema-match-example').scrollIntoViewIfNeeded()
     const community=page.getByRole('group',{name:'Perfis públicos da comunidade'})
