@@ -1,4 +1,5 @@
-﻿// src/pages/Swipe.tsx
+import { translate as t, useLocale } from '../hooks/useLocale'
+// src/pages/Swipe.tsx
 import {
   Component,
   lazy,
@@ -85,7 +86,7 @@ function getErrorMessage(error: unknown): string {
     try {
       return JSON.stringify(error)
     } catch {
-      return 'Erro desconhecido'
+      return t("Erro desconhecido")
     }
   }
 
@@ -219,14 +220,15 @@ function sessionFiltersFromRow(
 const EXIT_DURATION_MS = 400
 
 function Swipe() {
+  const { locale } = useLocale()
   const { code } = useParams()
 
   usePageMeta({
     title: code
       ? `Sessão ${code.toUpperCase()} — MovieMatch`
-      : 'Sessão — MovieMatch',
+      : t("Sessão — MovieMatch"),
     description:
-      'Vote em filmes com os participantes da sua sessão do MovieMatch.',
+      t("Vote em filmes com os participantes da sua sessão do MovieMatch."),
     robots:
       'noindex,nofollow,noarchive',
   })
@@ -254,7 +256,7 @@ function Swipe() {
   const onlineCount = useSessionPresence(sessionId, sessionReady)
 
   // cache TMDB
-  const [detailsCache, setDetailsCache] = useState<Record<number, MovieDetails>>({})
+  const [detailsCache, setDetailsCache] = useState<Record<string, MovieDetails>>({})
 
   // aux
   const matchedRef = useRef(new Set<number>())
@@ -687,7 +689,7 @@ function Swipe() {
         // ⚠️ sanitiza o código da URL
         const CODE = String(code ?? '').trim().toUpperCase()
         if (!CODE) {
-          setFatalError('Código da sessão ausente ou inválido.')
+          setFatalError(t("Código da sessão ausente ou inválido."))
           setLoading(false)
           return
         }
@@ -726,7 +728,7 @@ function Swipe() {
         const sess = Array.isArray(sessionRows) ? sessionRows[0] : null
 
         if (sessErr || !sess?.id) {
-          setFatalError('Sessão não encontrada. Verifique o código.')
+          setFatalError(t("Sessão não encontrada. Verifique o código."))
           setLoading(false)
           return
         }
@@ -831,14 +833,14 @@ function Swipe() {
   useEffect(() => {
     (async () => {
       if (!current) return
-      const key = current.tmdb_id
+      const key = `${current.tmdb_id}:${locale}:${filters.watchRegion}`
       if (detailsCache[key]) return
       try {
-        const det = await getMovieDetails(key, { region: filters.watchRegion ?? 'BR' })
+        const det = await getMovieDetails(current.tmdb_id, { region: filters.watchRegion ?? 'BR' })
         setDetailsCache(prev => {
-          const next: Record<number, MovieDetails> = { ...prev, [key]: det }
+          const next: Record<string, MovieDetails> = { ...prev, [key]: det }
           const keys = Object.keys(next)
-          if (keys.length > 300) delete next[Number(keys[0]) as unknown as number]
+          if (keys.length > 300) delete next[keys[0]]
           return next
         })
       } catch (e) {
@@ -846,7 +848,7 @@ function Swipe() {
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.tmdb_id])
+  }, [current?.tmdb_id, locale, filters.watchRegion])
 
   // PREFETCH dos PRÓXIMOS
   useEffect(() => {
@@ -855,14 +857,14 @@ function Swipe() {
     toPrefetch.forEach(idx => {
       const m = movies[idx]
       if (!m) return
-      const key = m.tmdb_id
+      const key = `${m.tmdb_id}:${locale}:${filters.watchRegion}`
       if (!detailsCache[key]) {
-        getMovieDetails(key, { region: filters.watchRegion ?? 'BR' })
+        getMovieDetails(m.tmdb_id, { region: filters.watchRegion ?? 'BR' })
           .then(det => {
             setDetailsCache(prev => {
-              const next: Record<number, MovieDetails> = { ...prev, [key]: det }
+              const next: Record<string, MovieDetails> = { ...prev, [key]: det }
               const keys = Object.keys(next)
-              if (keys.length > 300) delete next[Number(keys[0]) as unknown as number]
+              if (keys.length > 300) delete next[keys[0]]
               return next
             })
           })
@@ -870,7 +872,7 @@ function Swipe() {
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i, movies])
+  }, [i, movies, locale, filters.watchRegion])
 
   const checkMatch = useCallback(
     async (movieId: number, notifyPeers = true) => {
@@ -1732,7 +1734,7 @@ function Swipe() {
       }
 
       setUndoMsg(
-        'Último swipe desfeito',
+        t("Último swipe desfeito"),
       )
 
       setTimeout(
@@ -1780,7 +1782,7 @@ function Swipe() {
   const confirmAdult = async (birthdateISO?: string) => {
     if (!birthdateISO) {
       toast.error(
-        'Informe sua data de nascimento para ativar conteúdo adulto.',
+        t("Informe sua data de nascimento para ativar conteúdo adulto."),
       )
       setIsAdult(false)
       setShowAgeGate(true)
@@ -1791,7 +1793,7 @@ function Swipe() {
 
     if (age < 18) {
       toast.error(
-        'Você precisa ter 18+ para ver esse conteúdo.',
+        t("Você precisa ter 18+ para ver esse conteúdo."),
       )
       setIsAdult(false)
       setShowAgeGate(false)
@@ -1821,7 +1823,7 @@ function Swipe() {
       setShowAgeGate(false)
 
       toast.success(
-        'Verificação concluída. Conteúdo adulto autorizado.',
+        t("Verificação concluída. Conteúdo adulto autorizado."),
       )
     } catch (error: unknown) {
       toast.error(
@@ -1864,7 +1866,7 @@ function Swipe() {
     // antes de alterar os filtros compartilhados.
     if (!sessionId || !userId) {
       toast.error(
-        'Não foi possível identificar a sessão para salvar os filtros.',
+        t("Não foi possível identificar a sessão para salvar os filtros."),
       )
       return
     }
@@ -1983,9 +1985,9 @@ function Swipe() {
     return <main className="cinema-page swipe-error"><SessionLoader /><AdblockWall enabled={!isPremium} /><Toaster richColors position="bottom-center" /></main>
   }
   if (fatalError) {
-    return <main className="cinema-page swipe-error"><div className="swipe-empty"><Film size={32} aria-hidden="true" /><p className="cinema-eyebrow">Vamos tentar de novo</p><h1>Não foi possível iniciar a sessão</h1><p>{fatalError}</p><CinemaButton direction="right" onClick={() => window.location.reload()}>Tentar novamente</CinemaButton></div><Toaster richColors position="bottom-center" /></main>
+    return <main className="cinema-page swipe-error"><div className="swipe-empty"><Film size={32} aria-hidden="true" /><p className="cinema-eyebrow">{t("Vamos tentar de novo")}</p><h1>{t("Não foi possível iniciar a sessão")}</h1><p>{fatalError}</p><CinemaButton direction="right" onClick={() => window.location.reload()}>{t("Tentar novamente")}</CinemaButton></div><Toaster richColors position="bottom-center" /></main>
   }
-  const det = current ? detailsCache[current.tmdb_id] : undefined
+  const det = current ? detailsCache[`${current.tmdb_id}:${locale}:${filters.watchRegion}`] : undefined
 
   return (
     <main className="cinema-page swipe-page" id="conteudo">
@@ -1994,28 +1996,28 @@ function Swipe() {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />
       <div className="swipe-deck">
-        <div className="swipe-stage-heading"><p>Uma escolha de cada vez</p><span><ArrowLeftRight size={14} aria-hidden="true" />Arraste o pôster para votar</span></div>
-        <h1 className="sr-only">Escolha o próximo filme</h1>
+        <div className="swipe-stage-heading"><p>{t("Uma escolha de cada vez")}</p><span><ArrowLeftRight size={14} aria-hidden="true" />{t("Arraste o pôster para votar")}</span></div>
+        <h1 className="sr-only">{t("Escolha o próximo filme")}</h1>
         <div className="swipe-card-stage">
           {current ? (isAdStep ? <AdSwipeCard ref={cardRef} key={`ad-${i}-${adsShown.current}`} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />
             : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onReviews={() => setReviewMovie(current)} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
             : <div className="swipe-empty" role="status">
               <Film size={34} aria-hidden="true" />
-              <p className="cinema-eyebrow">{noResults ? 'Um novo caminho para o play' : 'Mais histórias pela frente'}</p>
-              <h2>{noResults ? 'Vamos ampliar a seleção?' : loadingMore ? 'Preparando mais filmes.' : 'Você viu este lote.'}</h2>
-              <p>{noResults ? (discoverHint === 'relax_providers' ? 'Nenhum resultado com os filtros atuais. Remova ou reduza os catálogos de streaming selecionados.' : 'Nenhum resultado com os filtros atuais. Experimente outros gêneros ou amplie o período da busca.') : loadingMore ? 'Buscando as próximas opções para a sessão.' : 'Altere os filtros para descobrir novas opções ou confira os matches do grupo.'}</p>
-              {!loadingMore ? <CinemaButton tone="secondary" direction="right" compact onClick={() => setOpenFilters(true)}>Ajustar filtros</CinemaButton> : null}
+              <p className="cinema-eyebrow">{noResults ? t("Um novo caminho para o play") : t("Mais histórias pela frente")}</p>
+              <h2>{noResults ? t("Vamos ampliar a seleção?") : loadingMore ? t("Preparando mais filmes.") : t("Você viu este lote.")}</h2>
+              <p>{noResults ? (discoverHint === 'relax_providers' ? t("Nenhum resultado com os filtros atuais. Remova ou reduza os catálogos de streaming selecionados.") : t("Nenhum resultado com os filtros atuais. Experimente outros gêneros ou amplie o período da busca.")) : loadingMore ? t("Buscando as próximas opções para a sessão.") : t("Altere os filtros para descobrir novas opções ou confira os matches do grupo.")}</p>
+              {!loadingMore ? <CinemaButton tone="secondary" direction="right" compact onClick={() => setOpenFilters(true)}>{t("Ajustar filtros")}</CinemaButton> : null}
             </div>}
         </div>
-        <footer className="swipe-voting" aria-label="Seu voto">
+        <footer className="swipe-voting" aria-label={t("Seu voto")}>
           <div>
             <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />
           </div>
         </footer>
       </div>
       {!isPremium ? <>
-        <aside className="swipe-ad swipe-ad-left" aria-label="Publicidade"><span>Publicidade</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={180} height={180} /></aside>
-        <aside className="swipe-ad swipe-ad-right" aria-label="Publicidade"><span>Publicidade</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={180} height={180} /></aside>
+        <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={180} height={180} /></aside>
+        <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={180} height={180} /></aside>
       </> : null}
       <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
       {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
@@ -2079,16 +2081,14 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unkn
       return (
         <main className="min-h-dvh grid place-items-center p-6 bg-neutral-900 text-white">
           <div className="max-w-md text-center">
-            <h2 className="text-lg font-semibold mb-2">Ops! Algo quebrou.</h2>
+            <h2 className="text-lg font-semibold mb-2">{t("Ops! Algo quebrou.")}</h2>
             <p className="text-white/80 mb-4">{this.toMessage(this.state.error)}</p>
             {this.state.stack ? (
             <pre className="text-xs text-white/70 bg-white/5 rounded-md p-2 overflow-auto max-h-60">
               {this.state.stack}
             </pre>
           ) : null}
-            <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => location.reload()}>
-              Recarregar
-            </button>
+            <button className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15" onClick={() => location.reload()}>{t("Recarregar")}</button>
           </div>
         </main>
       )
@@ -2099,6 +2099,7 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: unkn
 
 // Wrapper que exportamos como default
 export default function SwipePageWrapper() {
+  useLocale()
   return (
     <PageErrorBoundary>
       <Swipe />

@@ -11,6 +11,7 @@
     { "source": "/assistidos", "destination": "/session.html" }
   ],
   "headers": [
+    { "source": "/landing-pages/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
     { "source": "/conta", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
     { "source": "/perfil", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },
     { "source": "/p/:handle", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }] },

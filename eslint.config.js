@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { globalIgnores } from 'eslint/config'
 
 export default tseslint.config([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'test-results']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -22,7 +22,7 @@ export default tseslint.config([
   },
   {
     // Registered upstream source exports its defaults alongside the components.
-    files: ['src/shaders/neuform-isolated/NeuformBatchEffects.tsx'],
+    files: ['src/shaders/neuform-isolated/NeuformBatchEffects.tsx', 'src/shaders/landing-pages/*.tsx'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])

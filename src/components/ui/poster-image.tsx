@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../../hooks/useLocale'
 import { useState, type CSSProperties } from 'react'
 
 type PosterImageProps = {
@@ -11,6 +12,7 @@ type PosterImageProps = {
 
 /** The embedded thumbnail paints immediately; the decoded full image fades over it. */
 export function PosterImage({ src, preview, alt, corridor = false, priority = false, lazy = false }: PosterImageProps) {
+  useLocale()
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   const tmdb = src.startsWith('https://image.tmdb.org/t/p/w500/')
@@ -34,7 +36,7 @@ export function PosterImage({ src, preview, alt, corridor = false, priority = fa
           }}
           onError={() => { setFailed(true); setReady(false) }} />
       </picture> : null}
-      {failed && alt ? <div className="cinema-poster-unavailable" role="img" aria-label={alt.replace('Pôster de ', 'Pôster indisponível de ')}><span>{alt.replace('Pôster de ', '')}</span><small>Pôster indisponível</small></div> : null}
+      {failed && alt ? <div className="cinema-poster-unavailable" role="img" aria-label={alt.replace(t("Pôster de "), t("Pôster indisponível de "))}><span>{alt.replace(t("Pôster de "), '')}</span><small>{t("Pôster indisponível")}</small></div> : null}
     </div>
   )
 }

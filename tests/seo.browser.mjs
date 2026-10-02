@@ -90,7 +90,7 @@ test('private shell is noindex before JavaScript and never contains home content
 })
 
 test('home paints before delayed scripts and remains interactive without automatic authentication', async () => {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  const ctx = await browser.newContext({ locale: 'pt-BR', viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
   const page = await ctx.newPage()
   const errors = [], auth = []
   page.on('pageerror', error => errors.push(error.message))

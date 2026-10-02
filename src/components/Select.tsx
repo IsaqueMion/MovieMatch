@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../hooks/useLocale'
 import {
   useCallback,
   useEffect,
@@ -38,6 +39,7 @@ export default function Select({
   className = '',
   buttonComponent,
 }: Props) {
+  useLocale()
   const Button = buttonComponent ?? 'button'
   const [open, setOpen] = useState(false)
   const [menuPosition, setMenuPosition] =
@@ -250,7 +252,7 @@ export default function Select({
                 : 'truncate text-white/45'
             }
           >
-            {selected?.label ?? placeholder}
+            {t(selected?.label ?? placeholder)}
           </span>
 
           <svg
@@ -335,7 +337,7 @@ export default function Select({
                       `}
                     >
                       <span className="truncate">
-                        {option.label}
+                        {t(option.label)}
                       </span>
 
                       {isSelected ? (

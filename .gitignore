@@ -32,3 +32,4 @@ dist-ssr
 supabase/.temp/
 .vercel
 test-results/
+public/landing-pages/movie-shelf.html

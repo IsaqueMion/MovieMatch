@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../hooks/useLocale'
 import { useEffect, useRef, useState } from 'react'
 
 
@@ -10,10 +11,10 @@ declare global {
 let adsenseLoading: Promise<void> | null = null
 function ensureAdsense(client: string): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
+  if (adsenseLoading) return adsenseLoading
   // já existe?
   const existing = document.querySelector('script[src*="pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"]') as HTMLScriptElement | null
   if (existing) return Promise.resolve()
-  if (adsenseLoading) return adsenseLoading
 
   adsenseLoading = new Promise<void>((resolve, reject) => {
     const s = document.createElement('script')
@@ -54,6 +55,7 @@ export default function AdSlot({
   fallbackHref,
   fallbackImgSrc,
 }: AdSlotProps) {
+  useLocale()
   const ref = useRef<HTMLDivElement | null>(null)
   const [visible, setVisible] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
@@ -82,8 +84,11 @@ export default function AdSlot({
       return
     }
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
     let cancelled = false
+    const observer = new MutationObserver(() => {
+      if (insRef.current?.getAttribute('data-ad-status') === 'unfilled') setUseFallback(true)
+    })
+    if (insRef.current) observer.observe(insRef.current, { attributes: true, attributeFilter: ['data-ad-status'] })
 
     // carrega a tag do AdSense sob demanda
     ensureAdsense(adClient)
@@ -100,18 +105,6 @@ export default function AdSlot({
           return
         }
 
-        // se o slot não preencher, troca para fallback
-        timeoutId = setTimeout(() => {
-          if (cancelled) return
-
-          const el = insRef.current
-          const empty =
-            !el ||
-            el.childElementCount === 0 ||
-            el.offsetHeight < 20
-
-          if (empty) setUseFallback(true)
-        }, 1800)
       })
       .catch(() => {
         if (!cancelled) setUseFallback(true)
@@ -119,31 +112,24 @@ export default function AdSlot({
 
     return () => {
       cancelled = true
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      observer.disconnect()
     }
   }, [visible, adClient, adSlot])
 
-  // Placeholder simpático (house-ad). Depois você pode trocar pelo script do provedor aqui.
+  // Show a house campaign only when both its image and destination are configured.
   const Inner = useFallback ? (
-    <a
-      href={fallbackHref || '#'}
-      target={fallbackHref ? '_blank' : undefined}
-      rel={fallbackHref ? 'noreferrer noopener' : undefined}
+    fallbackImgSrc && fallbackHref ? <a
+      href={fallbackHref}
+      target="_blank"
+      rel="noreferrer noopener"
     >
       <div
         className="rounded-xl ring-1 ring-white/15 bg-gradient-to-br from-neutral-800 to-neutral-700 overflow-hidden shadow grid place-items-center"
         style={{ width, height }}
       >
-        {fallbackImgSrc ? (
-          <img src={fallbackImgSrc} alt="Anúncio" className="w-full h-full object-cover" />
-        ) : (
-          <div className="text-center">
-            <div className="text-[10px] uppercase tracking-wide text-white/50">Anúncio</div>
-            <div className="mt-1 text-white/80 text-sm">Em breve publicidade aqui</div>
-          </div>
-        )}
+        <img src={fallbackImgSrc} alt={t("Anúncio")} className="w-full h-full object-cover" />
       </div>
-    </a>
+    </a> : null
   ) : (
     <ins
       className="adsbygoogle block overflow-hidden rounded-xl ring-1 ring-white/15 bg-neutral-800/40"
@@ -156,7 +142,7 @@ export default function AdSlot({
     />
   )
   return (
-  <div ref={ref} id={id} className={className} style={{ width, height }}>
+  <div ref={ref} id={id} className={className} data-ad-empty={useFallback && !(fallbackImgSrc && fallbackHref) ? 'true' : undefined} style={{ width, height }}>
     {visible ? Inner : null}
   </div>
 )

@@ -35,7 +35,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill() })
 
 async function fixture({ count = 5, width = 1440, empty = false, invalid = false, listFailure = false, detailsFailure = false, liveImages = false, missingPoster = false } = {}) {
-  const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
+  const ctx = await browser.newContext({ locale: 'pt-BR', serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
   const uid = '11111111-1111-4111-8111-111111111111'
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
@@ -73,7 +73,7 @@ async function fixture({ count = 5, width = 1440, empty = false, invalid = false
   if (!liveImages) await ctx.route(/https:\/\/image\.tmdb\.org\//, async route => {
     const movie = catalogue.movies.find(movie => new URL(movie.poster).pathname.split('/').pop() === new URL(route.request().url()).pathname.split('/').pop())
     const index = ids.indexOf(movie?.id)
-    if (index >= 0) return route.fulfill({ contentType: 'image/jpeg', body: await readFile(new URL('../public' + posters[index], import.meta.url)) })
+    if (index >= 0) return route.fulfill({ contentType: 'image/jpeg', headers: { 'access-control-allow-origin': '*' }, body: await readFile(new URL('../public' + posters[index], import.meta.url)) })
     return route.abort()
   })
   const page = await ctx.newPage()
@@ -206,7 +206,7 @@ test('coverflow navega por botões e teclado, respeita movimento reduzido e abre
       const m = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.coverflow-card[aria-hidden="false"]')).transform)
       return Math.abs(m.m13) < .001
     })
-    const detailsRequest = page.waitForRequest('**/functions/v1/movie_details*')
+    const detailsRequest = page.waitForResponse('**/functions/v1/movie_details*')
     await page.getByRole('button', { name: 'Explorar o filme' }).click()
     await page.getByRole('dialog').waitFor()
     assert.equal(await page.locator('.matches-dialog h2').innerText(), movies[1].title)
@@ -260,4 +260,32 @@ test('arrastar o coverflow seleciona outro filme sem abrir os detalhes', async (
     await page.waitForFunction(() => document.querySelector('.coverflow-caption h3')?.textContent !== 'Interestelar')
     assert.equal(await page.getByRole('dialog').count(), 0)
   } finally { await ctx.close() }
+})
+
+for (const width of [390, 1440]) test(`estante em ${width}px renderiza matches, navega e abre os detalhes reais; busca atualiza a cena`, {skip:!process.env.LIVE_THREEUI}, async () => {
+  const {ctx,page,state}=await fixture({width})
+  try{
+    await page.getByRole('button',{name:'Estante experimental',exact:true}).click()
+    const shelf=page.frameLocator('iframe[title="Estante dos matches"]')
+    await shelf.locator('#experience.webgl-ready').waitFor({timeout:60000})
+    await page.locator('.matches-shelf-experiment iframe').scrollIntoViewIfNeeded()
+    if(process.env.VISUAL_CAPTURE_DIR) await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/threeui-shelf-${width}.png`})
+    assert.equal(await shelf.locator('#markers [role=tab]').count(),5)
+    assert.ok(await shelf.locator('#scene').evaluate(canvas=>canvas.width>0&&canvas.height>0))
+    await shelf.locator('#next').click();await shelf.locator('#selection-title').filter({hasText:movies[1].title}).waitFor()
+    await shelf.locator('#inspect').click();await page.getByRole('dialog').waitFor()
+    assert.equal(await page.locator('.matches-dialog h2').innerText(), movies[1].title)
+    await page.keyboard.press('Escape')
+    await page.getByRole('searchbox').fill('Interestelar')
+    await shelf.locator('#experience.webgl-ready').waitFor({timeout:60000})
+    assert.equal(await shelf.locator('#markers [role=tab]').count(),1)
+    assert.equal(await shelf.locator('#selection-title').innerText(),movies[0].title)
+    assert.equal(await shelf.locator('#next').isVisible(),false)
+    await page.getByRole('searchbox').fill('Não existe filme assim')
+    await page.getByText('Esse filme não está na seleção.').waitFor()
+    assert.equal(await page.locator('.matches-shelf-experiment iframe').count(),0)
+    await page.getByRole('searchbox').fill('')
+    await page.getByRole('button',{name:'Carrossel',exact:true}).click();await page.locator('.coverflow-caption h3').filter({hasText:'Interestelar'}).waitFor()
+    assert.equal(state.movies.length,5);assert.equal(state.detailsCalls,1)
+  }finally{await ctx.close()}
 })

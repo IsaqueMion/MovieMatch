@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../../hooks/useLocale'
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -32,6 +33,7 @@ export interface CoverflowCarouselProps {
 
 /** Adapted from the supplied coverflow reference for vertical cinema posters. */
 export function CoverflowCarousel({ slides, rotate = 44, depth = .6, perspective = 3, falloff = .56, fade = .1, cardWidth = 'clamp(168px, 22vw, 260px)', gap = .05, loop = true, label = 'Filmes do grupo', className = '', showNavigation = true, showCaption = true, renderSlide, renderCaption, onActivate }: CoverflowCarouselProps) {
+  useLocale()
   const count = slides.length
   // Two items cannot form a ring without teleporting a visible neighbour.
   const isLooping = loop && count > 2
@@ -159,7 +161,7 @@ export function CoverflowCarousel({ slides, rotate = 44, depth = .6, perspective
 
   return <div className={`coverflow-carousel ${className}`} style={{ '--cf-card': cardWidth } as CSSProperties} role="region" aria-roledescription="carrossel" aria-label={label}>
     <div className="coverflow-stage">
-      <div id={frameId} className="coverflow-frame" ref={frameRef} tabIndex={count > 1 ? 0 : -1} aria-label="Use as setas para escolher um filme" style={{ perspective: `calc(var(--cf-card) * ${perspective})`, touchAction: 'pan-y' }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={event => endDrag(event)} onPointerCancel={event => endDrag(event, true)} onClickCapture={event => {
+      <div id={frameId} className="coverflow-frame" ref={frameRef} tabIndex={count > 1 ? 0 : -1} aria-label={t("Use as setas para escolher um filme")} style={{ perspective: `calc(var(--cf-card) * ${perspective})`, touchAction: 'pan-y' }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={event => endDrag(event)} onPointerCancel={event => endDrag(event, true)} onClickCapture={event => {
         if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); suppressClick.current = false }
       }} onKeyDown={event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || count < 2) return
@@ -171,15 +173,15 @@ export function CoverflowCarousel({ slides, rotate = 44, depth = .6, perspective
       }}>
         <div className="coverflow-track">
           {slides.map((slide, index) => <div key={slide.id} ref={node => { cardRefs.current[index] = node }} className="coverflow-card" role="group" aria-roledescription="slide" aria-label={`${index + 1} de ${count}`} aria-hidden={index !== activeIndex}>
-            <button type="button" className="coverflow-open matches-spotlight-poster" aria-label={index === activeIndex ? `Ver detalhes de ${slide.title}` : `Selecionar ${slide.title}`} tabIndex={index === activeIndex ? 0 : -1} onClick={() => index === activeIndex ? onActivate?.(index) : goTo(index)}>
+            <button type="button" className="coverflow-open matches-spotlight-poster" aria-label={index === activeIndex ? t("Ver detalhes de {0}", [slide.title]) : `Selecionar ${slide.title}`} tabIndex={index === activeIndex ? 0 : -1} onClick={() => index === activeIndex ? onActivate?.(index) : goTo(index)}>
               {renderSlide ? renderSlide(slide, index, index === activeIndex) : <img src={slide.src || ''} alt={slide.alt} width={500} height={750} draggable={false} loading={Math.abs(index - activeIndex) <= 2 ? 'eager' : 'lazy'} />}
             </button>
           </div>)}
         </div>
       </div>
-      {showNavigation && count > 1 ? <div className="coverflow-navigation"><button type="button" aria-label="Filme anterior" aria-controls={frameId} onClick={() => nudge(-1)} disabled={!isLooping && activeIndex === 0}><ChevronLeft size={20} aria-hidden="true" /></button><span aria-hidden="true">{String(activeIndex + 1).padStart(2, '0')} <i>/</i> {String(count).padStart(2, '0')}</span><button type="button" aria-label="Próximo filme" aria-controls={frameId} onClick={() => nudge(1)} disabled={!isLooping && activeIndex === count - 1}><ChevronRight size={20} aria-hidden="true" /></button></div> : null}
+      {showNavigation && count > 1 ? <div className="coverflow-navigation"><button type="button" aria-label={t("Filme anterior")} aria-controls={frameId} onClick={() => nudge(-1)} disabled={!isLooping && activeIndex === 0}><ChevronLeft size={20} aria-hidden="true" /></button><span aria-hidden="true">{String(activeIndex + 1).padStart(2, '0')} <i>/</i> {String(count).padStart(2, '0')}</span><button type="button" aria-label={t("Próximo filme")} aria-controls={frameId} onClick={() => nudge(1)} disabled={!isLooping && activeIndex === count - 1}><ChevronRight size={20} aria-hidden="true" /></button></div> : null}
     </div>
-    <p className="sr-only" role="status" aria-live="polite">Filme {activeIndex + 1} de {count}: {active.title}</p>
+    <p className="sr-only" role="status" aria-live="polite">{t("Filme") + " "}{activeIndex + 1}{" " + t("de") + " "}{count}: {active.title}</p>
     {showCaption ? <div className="coverflow-caption">{renderCaption ? renderCaption(active, activeIndex) : <><h3>{active.title}</h3><p>{active.subtitle}</p>{active.meta?.length ? <dl>{active.meta.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl> : null}</>}</div> : null}
   </div>
 }

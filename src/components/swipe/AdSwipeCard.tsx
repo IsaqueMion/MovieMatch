@@ -1,3 +1,4 @@
+import { translate as t } from '../../hooks/useLocale'
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import {
   forwardRef,
@@ -140,27 +141,18 @@ const AdSwipeCard = forwardRef<
     >
       <div className="grid h-full min-h-0 place-items-center px-1 py-2">
         <div className="swipe-ad-interlude">
-          <div className="cinema-eyebrow">
-            Publicidade
-          </div>
+          <div className="cinema-eyebrow">{t("Publicidade")}</div>
 
-          <h2>Uma pausa.<br /><span>Mais histórias.</span></h2>
+          <h2>{t("Uma pausa.")}<br /><span>{t("Mais histórias.")}</span></h2>
 
-          <p className="mt-1 text-sm leading-relaxed text-white/80">
-            A publicidade ajuda a manter o MovieMatch gratuito.
-            Seu próximo filme está logo ali.
-          </p>
+          <p className="mt-1 text-sm leading-relaxed text-white/80">{t("A publicidade ajuda a manter o MovieMatch gratuito. Seu próximo filme está logo ali.")}</p>
 
-          <div className="mt-3 text-xs text-white/60">
-            Deslize para continuar
-          </div>
+          <div className="mt-3 text-xs text-white/60">{t("Deslize para continuar")}</div>
 
           <div
             className="mt-4 border-t border-white/10 pt-3 text-center text-[11px] text-white/45"
             data-interactive="true"
-          >
-            Este card não conta como like/dislike
-          </div>
+          >{t("Este card não conta como like/dislike")}</div>
         </div>
       </div>
     </motion.div>

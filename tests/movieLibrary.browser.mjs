@@ -35,7 +35,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill() })
 
 async function fixture({ state = shared(), uid = owner, width = 1440, guest = false, path = '/s/DEMO01/matches' } = {}) {
-  const ctx = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
+  const ctx = await browser.newContext({ locale: 'pt-BR', serviceWorkers: 'block', viewport: { width, height: width < 640 ? 844 : 1000 } })
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: guest, email_confirmed_at: guest ? undefined : '2026-10-01T12:00:00Z', app_metadata: {}, user_metadata: {} }
   const token = Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: uid, aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url') + '.fixture'
   const requests = [], reactions = [], errors = []
@@ -379,7 +379,8 @@ for(const width of [390,768,1440])test(`atalhos centralizados na ordem dos contr
     await page.emulateMedia({reducedMotion:'reduce'})
     assert.deepEqual(await page.locator('.cinema-dock-shortcut kbd').allTextContents(),['←','⌫','→'])
     const alignment=await page.locator('.cinema-dock-item').evaluateAll(items=>items.map(item=>{const b=item.querySelector('button').getBoundingClientRect(),l=item.querySelector('.cinema-dock-label').getBoundingClientRect();return Math.abs(b.left+b.width/2-l.left-l.width/2)}))
-    assert.ok(alignment.every(delta=>delta<1),JSON.stringify(alignment))
+    if(width>=1024) assert.ok(alignment.every(delta=>delta<1),JSON.stringify(alignment))
+    else assert.equal(await page.locator('.cinema-dock-shortcut').first().isVisible(),false)
     await page.getByText('Testes',{exact:true}).waitFor()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/vote-shortcuts-${width}.png`})

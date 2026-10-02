@@ -1,3 +1,4 @@
+import { translate as t, useLocale } from '../hooks/useLocale'
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
@@ -10,6 +11,7 @@ function wasDismissed() {
 
 /** Best-effort detection is informational: ad failures never gate the session. */
 export default function AdblockWall({ enabled = true }: Props) {
+  useLocale()
   const [dismissed, setDismissed] = useState(wasDismissed)
   const [unavailable, setUnavailable] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -49,9 +51,9 @@ export default function AdblockWall({ enabled = true }: Props) {
 
   if (!enabled || dismissed || !unavailable) return null
   return (
-    <aside className="mm-ad-notice" aria-label="Informação sobre publicidade">
-      <p role="status">Os anúncios ajudam a manter o MovieMatch gratuito. Se estiverem indisponíveis, você pode continuar normalmente. <a href="/ads.html" target="_blank" rel="noreferrer">Saiba mais</a></p>
-      <button ref={closeRef} type="button" onClick={dismiss} aria-label="Dispensar aviso de publicidade"><X size={16} aria-hidden="true" /></button>
+    <aside className="mm-ad-notice" aria-label={t("Informação sobre publicidade")}>
+      <p role="status">{t("Os anúncios ajudam a manter o MovieMatch gratuito. Se estiverem indisponíveis, você pode continuar normalmente.") + " "}<a href="/ads.html" target="_blank" rel="noreferrer">{t("Saiba mais")}</a></p>
+      <button ref={closeRef} type="button" onClick={dismiss} aria-label={t("Dispensar aviso de publicidade")}><X size={16} aria-hidden="true" /></button>
     </aside>
   )
 }
