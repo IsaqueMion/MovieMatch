@@ -144,7 +144,7 @@
 
 /* Participants stay centered above the room information. */
 .swipe-header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px 16px;padding-bottom:8px}
-.swipe-header>.cinema-brand{grid-column:1;grid-row:1}
+.swipe-header>.cinema-brand{grid-column:1;grid-row:1;justify-self:start}
 .swipe-header-members{grid-column:2;grid-row:1;justify-self:center;min-width:0;max-width:min(26vw,360px)}
 .swipe-header-members .profile-avatar-list{max-width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
 .swipe-header-actions{grid-column:3;grid-row:1;display:flex;align-items:center;justify-content:flex-end;gap:16px;min-width:0}
