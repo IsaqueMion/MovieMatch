@@ -20,7 +20,6 @@ import '../styles/library.css'
 import AccountMenu from '../components/account/AccountMenu'
 import SaveRoomButton from '../components/account/SaveRoomButton'
 const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviewsDialog'))
-const MovieShelf = lazy(() => import('../components/matches/MovieShelf'))
 
 
 type MatchItem = {
@@ -38,7 +37,6 @@ type SortKey = 'recent' | 'oldest' | 'title'
 
 export default function Matches() {
   useLocale()
-  const [shelf, setShelf] = useState(false)
   const { code = '' } = useParams()
   const navigate = useNavigate()
   const [copyStatus, setCopyStatus] = useState('')
@@ -406,8 +404,7 @@ export default function Matches() {
             : listError ? <div className="matches-load-error" role="alert"><p>{t("Não foi possível atualizar a seleção. Tente novamente em instantes.")}</p><button onClick={() => void loadMatches(sessionId)}>{t("Tentar novamente")}</button></div> : null}
           {!pageLoading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? t("Vamos tentar outro título") : t("O próximo sim está por vir")}</span><h3>{q.trim() ? t("Esse filme não está na seleção.") : items.length && !pending.length ? t("Você já viu todos esses filmes.") : t("Ainda não deu match.")}</h3><p>{q.trim() ? t("Busque outro título ou veja todos os filmes aprovados pelo grupo.") : items.length && !pending.length ? t("Suas histórias estão em Meus assistidos. Continue votando para descobrir novas opções.") : t("Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.")}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? t("Limpar busca") : t("Continuar votando")}</CinemaButton></div> : null}
           {!pageLoading && sessionId && featured ? <>
-            <div className="matches-view-options" role="group" aria-label={t('Testar estante ThreeUI')}><button type="button" aria-pressed={!shelf} onClick={() => setShelf(false)}>{t('Carrossel')}</button><button type="button" aria-pressed={shelf} onClick={() => setShelf(true)}>{t('Estante experimental')}</button></div>
-            {shelf ? <section className="matches-shelf-experiment"><Suspense fallback={<SessionLoader />}><MovieShelf movies={visible} onExplore={id => { const movie = visible.find(item => item.movie_id === id); if (movie) void openDetails(movie) }} /></Suspense></section> : <article className="matches-spotlight matches-coverflow">
+            <article className="matches-spotlight matches-coverflow">
               <p className="matches-carousel-intro"><ArrowLeftRight size={14} aria-hidden="true" />{visible.length > 1 ? t("Deslize pelos filmes que conquistaram o grupo") : t("O filme que conquistou o grupo")}</p>
               <CoverflowCarousel
                 key={`${sort}:${q.trim().toLowerCase()}:${visible.map(movie => movie.movie_id).join(',')}`}
@@ -420,7 +417,7 @@ export default function Matches() {
                   return <><p className="matches-film-year">{movie.year ?? t("Ano não informado")} <span>{t("· Escolha do grupo")}</span></p><h3>{movie.title}</h3><div className="matches-consensus"><span><Heart size={16} fill="currentColor" aria-hidden="true" /></span><div><strong>{t("Todo mundo disse sim.")}</strong><p>{movie.likes}{" " + t("de") + " "}{movie.member_count}{" " + t("participantes curtiram")}</p></div></div><CinemaButton direction="diagonal" onClick={() => void openDetails(movie)}>{t("Explorar o filme")}</CinemaButton><p className="matches-detail-hint">{t("Sinopse, trailer e onde assistir")}</p></>
                 }}
               />
-            </article>}
+            </article>
             <div className="matches-more-heading"><h3>{t("Todos os matches")}</h3><span>{visible.length} {visible.length === 1 ? 'escolha em comum' : 'escolhas em comum'}</span></div>
             <ul className="matches-grid">{visible.map(movie => <li key={movie.movie_id}><button className="matches-film-card" onClick={() => void openDetails(movie)} aria-label={t("Ver detalhes de {0}", [movie.title])}><div className="matches-card-image"><MatchPoster title={movie.title} poster={movie.poster_url} /><span className="matches-card-consensus"><Check size={13} aria-hidden="true" />{movie.likes}/{movie.member_count}{" " + t("curtiram")}</span><span className="matches-poster-open"><ArrowUpRight size={19} aria-hidden="true" /></span></div><div className="matches-card-copy"><span>{movie.year ?? t("Ano não informado")}</span><h4>{movie.title}</h4><p>{movie.latestAt ? t("Match em ") + new Date(movie.latestAt).toLocaleDateString(currentLocale()) : t("Escolha do grupo")}</p></div></button></li>)}</ul>
           </> : null}

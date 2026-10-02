@@ -38,7 +38,7 @@ jobs:
         run: |
           pnpm test
           node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/locale.test.ts
-          node --test tests/localized-functions.test.mjs tests/shelf-source.test.mjs
+          node --test tests/localized-functions.test.mjs
 
       - name: Production build
         run: pnpm build

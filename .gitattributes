@@ -6,7 +6,4 @@
 *.webp binary
 *.ico binary
 
-public/landing-pages/complete-shelf-v2.html -text
-src/shaders/landing-pages/LandingPageFrame.tsx -text
-docs/threeui-shelf/LandingPages.tsx.txt -text
 src/shaders/threeui.css -text
