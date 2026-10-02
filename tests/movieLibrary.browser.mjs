@@ -273,15 +273,18 @@ test('avaliações no swipe: média inclui todas as páginas e estrelas/edição
 
 for (const width of [320, 390, 768, 1440]) test(`histórico e avaliações em ${width}px: layout, foco e recuperação`, async () => {
   const state = shared(), row = watch(state)
+  watch(state, owner, movies[1])
   state.reviews.push({ id: row.id, tmdb_id: row.tmdb_id, display_name: 'Ana', rating: 4, comment: 'Uma viagem para rever.', contains_spoilers: false, created_at: '2026-10-01T12:01:00Z', updated_at: '2026-10-01T12:01:00Z' })
   const { ctx, page, errors } = await fixture({ state, width })
   try {
     await page.getByRole('link', { name: /Meus assistidos/ }).click()
-    await page.locator('.library-movie-card').waitFor()
+    await page.locator('.library-movie-card').first().waitFor()
     await page.evaluate(() => document.fonts.ready)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
-    const ratio = await page.locator('.library-poster-button').evaluate(element => element.clientWidth / element.clientHeight)
+    const ratio = await page.locator('.library-poster-button').first().evaluate(element => element.clientWidth / element.clientHeight)
     assert.ok(Math.abs(ratio - 2 / 3) < .02)
+    const cards=await page.locator('.library-movie-copy').evaluateAll(elements=>elements.map(el=>[...el.children].map(child=>child.getBoundingClientRect().top)))
+    for(let i=0;i<cards[0].length;i++)assert.ok(Math.abs(cards[0][i]-cards[1][i])<1,`Linha ${i} desalinhada em ${width}px`)
     if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/watched-${width}.png`, fullPage: true })
     await page.getByRole('button', { name: 'Editar avaliação' }).click()
     const dialog = page.getByRole('dialog')
@@ -298,7 +301,7 @@ for (const width of [320, 390, 768, 1440]) test(`histórico e avaliações em ${
     await page.getByRole('alert').waitFor()
     state.failList = false
     await page.getByRole('button', { name: 'Tentar novamente' }).click()
-    await page.locator('.library-movie-card').waitFor()
+    await page.locator('.library-movie-card').first().waitFor()
     assert.deepEqual(errors, [])
   } finally { await ctx.close() }
 })

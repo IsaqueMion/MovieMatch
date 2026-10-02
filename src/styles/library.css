@@ -17,11 +17,11 @@
 .library-search:focus-within { border-color: var(--cinema-accent); }
 .library-toolbar select { background: var(--cinema-surface); border: 1px solid var(--cinema-line); border-radius: 8px; min-height: 44px; padding: 10px; font-size: 11px; color: var(--cinema-ink); }
 .library-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 26px; }
-.library-movie-card { min-width: 0; }
+.library-movie-card { min-width: 0; display: grid; grid-row: span 7; grid-template-rows: subgrid; row-gap: 0; }
 .library-poster-button { position: relative; display: block; width: 100%; border-radius: 9px; overflow: hidden; }
 .library-poster-button .matches-poster { width: 100%; aspect-ratio: 2/3; }
 .library-watched-badge { position: absolute; top: 10px; left: 10px; display: flex; align-items: center; gap: 4px; background: #13251de8; color: var(--cinema-accent); font-size: 9px; padding: 7px 9px; border-radius: 5px; }
-.library-movie-copy { padding-top: 16px; }
+.library-movie-copy { padding-top: 16px; display: grid; grid-row: span 6; grid-template-rows: subgrid; row-gap: 0; align-items: start; }
 .library-movie-copy > span { font-size: 10px; color: var(--cinema-muted); }
 .library-movie-copy h3 { font: 500 22px/1.2 var(--cinema-display); letter-spacing: -.03em; margin-top: 8px; overflow-wrap: anywhere; }
 .library-movie-copy > p { color: var(--cinema-muted); font-size: 10px; margin-top: 10px; }
