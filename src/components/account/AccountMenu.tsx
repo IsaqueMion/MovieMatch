@@ -6,7 +6,6 @@ import { useAccount } from '../../hooks/useAccount'
 import { accountHref, mediaUrl, myProfile, type Profile } from '../../lib/account'
 import { supabase } from '../../lib/supabase'
 import '../../styles/account.css'
-import LanguageSelect from '../ui/language-select'
 
 const ProfileEditorDialog = lazy(() => import('./ProfileEditorDialog'))
 
@@ -61,7 +60,6 @@ export default function AccountMenu() {
   }
   const avatar = <span className="account-menu-avatar"><UserRound size={19} aria-hidden="true" />{profile?.avatar_path ? <img key={profile.avatar_path} src={mediaUrl(profile.avatar_path)} alt="" onError={event => { event.currentTarget.hidden = true }} /> : null}</span>
   return <nav className="account-menu" aria-label={t("Sua conta")}>
-    <LanguageSelect />
     <div className="account-menu-root" data-preview-dismissed={previewDismissed} ref={element => { root.current = element }} onPointerEnter={event => { if (event.pointerType === 'mouse') setPreviewDismissed(false) }} onFocus={event => { if ((event.target as HTMLElement) === trigger.current && !event.currentTarget.contains(event.relatedTarget as Node)) setPreviewDismissed(false) }} onKeyDown={keyboard} onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false) }}>
       {account.registered ? <>
         <button ref={trigger} type="button" className="account-menu-trigger" aria-label={t("Abrir menu do perfil")} aria-haspopup="menu" aria-expanded={open} aria-controls="account-profile-menu" onClick={() => { setPreviewDismissed(true); setOpen(value => !value) }}>{avatar}<ChevronDown size={13} aria-hidden="true" /></button>

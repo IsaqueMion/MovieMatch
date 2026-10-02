@@ -20,7 +20,7 @@ import '../styles/library.css'
 import AccountMenu from '../components/account/AccountMenu'
 import SaveRoomButton from '../components/account/SaveRoomButton'
 const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviewsDialog'))
-const CompleteShelfLandingPage = lazy(() => import('../shaders/landing-pages/LandingPages').then(module => ({ default: module.CompleteShelfLandingPage })))
+const MovieShelf = lazy(() => import('../components/matches/MovieShelf'))
 
 
 type MatchItem = {
@@ -407,7 +407,7 @@ export default function Matches() {
           {!pageLoading && sessionId && !listError && !featured ? <div className="matches-empty"><Heart size={38} aria-hidden="true" /><span className="cinema-eyebrow">{q.trim() ? t("Vamos tentar outro título") : t("O próximo sim está por vir")}</span><h3>{q.trim() ? t("Esse filme não está na seleção.") : items.length && !pending.length ? t("Você já viu todos esses filmes.") : t("Ainda não deu match.")}</h3><p>{q.trim() ? t("Busque outro título ou veja todos os filmes aprovados pelo grupo.") : items.length && !pending.length ? t("Suas histórias estão em Meus assistidos. Continue votando para descobrir novas opções.") : t("Continuem descobrindo filmes. O match aparece quando todos os participantes atuais curtem, com pelo menos duas pessoas.")}</p><CinemaButton direction="right" onClick={() => q.trim() ? setQ('') : navigate(`/s/${code}`)}>{q.trim() ? t("Limpar busca") : t("Continuar votando")}</CinemaButton></div> : null}
           {!pageLoading && sessionId && featured ? <>
             <div className="matches-view-options" role="group" aria-label={t('Testar estante ThreeUI')}><button type="button" aria-pressed={!shelf} onClick={() => setShelf(false)}>{t('Carrossel')}</button><button type="button" aria-pressed={shelf} onClick={() => setShelf(true)}>{t('Estante experimental')}</button></div>
-            {shelf ? <section className="matches-shelf-experiment"><p>{t('Referência original com sete ferramentas. Os filmes do grupo continuam disponíveis abaixo.')}</p><Suspense fallback={<SessionLoader />}><CompleteShelfLandingPage headingFont="iowan-old-style" bodyFont="inter" headingWeight="400" bodyWeight="400" primaryColor="#c87046" headingSize={60} bodySize={12} headingLetterSpacing={-0.055} /></Suspense></section> : <article className="matches-spotlight matches-coverflow">
+            {shelf ? <section className="matches-shelf-experiment"><Suspense fallback={<SessionLoader />}><MovieShelf movies={visible} onExplore={id => { const movie = visible.find(item => item.movie_id === id); if (movie) void openDetails(movie) }} /></Suspense></section> : <article className="matches-spotlight matches-coverflow">
               <p className="matches-carousel-intro"><ArrowLeftRight size={14} aria-hidden="true" />{visible.length > 1 ? t("Deslize pelos filmes que conquistaram o grupo") : t("O filme que conquistou o grupo")}</p>
               <CoverflowCarousel
                 key={`${sort}:${q.trim().toLowerCase()}:${visible.map(movie => movie.movie_id).join(',')}`}

@@ -250,7 +250,7 @@ test('idioma automático e manual preserva os campos; painel e fundo ficam está
     assert.ok(await page.locator('.account-floating-paths path').count() > 0)
     await page.getByRole('group',{name:'Account access'}).getByRole('button',{name:'Create account',exact:true}).click()
     await page.getByLabel('Password',{exact:true}).fill('Mm!7zQp9')
-    await page.getByLabel('Interface language',{exact:true}).selectOption('es')
+    await page.getByRole('button',{name:'Interface language',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Español/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
     await page.getByRole('heading',{name:'Tu cine empieza aquí.'}).waitFor()
     assert.equal(await page.getByLabel('Contraseña',{exact:true}).inputValue(),'Mm!7zQp9')
     const nextStory=await page.locator('.account-story').boundingBox(), nextPanel=await page.locator('.account-entry-panel').boundingBox()
@@ -265,7 +265,7 @@ test('idioma automático e manual preserva os campos; painel e fundo ficam está
   const mobile=await fixture({path:'/conta',loggedIn:false,width:320,locale:'es-MX'})
   try{
     await mobile.page.getByRole('heading',{name:'La sesión continúa.'}).waitFor()
-    const link=await mobile.page.locator('.account-guest-link').boundingBox(), language=await mobile.page.locator('.account-language').boundingBox()
+    const link=await mobile.page.locator('.account-guest-link').boundingBox(), language=await mobile.page.locator('.site-language-footer').boundingBox()
     assert.ok(language.y>=link.y+link.height)
     assert.equal(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   }finally{await mobile.context.close()}

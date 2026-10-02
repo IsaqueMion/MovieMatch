@@ -25,7 +25,7 @@ export default function ProfileAvatars({ sessionId }: { sessionId?: string | nul
           : await supabase.rpc('community_profiles')
         if (!active) return
         setError(!!error)
-        if (!error && Array.isArray(data)) setMembers(data)
+        if (!error && Array.isArray(data)) setMembers(sessionId ? data.filter(member => member.online === true) : data)
       } catch { if (active) setError(true) }
       finally { running = false }
     }

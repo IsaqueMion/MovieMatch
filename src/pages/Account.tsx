@@ -12,7 +12,6 @@ import PasswordStrength from '../components/account/PasswordStrength'
 import PasswordConfirmation, { PasswordMatchDots } from '../components/account/PasswordConfirmation'
 import { passwordStrength } from '../lib/passwordStrength'
 import '../styles/account.css'
-import LanguageSelect from '../components/ui/language-select'
 
 export default function Account() {
   useLocale()
@@ -85,7 +84,6 @@ export default function Account() {
         <div className="account-story-copy"><p className="cinema-eyebrow">{t("O próximo filme. A escolha de todos.")}</p><p className="account-story-title">{t("O play acaba.")}<br /><span>{t("A conversa continua.")}</span></p><p>{t("Guarde as sessões que renderam, os filmes que ficaram e a sua opinião depois dos créditos.")}</p><span className="account-story-signature">{t("Seu lugar na próxima sessão.")}</span></div>
       </aside>
       <section className="account-entry-panel">
-        <div className="account-language"><LanguageSelect /></div>
         <Link className="account-guest-link" to={returnTo}><ArrowLeft size={16} aria-hidden="true" />{t("Continuar sem cadastro")}</Link>
         <div className="account-form" data-mode={mode}>
           <div className="account-form-transition" key={signedIn ? 'connected' : mode}>

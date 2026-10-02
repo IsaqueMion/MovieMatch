@@ -2586,5 +2586,33 @@
   "Foto de {0}": [
     "Photo of {0}",
     "Foto de {0}"
+  ],
+  "Mais opções da sessão": [
+    "More session options",
+    "Más opciones de la sesión"
+  ],
+  "Estante dos matches": [
+    "Match bookshelf",
+    "Estantería de matches"
+  ],
+  "Os filmes que uniram o grupo.": [
+    "The films that brought everyone together.",
+    "Las películas que unieron al grupo."
+  ],
+  "Selecionar filme": [
+    "Select film",
+    "Seleccionar película"
+  ],
+  "{0} filmes": [
+    "{0} films",
+    "{0} películas"
+  ],
+  "Role, use as setas ou selecione um filme": [
+    "Scroll, use arrows or select a film",
+    "Desplázate, usa las flechas o selecciona una película"
+  ],
+  "Preparando seus matches…": [
+    "Preparing your matches…",
+    "Preparando tus matches…"
   ]
 }

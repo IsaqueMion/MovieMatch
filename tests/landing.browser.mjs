@@ -36,7 +36,7 @@ test('trocar idioma no swipe preserva filme, votos e região; metadados usam o n
     await page.getByRole('button',{name:'Want to watch',exact:true}).waitFor()
     const title=await page.locator('.swipe-film-title').textContent()
     const localizedDetails=page.waitForResponse(response=>response.url().includes('/functions/v1/movie_details')&&new URL(response.url()).searchParams.get('language')==='es-ES')
-    await page.getByLabel('Interface language',{exact:true}).selectOption('es')
+    await page.getByRole('button',{name:'Interface language',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Español/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
     await localizedDetails
     await page.getByRole('button',{name:'Quiero verla',exact:true}).waitFor()
     assert.equal(await page.locator('.swipe-film-title').textContent(),title)
@@ -49,7 +49,7 @@ test('trocar idioma no swipe preserva filme, votos e região; metadados usam o n
     await page.getByRole('button',{name:'Quiero verla',exact:true}).click()
     await page.waitForFunction(old=>document.querySelector('.swipe-film-title')?.textContent!==old,title)
     const next=await page.locator('.swipe-film-title').textContent()
-    await page.getByLabel('Idioma de la interfaz',{exact:true}).selectOption('pt')
+    await page.getByRole('button',{name:'Idioma de la interfaz',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Português/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
     await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
     assert.equal(await page.locator('.swipe-film-title').textContent(),next)
     assert.equal(state.reactions.length,1)
@@ -60,12 +60,29 @@ test('nova sala usa a região do navegador, separada do idioma escolhido manualm
   const {ctx,page,state}=await context({locale:'en-CA',serviceWorkers:'block'})
   try{
     await page.goto(baseUrl)
-    await page.getByLabel('Interface language',{exact:true}).selectOption('es')
+    await page.getByRole('button',{name:'Interface language',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Español/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
     await page.getByRole('button',{name:'Crear una sesión',exact:true}).click()
     await page.waitForURL(sessionUrl.href)
     const setting=state.requests.find(x=>x.path.includes('/rest/v1/session_filters')&&x.method==='POST')
     assert.equal(setting.body.watch_region,'CA')
     assert.equal(state.creates,1)
+  }finally{await ctx.close()}
+})
+
+test('anúncio lento permanece montado e só se oculta quando o Google informa unfilled',async()=>{
+  const {ctx,page}=await context({viewport:{width:1440,height:900}})
+  try{
+    await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/,route=>route.fulfill({contentType:'application/javascript',body:'window.adsbygoogle=window.adsbygoogle||[];'}))
+    await page.goto(sessionUrl.href)
+    await page.waitForFunction(()=>window.adsbygoogle?.length===2)
+    await page.waitForTimeout(2000)
+    assert.equal(await page.locator('.swipe-ad ins.adsbygoogle').count(),2)
+    await page.locator('.swipe-ad-left ins').evaluate(el=>el.setAttribute('data-ad-status','filled'))
+    assert.equal(await page.locator('.swipe-ad-left').isVisible(),true)
+    await page.locator('.swipe-ad-left ins').evaluate(el=>el.setAttribute('data-ad-status','unfilled'))
+    await page.waitForFunction(()=>document.querySelector('.swipe-ad-left [data-ad-empty=true]'))
+    assert.equal(await page.locator('.swipe-ad-left').isVisible(),false)
+    assert.equal(await page.locator('.swipe-ad-right ins').count(),1)
   }finally{await ctx.close()}
 })
 after(async () => { await browser?.close(); server?.kill() })
@@ -157,9 +174,10 @@ test('Gateway Flow mantém a fonte registrada, preenche a tela e reage sem bloqu
     assert.deepEqual(await frame.evaluate(() => window.testClicks[0]), [20, 250])
     for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
       await page.setViewportSize({ width, height })
-      await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height && document.querySelector('#flow-canvas').width === width * devicePixelRatio, { width, height })
+      const sceneHeight = height - 52 // The discreet footer has its own 52px row.
+      await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height && document.querySelector('#flow-canvas').width === width * devicePixelRatio, { width, height: sceneHeight })
       const bounds = await element.boundingBox()
-      assert.deepEqual(bounds, { x: 0, y: 0, width, height })
+      assert.deepEqual(bounds, { x: 0, y: 0, width, height: sceneHeight })
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/gateway-flow-${width}x${height}.png` })
     }
@@ -670,11 +688,12 @@ test('tutorial ao criar sala bloqueia atalhos, não reaparece ao retomar e permi
     await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
     assert.equal(await dialog.count(), 0)
     const help = page.getByRole('button', { name: 'Abrir tutorial de votação' })
+    await page.getByLabel('Mais opções da sessão', { exact: true }).click()
     await help.click()
     await dialog.waitFor()
     await page.keyboard.press('Escape')
     await dialog.waitFor({ state: 'detached' })
-    assert.equal(await help.evaluate(element => element === document.activeElement), true)
+    assert.equal(await page.getByLabel('Mais opções da sessão', { exact: true }).evaluate(element => element === document.activeElement), true)
     assert.equal(state.reactions.length, 0)
   } finally { await ctx.close() }
 })
@@ -886,10 +905,7 @@ for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, pré
     assert.equal(await page.getByRole('dialog',{name:'Como votar no MovieMatch'}).count(),0)
     const participants=page.getByRole('group',{name:'Participantes da sessão'})
     await participants.getByRole('button',{name:/Luna/}).waitFor()
-    assert.equal(await participants.getByRole('button').count(),3)
-    const guest=participants.getByRole('button',{name:/Convidado/});await guest.click()
-    const guestPreview=page.getByRole('region',{name:'Perfil de Convidado'});await guestPreview.waitFor();assert.equal(await guestPreview.getByRole('link').count(),0)
-    await page.keyboard.press('Escape');await guestPreview.waitFor({state:'detached'})
+    assert.equal(await participants.getByRole('button').count(),2); assert.equal(await participants.getByRole('button',{name:/Convidado/}).count(),0)
     await participants.getByRole('button',{name:/Perfil privado/}).focus()
     const privatePreview=page.getByRole('region',{name:'Perfil de Perfil privado'});await privatePreview.waitFor();await page.keyboard.press('ArrowRight');assert.equal(state.reactions.length,0);assert.equal(await privatePreview.getByRole('link').count(),0)
     const privateBounds=await privatePreview.boundingBox();assert.ok(privateBounds.x>=0&&privateBounds.x+privateBounds.width<=width&&privateBounds.y>=0&&privateBounds.y+privateBounds.height<=900)

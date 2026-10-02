@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { buildMovieShelf } from '../scripts/build-movie-shelf.mjs'
 
 test('shelf keeps the registered canonical source, frame and export', () => {
   const files = {
@@ -15,4 +16,16 @@ test('shelf keeps the registered canonical source, frame and export', () => {
   const start = registered.indexOf('export function CompleteShelfLandingPage(')
   const end = registered.indexOf('\nexport function ', start + 10)
   assert.ok(readFileSync(new URL('../src/shaders/landing-pages/LandingPages.tsx', import.meta.url), 'utf8').includes(registered.slice(start, end).trimEnd()))
+})
+
+test('movie variant derives the authored engine and accepts only its same-origin parent', async () => {
+  const html = await buildMovieShelf()
+  assert.ok(html.includes('new THREE.WebGLRenderer('))
+  assert.ok(html.includes('createBookRig(book, index)'))
+  assert.ok(html.includes('BOOKS = movies.map('))
+  assert.ok(html.includes('ctx.drawImage(poster,'))
+  assert.ok(html.includes('event.source !== parent || event.origin !== location.origin'))
+  assert.ok(html.includes('moviematch:shelf:open'))
+  assert.ok(html.includes('textContent = book.title'))
+  assert.ok(html.includes('const COVER_ATLAS_DATA = "";'))
 })

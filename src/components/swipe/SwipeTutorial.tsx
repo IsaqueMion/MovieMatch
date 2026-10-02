@@ -35,7 +35,7 @@ function TutorialDialog({ code, onClose }: { code: string; onClose: () => void }
     dialog?.showModal()
     return () => {
       dialog?.close()
-      if (opener?.isConnected && opener.matches('button:not(:disabled), a[href]')) opener.focus({ preventScroll: true })
+      if (opener?.isConnected && opener.matches('button:not(:disabled), a[href], summary')) opener.focus({ preventScroll: true })
       else (document.querySelector<HTMLButtonElement>('.cinema-vote-button.is-like:not(:disabled)') ?? document.querySelector<HTMLButtonElement>('[aria-label="Abrir filtros"]'))?.focus({ preventScroll: true })
     }
   }, [])
