@@ -89,15 +89,15 @@ async function fixture({ count = 5, width = 1440, empty = false, invalid = false
   return { ctx, page, state }
 }
 
-for(const width of [390,957])test(`salvar sala em ${width}px: ícone, confirmação breve e falha sem alterar estado`,async()=>{
+for(const width of [390,957])test(`salvar sala em ${width}px: texto no computador, confirmação breve e falha sem alterar estado`,async()=>{
   const {ctx,page,state}=await fixture({width,registered:true})
   try{
     const save=page.getByRole('button',{name:'Salvar sala',exact:true})
     await save.waitFor();await page.waitForFunction(()=>!document.querySelector('.account-save-trigger')?.disabled)
-    assert.equal(await save.innerText(),'');assert.equal(await save.getAttribute('aria-pressed'),'false')
-    const size=await save.boundingBox();assert.ok(Math.abs(size.width-size.height)<1)
+    assert.equal(await save.innerText(),width>600?'Salvar sala':'');assert.equal(await save.getAttribute('aria-pressed'),'false')
+    const size=await save.boundingBox();assert.ok(width>600?size.width>size.height:Math.abs(size.width-size.height)<1)
     await save.click();await page.getByRole('status').filter({hasText:'Sala salva.'}).waitFor();assert.equal(state.saved,true)
-    const unsave=page.getByRole('button',{name:'Deixar de salvar sala',exact:true});assert.equal(await unsave.getAttribute('aria-pressed'),'true')
+    const unsave=page.getByRole('button',{name:'Deixar de salvar sala',exact:true});assert.equal(await unsave.getAttribute('aria-pressed'),'true');assert.equal(await unsave.innerText(),width>600?'Salva':'')
     await page.getByRole('status').filter({hasText:'Sala salva.'}).waitFor({state:'detached'})
     state.saveFailure=true;await unsave.click();await page.getByRole('alert').filter({hasText:'Não foi possível remover.'}).waitFor();assert.equal(await unsave.getAttribute('aria-pressed'),'true')
     state.saveFailure=false;await unsave.click();await page.getByRole('status').filter({hasText:'Sala removida da sua lista.'}).waitFor();assert.equal(state.saved,false);assert.equal(await save.getAttribute('aria-pressed'),'false')

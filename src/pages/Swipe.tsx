@@ -1868,7 +1868,7 @@ function Swipe() {
       toast.error(
         t("Não foi possível identificar a sessão para salvar os filtros."),
       )
-      return
+      return false
     }
 
     try {
@@ -1972,6 +1972,7 @@ function Swipe() {
       toast.error(
         `Não foi possível sincronizar os filtros: ${getErrorMessage(error)}`,
       )
+      return false
 
       // IMPORTANTE:
       // não fecha o modal,

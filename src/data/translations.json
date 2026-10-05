@@ -433,7 +433,7 @@
   ],
   "O catálogo do seu jeito": [
     "Your kind of catalogue",
-    "El catálogo a tu manera"
+    "El catálogo a tu gusto"
   ],
   "Filtrem por gênero, duração, nota e serviços de streaming.": [
     "Filter by genre, runtime, rating and streaming services.",
@@ -2571,12 +2571,84 @@
     "Photo of {0}",
     "Foto de {0}"
   ],
-  "Excluir": ["Delete", "Eliminar"],
-  "Deixar de salvar sala": ["Unsave room", "Dejar de guardar sala"],
-  "Sala salva.": ["Room saved.", "Sala guardada."],
-  "Sala removida da sua lista.": ["Room removed from your list.", "Sala eliminada de tu lista."],
+  "Excluir": [
+    "Delete",
+    "Eliminar"
+  ],
+  "Deixar de salvar sala": [
+    "Unsave room",
+    "Dejar de guardar sala"
+  ],
+  "Sala salva.": [
+    "Room saved.",
+    "Sala guardada."
+  ],
+  "Sala removida da sua lista.": [
+    "Room removed from your list.",
+    "Sala eliminada de tu lista."
+  ],
   "Mais opções da sessão": [
     "More session options",
     "Más opciones de la sesión"
+  ],
+  "As escolhas valem para todos nesta sala.": [
+    "These choices apply to everyone in this room.",
+    "Estas elecciones se aplican a todos en esta sala."
+  ],
+  "Categorias de filtros": [
+    "Filter categories",
+    "Categorías de filtros"
+  ],
+  "Escolha os serviços que você usa.": [
+    "Choose the services you use.",
+    "Elige los servicios que utilizas."
+  ],
+  "Aplicar filtros": [
+    "Apply filters",
+    "Aplicar filtros"
+  ],
+  "Remover filtro: {0}": [
+    "Remove filter: {0}",
+    "Quitar filtro: {0}"
+  ],
+  "Diminuir {0}": [
+    "Decrease {0}",
+    "Reducir {0}"
+  ],
+  "Aumentar {0}": [
+    "Increase {0}",
+    "Aumentar {0}"
+  ],
+  "Nota {0}+": [
+    "Rating {0}+",
+    "Puntuación {0}+"
+  ],
+  "{0} tipos de oferta": [
+    "{0} offer types",
+    "{0} tipos de oferta"
+  ],
+  "{0}+ votos": [
+    "{0}+ votes",
+    "{0}+ votos"
+  ],
+  "De": [
+    "From",
+    "Desde"
+  ],
+  "Personalizado": [
+    "Custom",
+    "Personalizado"
+  ],
+  "Desativado": [
+    "Off",
+    "Desactivado"
+  ],
+  "Aplicando filtros…": [
+    "Applying filters…",
+    "Aplicando filtros…"
+  ],
+  "Não foi possível aplicar os filtros. Tente novamente.": [
+    "Could not apply filters. Try again.",
+    "No se pudieron aplicar los filtros. Inténtalo de nuevo."
   ]
 }

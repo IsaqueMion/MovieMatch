@@ -822,7 +822,7 @@ test('o match usa o novo diálogo, contém o foco e devolve a votação ao fecha
   } finally { await ctx.close() }
 })
 
-for (const width of [390, 1101]) {
+for (const width of [320, 768, 1024, 1440]) {
   test(`filtros em ${width}px: brilho, seleção, números, menus, limpeza e aplicação sem votos`, async () => {
     const { ctx, page, state } = await context({ viewport: { width, height: 884 } })
     const errors = []
@@ -833,9 +833,21 @@ for (const width of [390, 1101]) {
       const dialog = page.getByRole('dialog', { name: 'Encontre o filme certo' })
       const netflix = dialog.getByRole('button', { name: 'Netflix', exact: true })
       await netflix.waitFor()
+      assert.equal(await dialog.evaluate(el => el.matches(':modal')), true)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      const bounds = await dialog.boundingBox()
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width + 1)
+      await dialog.evaluate(el => [...el.querySelectorAll('button:not(:disabled)')].filter(button => button.getClientRects().length).at(-1).focus())
+      await page.keyboard.press('Tab')
+      assert.equal(await dialog.getByRole('button', { name: 'Fechar', exact: true }).evaluate(el => el === document.activeElement), true)
+      if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/filters-' + width + '.png' })
       assert.equal(await dialog.getByRole('button', { name: 'Filtros aplicados' }).isDisabled(), true)
+      for (const name of ['Gêneros', 'Período e duração', 'Qualidade e idioma', 'Avançado', 'Onde assistir']) {
+        await dialog.getByRole('button', { name, exact: true }).click()
+        assert.equal(await dialog.locator('.filter-content').evaluate(el => el.scrollWidth > el.clientWidth), false, name + ' must fit its panel')
+      }
       assert.equal(await dialog.locator('button:not(.cinema-filter-button)').count(), 0)
-      if (width === 1101) {
+      if (width === 1440) {
         await netflix.hover()
         const webgl = await page.evaluate(() => {
           const gl = document.createElement('canvas').getContext('webgl2')
@@ -856,22 +868,18 @@ for (const width of [390, 1101]) {
       await dialog.getByTitle('Remover filtro: Netflix', { exact: true }).click()
       assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
       await netflix.click()
-      const region = dialog.getByRole('button', { name: 'Brasil (BR)', exact: true })
-      await region.click()
-      const us = page.getByRole('option', { name: 'Estados Unidos (US)', exact: true })
-      assert.ok((await us.getAttribute('class')).includes('cinema-filter-button'))
-      await us.click()
-      assert.equal(await page.getByRole('listbox').count(), 0)
+      const region = dialog.getByRole('combobox', { name: 'Região do catálogo', exact: true })
+      await region.selectOption('US')
       await dialog.getByRole('button', { name: /^Período e duração/ }).click()
       await dialog.getByRole('button', { name: 'Aumentar De', exact: true }).click()
       assert.equal(await dialog.getByRole('spinbutton', { name: 'De', exact: true }).inputValue(), '1991')
       await dialog.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
-      assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
       assert.equal(await dialog.getByRole('spinbutton', { name: 'De', exact: true }).inputValue(), '1990')
       assert.equal(await dialog.getByRole('button', { name: 'Filtros aplicados' }).isDisabled(), true)
+      await dialog.getByRole('button', { name: 'Onde assistir', exact: true }).click()
+      assert.equal(await netflix.getAttribute('aria-pressed'), 'false')
       await netflix.click()
-      await region.click()
-      await page.getByRole('option', { name: 'Estados Unidos (US)', exact: true }).click()
+      await region.selectOption('US')
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await netflix.hover()
       await delay(350)
@@ -888,13 +896,71 @@ for (const width of [390, 1101]) {
       await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
       await dialog.waitFor()
       await dialog.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
-      await dialog.getByRole('button', { name: 'Fechar', exact: true }).click()
+      await page.keyboard.press('Escape')
       await dialog.waitFor({ state: 'detached' })
       assert.equal(state.requests.filter(request => request.path.includes('/rest/v1/session_filters') && request.method === 'POST').length, 1)
+      assert.equal(await page.getByRole('button', { name: 'Abrir filtros', exact: true }).evaluate(el => el === document.activeElement), true)
       assert.deepEqual(errors, [])
     } finally { await ctx.close() }
   })
 }
+
+for (const width of [390, 957]) test('salvar sala exibe texto apenas no computador em '+width+'px', async () => {
+  const { ctx, page } = await context({ viewport: { width, height: 884 } })
+  try {
+    await page.goto(sessionUrl.href)
+    await page.locator('.swipe-more summary').click()
+    const button = page.getByRole('button', { name: 'Salvar sala', exact: true })
+    await button.waitFor()
+    assert.equal(await button.locator('.account-save-label').isVisible(), width > 600)
+    await button.click()
+    await page.getByRole('heading', { name: 'Continuar outro dia?' }).waitFor()
+  } finally { await ctx.close() }
+})
+
+test('filtros preservam gêneros exclusivos, autorização 18+ e rascunho após falha', async () => {
+  const { ctx, page, state } = await context({ viewport: { width: 390, height: 884 } })
+  try {
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Encontre o filme certo' })
+    await dialog.getByRole('button', { name: 'Gêneros', exact: true }).click()
+    const action = dialog.getByRole('button', { name: 'Ação', exact: true })
+    await action.nth(0).click(); await action.nth(1).click()
+    assert.equal(await action.nth(0).getAttribute('aria-pressed'), 'false')
+    assert.equal(await action.nth(1).getAttribute('aria-pressed'), 'true')
+    await dialog.getByRole('button', { name: 'Avançado', exact: true }).click()
+    await dialog.getByRole('button', { name: /Permitir conteúdo 18/ }).click()
+    const age = page.getByRole('dialog', { name: 'Confirme sua idade' })
+    await age.waitFor()
+    assert.equal(await age.evaluate(el => el.matches(':modal')), true)
+    await page.keyboard.press('Escape'); await age.waitFor({ state: 'detached' })
+    assert.equal(await dialog.getByRole('button', { name: /Permitir conteúdo 18/ }).getAttribute('aria-pressed'), 'false')
+    await dialog.getByRole('button', { name: /Permitir conteúdo 18/ }).click()
+    await age.getByLabel('Data de nascimento').fill('2000-01-01')
+    await age.getByRole('button', { name: 'Confirmar', exact: true }).click()
+    await age.waitFor({ state: 'detached' })
+    await page.waitForFunction(() => document.querySelector('.filter-section:not([hidden]) button[aria-pressed=true]'))
+    assert.equal(await dialog.getByRole('button', { name: /Permitir conteúdo 18/ }).getAttribute('aria-pressed'), 'true')
+    let attempts = 0
+    await page.route('**/rest/v1/session_filters*', async route => {
+      if (route.request().method() !== 'POST') return route.fallback()
+      attempts++
+      if (attempts === 1) return route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Test failure"}' })
+      return route.fallback()
+    })
+    await dialog.getByRole('button', { name: 'Aplicar filtros', exact: true }).click()
+    await dialog.getByRole('alert').waitFor({ timeout: 5000 })
+    await dialog.getByRole('button', { name: 'Aplicar filtros', exact: true }).click()
+    await dialog.waitFor({ state: 'detached' })
+    const save = state.requests.find(req => req.path.includes('/rest/v1/session_filters') && req.method === 'POST')
+    assert.deepEqual(save.body.genres, [])
+    assert.deepEqual(save.body.exclude_genres, [28])
+    assert.equal(save.body.include_adult, true)
+    assert.equal(attempts, 2)
+    assert.equal(state.reactions.length, 0)
+  } finally { await ctx.close() }
+})
 
 for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, prévia após ampliação e sala existente sem tutorial`, async () => {
   const {ctx,page,state}=await context({viewport:{width,height:900}})
