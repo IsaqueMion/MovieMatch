@@ -10,6 +10,7 @@ import {
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   CalendarRange,
+  ArrowUpRight,
   Check,
   Film,
   Gauge,
@@ -27,7 +28,8 @@ import type {
   MonetizationType,
 } from '../../lib/functions'
 import { filtersSig } from '../../lib/swipeProgress'
-import Select from '../Select'
+import { trapDialogFocus } from '../../lib/dialogFocus'
+import '../../styles/filters.css'
 import ActiveFiltersSummary, {
   type ActiveFilterItem,
 } from './ActiveFiltersSummary'
@@ -50,7 +52,7 @@ type Props = {
   isAdult: boolean
   onRequestAdultVerification: () => void
   onClose: () => void
-  onApply: (filters: DiscoverFilters) => void | Promise<void>
+  onApply: (filters: DiscoverFilters) => void | false | Promise<void | false>
 }
 
 function cloneFilters(
@@ -131,6 +133,21 @@ export default function FilterModal({
   const regionCodes: string[] = REGIONS.map(option => option.value)
   if (draft.watchRegion && /^[A-Z]{2}$/.test(draft.watchRegion) && !regionCodes.includes(draft.watchRegion)) regionCodes.push(draft.watchRegion)
 
+  const [category, setCategory] = useState('streaming')
+  const [applying, setApplying] = useState(false)
+  const [applyError, setApplyError] = useState('')
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const previousFocus = document.activeElement
+    if (open && dialog && !dialog.open) dialog.showModal()
+    return () => {
+      dialog?.close()
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus()
+    }
+  }, [open])
+  useEffect(() => { contentRef.current?.scrollTo(0, 0) }, [category])
   const wasOpenRef = useRef(false)
   const previousIsAdultRef = useRef(isAdult)
 
@@ -250,7 +267,7 @@ export default function FilterModal({
     if ((draft.ratingMin ?? 0) > (defaultFilters.ratingMin ?? 0)) {
       items.push({
         key: 'rating',
-        label: `Nota ${draft.ratingMin}+`,
+        label: t("Nota {0}+", [draft.ratingMin]),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -278,7 +295,7 @@ export default function FilterModal({
     if ((draft.language ?? '') !== (defaultFilters.language ?? '')) {
       items.push({
         key: 'language',
-        label: languageLabel(draft.language ?? ''),
+        label: new Intl.DisplayNames([locale], { type: 'language' }).of(draft.language ?? 'en') ?? languageLabel(draft.language ?? ''),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -290,7 +307,7 @@ export default function FilterModal({
     if ((draft.watchRegion ?? 'BR') !== (defaultFilters.watchRegion ?? 'BR')) {
       items.push({
         key: 'region',
-        label: regionLabel(draft.watchRegion ?? 'BR'),
+        label: new Intl.DisplayNames([locale], { type: 'region' }).of(draft.watchRegion ?? 'BR') ?? regionLabel(draft.watchRegion ?? 'BR'),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -307,7 +324,7 @@ export default function FilterModal({
     ) {
       items.push({
         key: 'monetization',
-        label: `${draft.monetization?.length ?? 0} tipos de oferta`,
+        label: t("{0} tipos de oferta", [draft.monetization?.length ?? 0]),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -324,7 +341,7 @@ export default function FilterModal({
     ) {
       items.push({
         key: 'votes',
-        label: `${draft.voteCountMin}+ votos`,
+        label: t("{0}+ votos", [draft.voteCountMin]),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -339,7 +356,7 @@ export default function FilterModal({
     ) {
       items.push({
         key: 'sort',
-        label: sortLabel(draft.sortBy ?? 'popularity.desc'),
+        label: t(sortLabel(draft.sortBy ?? 'popularity.desc')),
         onRemove: () =>
           setDraft((current) => ({
             ...current,
@@ -363,6 +380,7 @@ export default function FilterModal({
     return items
   }, [
     currentYear,
+    locale,
     defaultFilters,
     draft,
     runtimeMax,
@@ -423,90 +441,65 @@ export default function FilterModal({
     setDraft(cloneFilters(defaultFilters))
   }
 
-  function apply() {
-    void onApply(cloneFilters(draft))
+  async function apply() {
+    if (applying) return
+    setApplying(true); setApplyError('')
+    try {
+      if (await onApply(cloneFilters(draft)) === false) setApplyError(t("Não foi possível aplicar os filtros. Tente novamente."))
+    } catch { setApplyError(t("Não foi possível aplicar os filtros. Tente novamente.")) }
+    finally { setApplying(false) }
   }
 
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
-          initial={{ opacity: reducedMotion ? 1 : 0 }}
-          animate={{ opacity: 1 }}
+        <motion.dialog
+          ref={dialogRef}
+          aria-labelledby="filters-title"
+          aria-describedby="filters-description"
+          aria-busy={applying}
+          className="filter-dialog"
+          onKeyDown={trapDialogFocus}
+          onCancel={event => { event.preventDefault(); onClose() }}
+          onClick={event => {
+            if (event.target !== event.currentTarget) return
+            const rect = event.currentTarget.getBoundingClientRect()
+            if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose()
+          }}
+          initial={{ opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 16 }}
+          animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: reducedMotion ? 0 : 0.2 }}
         >
-          <motion.button
-            type="button"
-            aria-label={t("Fechar filtros")}
-            className="absolute inset-0 cursor-default bg-black/70 backdrop-blur-md"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          />
-
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="filters-title"
-            initial={{ opacity: reducedMotion ? 1 : 0, y: reducedMotion ? 0 : 28, scale: reducedMotion ? 1 : 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: reducedMotion ? 0 : 28, scale: reducedMotion ? 1 : 0.985 }}
-            transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 340, damping: 30 }}
-            className="relative z-10 flex h-[94dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-neutral-950 shadow-[0_-24px_80px_rgba(0,0,0,0.5)] sm:h-auto sm:max-h-[90dvh] sm:w-[min(94vw,54rem)] sm:rounded-[28px] sm:shadow-2xl"
-          >
-            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
-
-            <header className="shrink-0 border-b border-white/10 bg-neutral-950/95 px-4 pb-4 pt-3 backdrop-blur-xl sm:px-6 sm:pb-5 sm:pt-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/15">
-                      <SlidersHorizontal className="h-4 w-4" />
-                    </span>
-
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-300/80">{t("Personalizar")}</span>
-                  </div>
-
-                  <h2
-                    id="filters-title"
-                    className="text-2xl font-semibold tracking-tight text-white sm:text-[28px]"
-                  >{t("Encontre o filme certo")}</h2>
-
-                  <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/50">{t("Ajuste apenas o que importa. As opções extras ficam organizadas abaixo para não poluir a tela.")}</p>
-                </div>
-
-                <FilterButton
-                  type="button"
-                  onClick={onClose}
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.045] text-white/55 transition hover:bg-white/[0.08] hover:text-white"
-                  aria-label="Fechar"
-                >
-                  <X className="h-4 w-4" />
-                </FilterButton>
-              </div>
-
-              <div className="mt-4">
-                <ActiveFiltersSummary items={activeItems} />
-              </div>
-            </header>
-
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-5 sm:py-5">
-              <div className="mx-auto space-y-3">
-                <FilterSection
+          <header className="filter-header">
+            <div><span className="filter-eyebrow"><SlidersHorizontal size={14} aria-hidden="true" />{t("O catálogo do seu jeito")}</span>
+              <h2 id="filters-title">{t("Encontre o filme certo")}</h2>
+              <p id="filters-description">{t("As escolhas valem para todos nesta sala.")}</p>
+            </div>
+            <FilterButton type="button" className="filter-close" onClick={onClose} aria-label={t("Fechar")}><X size={18} /></FilterButton>
+          </header>
+          <div className="filter-workspace">
+            <nav className="filter-navigation" aria-label={t("Categorias de filtros")}>
+              {[
+                { id: 'streaming', title: t("Onde assistir"), icon: Tv, badge: streamingBadge },
+                { id: 'genres', title: t("Gêneros"), icon: Tags, badge: genresBadge },
+                { id: 'period', title: t("Período e duração"), icon: CalendarRange, badge: periodBadge },
+                { id: 'quality', title: t("Qualidade e idioma"), icon: Star, badge: qualityBadge },
+                { id: 'advanced', title: t("Avançado"), icon: Settings2, badge: advancedBadge },
+              ].map(({ id, title, icon: Icon, badge }) => <FilterButton type="button" key={id} aria-current={category === id ? 'true' : undefined} onClick={() => setCategory(id)}>
+                <Icon size={16} aria-hidden="true" /><span>{title}</span>{badge > 0 ? <small>{badge}</small> : null}
+              </FilterButton>)}
+            </nav>
+            <div className="filter-content" ref={contentRef}>
+                <FilterSection active={category === 'streaming'}
                   title={t("Onde assistir")}
                   description={t("Streaming, região e forma de disponibilidade.")}
-                  icon={<Tv className="h-4 w-4" />}
-                  badge={streamingBadge}
-                  defaultOpen
                 >
                   <div>
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <div>
-                        <h5 className="text-sm font-medium text-white/85">{t("Seus streamings")}</h5>
-                        <p className="text-xs text-white/40">{t("Selecione um ou mais. A busca usa OU entre eles.")}</p>
+                        <h4 className="text-sm font-medium text-white/85">{t("Seus streamings")}</h4>
+                        <p className="text-xs text-white/40">{t("Escolha os serviços que você usa.")}</p>
                       </div>
                     </div>
 
@@ -573,7 +566,7 @@ export default function FilterModal({
                                 })
                               }}
                             >
-                              {label}
+                              {t(label)}
                             </FilterChip>
                           )
                         })}
@@ -583,27 +576,16 @@ export default function FilterModal({
                     <div>
                       <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Região do catálogo")}</span>
 
-                      <Select
-                        buttonComponent={FilterButton}
-                        value={draft.watchRegion ?? 'BR'}
-                        onChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            watchRegion: value,
-                          }))
-                        }
-                        options={regionCodes.map(value => ({ value, label: `${new Intl.DisplayNames([locale], { type: 'region' }).of(value)} (${value})` }))}
-                      />
+                      <label className="filter-select"><span className="sr-only">{t("Região do catálogo")}</span><select value={draft.watchRegion ?? 'BR'} onChange={event => setDraft(current => ({ ...current, watchRegion: event.target.value }))}>
+                        {regionCodes.map(value => <option key={value} value={value}>{new Intl.DisplayNames([locale], { type: 'region' }).of(value)} ({value})</option>)}
+                      </select></label>
                     </div>
                   </div>
                 </FilterSection>
 
-                <FilterSection
+                <FilterSection active={category === 'genres'}
                   title={t("Gêneros")}
                   description={t("Escolha o que quer ver e o que prefere evitar.")}
-                  icon={<Tags className="h-4 w-4" />}
-                  badge={genresBadge}
-                  defaultOpen
                 >
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div>
@@ -709,11 +691,9 @@ export default function FilterModal({
                   </div>
                 </FilterSection>
 
-                <FilterSection
+                <FilterSection active={category === 'period'}
                   title={t("Período e duração")}
                   description={t("Defina quando o filme foi lançado e quanto tempo ele pode durar.")}
-                  icon={<CalendarRange className="h-4 w-4" />}
-                  badge={periodBadge}
                 >
                   <div className="grid gap-6 lg:grid-cols-2">
                     <div>
@@ -747,7 +727,7 @@ export default function FilterModal({
 
                       <div className="mt-4 grid grid-cols-2 gap-2">
                         <NumberField
-                          label="De"
+                          label={t("De")}
                           value={yearMin}
                           min={1900}
                           max={yearMax}
@@ -850,11 +830,9 @@ export default function FilterModal({
                   </div>
                 </FilterSection>
 
-                <FilterSection
+                <FilterSection active={category === 'quality'}
                   title={t("Qualidade e idioma")}
                   description={t("Nota mínima, idioma original e forma de ordenar os resultados.")}
-                  icon={<Star className="h-4 w-4" />}
-                  badge={qualityBadge}
                 >
                   <div className="grid gap-5 md:grid-cols-3">
                     <div>
@@ -879,7 +857,7 @@ export default function FilterModal({
 
                       <div className="mt-3">
                         <NumberField
-                          label="Personalizado"
+                          label={t("Personalizado")}
                           value={ratingMin}
                           min={0}
                           max={10}
@@ -898,42 +876,24 @@ export default function FilterModal({
                     <div>
                       <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Idioma original")}</span>
 
-                      <Select
-                        buttonComponent={FilterButton}
-                        value={draft.language ?? ''}
-                        onChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            language: value,
-                          }))
-                        }
-                        options={LANGUAGES.map(option => ({ ...option, label: option.value ? new Intl.DisplayNames([locale], { type: 'language' }).of(option.value) ?? option.label : t(option.label) }))}
-                      />
+                      <label className="filter-select"><span className="sr-only">{t("Idioma original")}</span><select value={draft.language ?? ''} onChange={event => setDraft(current => ({ ...current, language: event.target.value }))}>
+                        {LANGUAGES.map(option => <option key={option.value} value={option.value}>{option.value ? new Intl.DisplayNames([locale], { type: 'language' }).of(option.value) ?? option.label : t(option.label)}</option>)}
+                      </select></label>
                     </div>
 
                     <div>
                       <span className="mb-2 block text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">{t("Ordenar resultados")}</span>
 
-                      <Select
-                        buttonComponent={FilterButton}
-                        value={draft.sortBy ?? 'popularity.desc'}
-                        onChange={(value) =>
-                          setDraft((current) => ({
-                            ...current,
-                            sortBy: value,
-                          }))
-                        }
-                        options={SORT_OPTIONS}
-                      />
+                      <label className="filter-select"><span className="sr-only">{t("Ordenar resultados")}</span><select value={draft.sortBy ?? 'popularity.desc'} onChange={event => setDraft(current => ({ ...current, sortBy: event.target.value }))}>
+                        {SORT_OPTIONS.map(option => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
+                      </select></label>
                     </div>
                   </div>
                 </FilterSection>
 
-                <FilterSection
+                <FilterSection active={category === 'advanced'}
                   title={t("Avançado")}
                   description={t("Ajustes menos usados para refinar ainda mais a busca.")}
-                  icon={<Settings2 className="h-4 w-4" />}
-                  badge={advancedBadge}
                 >
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div>
@@ -954,14 +914,14 @@ export default function FilterModal({
                               }))
                             }
                           >
-                            {value === 0 ? t("Sem mínimo") : `${value}+ votos`}
+                            {value === 0 ? t("Sem mínimo") : t("{0}+ votos", [value])}
                           </FilterChip>
                         ))}
                       </div>
 
                       <div className="mt-3">
                         <NumberField
-                          label="Personalizado"
+                          label={t("Personalizado")}
                           value={voteCountMin}
                           min={0}
                           max={5000}
@@ -986,6 +946,7 @@ export default function FilterModal({
 
                       <FilterButton
                         type="button"
+                        aria-pressed={!!draft.includeAdult}
                         onClick={() => {
                           if (!draft.includeAdult && !isAdult) {
                             onRequestAdultVerification()
@@ -1008,7 +969,7 @@ export default function FilterModal({
                           <span className="mt-0.5 block text-xs text-white/40">
                             {draft.includeAdult
                               ? t("Ativado nesta seleção")
-                              : 'Desativado'}
+                              : t("Desativado")}
                           </span>
                         </span>
 
@@ -1025,48 +986,18 @@ export default function FilterModal({
                     </div>
                   </div>
                 </FilterSection>
-              </div>
             </div>
+          </div>
 
-            <footer className="shrink-0 border-t border-white/10 bg-neutral-950/95 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 backdrop-blur-xl sm:px-5 sm:pb-4">
-              <div className="flex items-center gap-2">
-                <FilterButton
-                  type="button"
-                  onClick={resetAll}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/55 transition hover:bg-white/[0.075] hover:text-white"
-                  title={t("Limpar filtros")}
-                  aria-label={t("Limpar filtros")}
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </FilterButton>
-
-                <FilterButton
-                  type="button"
-                  onClick={onClose}
-                  className="hidden h-11 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/65 transition hover:bg-white/[0.075] hover:text-white sm:block"
-                >{t("Cancelar")}</FilterButton>
-
-                <FilterButton
-                  type="button"
-                  onClick={apply}
-                  disabled={!isDirty}
-                  className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 text-sm font-semibold text-neutral-950 shadow-[0_10px_30px_rgba(52,211,153,0.16)] transition hover:bg-emerald-300 disabled:cursor-default disabled:bg-white/10 disabled:text-white/35 disabled:shadow-none"
-                >
-                  <Check className="h-4 w-4" />
-                  {isDirty
-                    ? `Aplicar ${activeItems.length || ''} ${
-                        activeItems.length === 1 ? 'filtro' : 'filtros'
-                      }`.trim()
-                    : t("Filtros aplicados")}
-                </FilterButton>
-              </div>
-
-              {isDirty ? (
-                <p className="mt-2 text-center text-[11px] text-amber-200/55">{t("Você tem alterações que ainda não foram aplicadas.")}</p>
-              ) : null}
-            </footer>
-          </motion.div>
-        </motion.div>
+          <div className="filter-selection"><ActiveFiltersSummary items={activeItems} />{applyError ? <p className="filter-error" role="alert">{applyError}</p> : null}</div>
+          <footer className="filter-footer">
+            <FilterButton type="button" className="filter-reset" onClick={resetAll} title={t("Limpar filtros")} aria-label={t("Limpar filtros")}><RotateCcw size={16} /><span>{t("Limpar filtros")}</span></FilterButton>
+            <FilterButton type="button" className="filter-cancel" onClick={onClose}>{t("Cancelar")}</FilterButton>
+            <FilterButton type="button" className="filter-apply" disabled={!isDirty || applying} onClick={() => void apply()}>
+              <span>{applying ? t("Aplicando filtros…") : isDirty ? t("Aplicar filtros") : t("Filtros aplicados")}</span><ArrowUpRight size={20} aria-hidden="true" />
+            </FilterButton>
+          </footer>
+        </motion.dialog>
       ) : null}
     </AnimatePresence>
   )

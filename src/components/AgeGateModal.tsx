@@ -1,5 +1,6 @@
 import { translate as t, useLocale } from '../hooks/useLocale'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { trapDialogFocus } from '../lib/dialogFocus'
 
 type Props = {
   open: boolean
@@ -11,6 +12,12 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
   useLocale()
   const [birthdate, setBirthdate] = useState<string>('')
   const [touched, setTouched] = useState(false)
+  const dialog = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const element = dialog.current
+    if (open && element && !element.open) element.showModal()
+    return () => { element?.close() }
+  }, [open])
 
   const age = birthdate ? calcAge(birthdate) : null
   const valid = !!birthdate && age !== null && age >= 18 && age <= 120
@@ -18,10 +25,13 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
+    <dialog ref={dialog} className="m-auto max-h-[90dvh] overflow-auto rounded-2xl bg-neutral-900 p-0 text-white backdrop:bg-black/60" aria-labelledby="age-gate-title" onKeyDown={trapDialogFocus} onCancel={event => { event.preventDefault(); onCancel() }} onClick={event => {
+      if (event.target !== event.currentTarget) return
+      const rect = event.currentTarget.getBoundingClientRect()
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onCancel()
+    }}>
       <div className="relative z-10 w-[min(92vw,28rem)] rounded-2xl bg-neutral-900 ring-1 ring-white/10 p-4 text-white">
-        <h3 className="text-lg font-semibold">{t("Confirme sua idade")}</h3>
+        <h3 id="age-gate-title" className="text-lg font-semibold">{t("Confirme sua idade")}</h3>
         <p className="text-sm text-white/70 mt-1">{t("Para ativar conteúdo adulto, informe sua data de nascimento. Ela será usada somente para confirmar se você tem 18 anos ou mais e não será armazenada.")}</p>
 
         <label className="block mt-4 text-sm">{t("Data de nascimento")}<input
@@ -51,7 +61,7 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
           >{t("Confirmar")}</button>
         </div>
       </div>
-    </div>
+    </dialog>
   )
 }
 
