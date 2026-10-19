@@ -4,9 +4,9 @@ import { Check, ChevronDown, X } from 'lucide-react'
 import { useLocale } from '../../hooks/useLocale'
 
 const languages = [
-  { code: 'pt', label: 'Português', flag: '🇧🇷' },
-  { code: 'en', label: 'English', flag: '🇺🇸' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'pt', label: 'Português', flag: 'br' },
+  { code: 'en', label: 'English', flag: 'us' },
+  { code: 'es', label: 'Español', flag: 'es' },
 ] as const
 
 export default function LanguageSelect() {
@@ -36,10 +36,10 @@ export default function LanguageSelect() {
       items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length]?.focus()
     }
   }}>
-    <button ref={trigger} type="button" className="language-trigger" aria-label={t('Idioma da interface')} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}><span aria-hidden="true">{selected.flag}</span>{selected.label}<ChevronDown size={13} aria-hidden="true" /></button>
+    <button ref={trigger} type="button" className="language-trigger" aria-label={t('Idioma da interface')} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}><img src={`/flags/${selected.flag}.svg`} width={20} height={14} alt="" aria-hidden="true" />{selected.label}<ChevronDown size={13} aria-hidden="true" /></button>
     <AnimatePresence>{open ? <motion.div id={id} className="language-menu" role="menu" aria-label={t('Idioma da interface')} initial={{ opacity: 0, scale: reduced ? 1 : .96, y: reduced ? 0 : 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: reduced ? 1 : .96 }} transition={{ duration: reduced ? 0 : .15 }}>
       <div className="language-menu-heading"><span>{t('Idioma da interface')}</span><button type="button" aria-label={t('Fechar')} onClick={close}><X size={14} aria-hidden="true" /></button></div>
-      {languages.map(item => <button type="button" key={item.code} role="menuitemradio" aria-checked={language === item.code} onClick={() => { setLanguage(item.code); close() }}><span aria-hidden="true">{item.flag}</span><span>{item.label}</span>{language === item.code ? <motion.span initial={{ scale: reduced ? 1 : 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}><Check size={14} aria-hidden="true" /></motion.span> : null}</button>)}
+      {languages.map(item => <button type="button" key={item.code} role="menuitemradio" aria-checked={language === item.code} onClick={() => { setLanguage(item.code); close() }}><img src={`/flags/${item.flag}.svg`} width={20} height={14} alt="" aria-hidden="true" /><span>{item.label}</span>{language === item.code ? <motion.span initial={{ scale: reduced ? 1 : 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 25 }}><Check size={14} aria-hidden="true" /></motion.span> : null}</button>)}
     </motion.div> : null}</AnimatePresence>
   </div>
 }

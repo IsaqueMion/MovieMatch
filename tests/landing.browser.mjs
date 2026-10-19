@@ -365,8 +365,8 @@ test('Gateway Flow nativo mantém referência preservada, desenha e pausa sem bl
     await page.waitForFunction(()=>!document.querySelector('.is-undo').disabled)
     assert.equal(state.reactions.at(-1).value,1)
     await page.getByRole('button',{name:'Desfazer',exact:true}).click()
-    const toast=page.getByText('Último swipe desfeito',{exact:true});await toast.waitFor()
-    assert.equal(await toast.evaluate(e=>getComputedStyle(e).transform),'none')
+    await page.waitForFunction(()=>document.querySelector('.is-undo').disabled)
+    assert.equal(await page.getByText('Último swipe desfeito',{exact:true}).count(),0)
     assert.deepEqual(errors,[])
   }finally{await ctx.close()}
 })
@@ -663,7 +663,7 @@ test('criação não duplica sessões e anúncio bloqueado permite votar e dispe
     assert.equal(state.reactions.length, 1)
     await dismiss.click()
     assert.equal(await page.locator('.mm-ad-notice').count(), 0)
-    assert.equal(await page.evaluate(() => sessionStorage.getItem('mm:ads-notice-dismissed:v1')), '1')
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('mm:ads-notice-dismissed:v2')), '1')
     await page.reload()
     await page.getByRole('button', { name: 'Abrir filtros' }).waitFor()
     await delay(2200)
@@ -1230,7 +1230,7 @@ test('otimização: faixa mobile pode ser fechada sem afetar os votos', async ()
   }finally{await ctx.close()}
 })
 
-test('otimização: anúncio central em todas as telas, sem gesto de voto ou atualização automática', async () => {
+test('otimização: anúncio central em todas as telas, sem registrar voto ou atualizar automaticamente', async () => {
   const {ctx,page,state}=await context({viewport:{width:1536,height:900},reducedMotion:'reduce'})
   try {
     await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/,r=>r.fulfill({contentType:'application/javascript',body:'window.adsbygoogle=window.adsbygoogle||[];'}))
@@ -1250,11 +1250,12 @@ test('otimização: anúncio central em todas as telas, sem gesto de voto ou atu
       assert.equal(box.width,300);assert.equal(box.height,height<=500?50:250)
       assert.ok(box.x>=0&&box.x+box.width<=width)
       if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/central-ad-'+width+'x'+height+'.png'})
-      const next=await page.getByRole('button',{name:'Continuar descobrindo',exact:true}).boundingBox()
+      const next=await page.getByRole('button',{name:'Quero assistir',exact:true}).boundingBox()
       assert.ok(next.y+next.height<=height)
       assert.equal(await page.locator('.swipe-ad-card').evaluate(e=>e.closest('[draggable=true]')!==null),false)
     }
-    await page.getByRole('button',{name:'Continuar descobrindo',exact:true}).click()
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+    await page.waitForFunction(()=>!document.querySelector('.swipe-ad-card:not([hidden])'))
     await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
     assert.equal(state.reactions.length,votes)
     assert.equal(await ad.evaluate(e=>e.isConnected),true,'preserve the initialized unit between steps')
@@ -1267,4 +1268,79 @@ test('otimização: anúncio central em todas as telas, sem gesto de voto ou atu
     assert.equal(await page.locator('.swipe-ad-card').isVisible(),true)
     assert.equal(await page.evaluate(()=>window.adsbygoogle.length),pushes,'revisiting the card must not refresh ads')
   }finally{await ctx.close()}
+})
+
+
+test('ajustes: cabeçalho compacto em 911x668 mantém pôster maior e participantes centralizados',async()=>{
+ const {ctx,page}=await context({viewport:{width:911,height:668}})
+ try{
+  await page.goto(sessionUrl.href);await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor();await page.evaluate(()=>document.fonts.ready)
+  const header=await page.locator('.swipe-header').boundingBox();const poster=await page.locator('.swipe-poster-frame').boundingBox();const members=await page.locator('.swipe-header-members').boundingBox()
+  assert.ok(header.height<=76,JSON.stringify(header));assert.ok(poster.height>=450,JSON.stringify(poster))
+  assert.ok(Math.abs(members.x+members.width/2-911/2)<2)
+  if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/header-911x668.png'})
+  await page.setViewportSize({width:911,height:390});await page.waitForFunction(()=>innerHeight===390&&document.querySelector('.swipe-header').getBoundingClientRect().height<=68)
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+ }finally{await ctx.close()}
+})
+
+test('ajustes: partículas se movem dos dois lados do fundo',async()=>{
+ const {ctx,page}=await context({viewport:{width:911,height:668}})
+ try{
+  await page.goto(sessionUrl.href);await page.waitForFunction(()=>document.querySelector('.swipe-flow-particles')?.width>0)
+  const hash=()=>page.locator('.swipe-flow-particles').evaluate(c=>{
+   const ctx=c.getContext('2d'),w=Math.floor(c.width/2)
+   return [0,w].map(x=>{const d=ctx.getImageData(x,0,w,c.height).data;let v=0;for(let i=3;i<d.length;i+=4)v=(v*31+d[i])|0;return v})
+  })
+  const before=await hash();await delay(180);const after=await hash()
+  assert.notEqual(before[0],after[0]);assert.notEqual(before[1],after[1])
+ }finally{await ctx.close()}
+})
+
+test('ajustes: seletor usa bandeiras gráficas, independente dos emojis do sistema',async()=>{
+ const {ctx,page}=await context()
+ try{
+  await page.goto(baseUrl);const flag=page.locator('.language-trigger img');await flag.waitFor({timeout:2000})
+  assert.match(await flag.getAttribute('src'),/br\.svg$/);assert.ok(await flag.evaluate(e=>e.complete&&e.naturalWidth>0))
+  await page.getByRole('button',{name:'Idioma da interface',exact:true}).click();await page.getByRole('menuitemradio',{name:/English/}).click()
+  assert.match(await flag.getAttribute('src'),/us\.svg$/)
+ }finally{await ctx.close()}
+})
+
+
+test('ajustes: anúncio aceita recusar e gesto na moldura sem registrar votos nem capturar o criativo',async()=>{
+ const {ctx,page,state}=await context({viewport:{width:911,height:668},reducedMotion:'reduce'})
+ try{
+  await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/,r=>r.fulfill({contentType:'application/javascript',body:'window.adsbygoogle=window.adsbygoogle||[];'}))
+  await page.route(/\/functions\/v1\/discover/,r=>r.fulfill({json:{page:1,total_pages:1,results:Array.from({length:60},(_,i)=>({id:i+1,tmdb_id:157336+i,title:'Filme '+i,year:2014,poster_url:'/demo/interstellar.jpg'}))}}))
+  await page.goto(sessionUrl.href)
+  for(const action of ['pass','swipe']){
+   for(let i=0;i<14&&!await page.locator('.swipe-ad-card:visible').count();i++){
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+    await page.waitForFunction(()=>document.querySelector('.swipe-ad-card:not([hidden])')||!document.querySelector('.cinema-vote-button.is-like')?.disabled)
+   }
+   await page.locator('.swipe-ad-card ins:visible').waitFor();const before=state.reactions.length
+   await page.locator('.swipe-ad-card ins:visible').click();assert.equal(await page.locator('.swipe-ad-card').isVisible(),true)
+   if(action==='pass')await page.getByRole('button',{name:'Passo',exact:true}).click()
+   else{
+    const label=await page.locator('.swipe-ad-card .cinema-eyebrow').boundingBox()
+    await page.mouse.move(label.x+20,label.y+label.height/2);await page.mouse.down();await page.mouse.move(label.x+170,label.y+label.height/2,{steps:8});await page.mouse.up()
+   }
+   await page.waitForFunction(()=>!document.querySelector('.swipe-ad-card:not([hidden])'))
+   assert.equal(state.reactions.length,before)
+  }
+ }finally{await ctx.close()}
+})
+
+test('ajustes: aviso de bloqueador é discreto, dispensável e não cobre votação',async()=>{
+ const {ctx,page}=await context({viewport:{width:911,height:668}})
+ try{
+  await page.goto(sessionUrl.href)
+  await page.addStyleTag({content:'.adsbox{display:none!important}'})
+  const notice=page.getByRole('complementary',{name:'Informação sobre publicidade'})
+  await notice.waitFor();assert.match(await notice.innerText(),/anúncios financiam o MovieMatch/)
+  const box=await notice.boundingBox(),vote=await page.getByRole('button',{name:'Quero assistir',exact:true}).boundingBox()
+  assert.ok(box.height<=40,JSON.stringify(box));assert.ok(box.y>=vote.y+vote.height)
+  await page.getByRole('button',{name:'Dispensar aviso de publicidade'}).click();assert.equal(await notice.count(),0)
+ }finally{await ctx.close()}
 })

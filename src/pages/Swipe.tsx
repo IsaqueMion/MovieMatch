@@ -24,7 +24,6 @@ import {
   type MonetizationType,
 } from '../lib/functions'
 import { ArrowLeftRight, Film } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
 
 import { Toaster, toast } from 'sonner'
 import AgeGateModal from '../components/AgeGateModal'
@@ -274,9 +273,6 @@ function Swipe() {
 
   // histórico p/ UNDO (guarda movie.id real)
   const historyRef = useRef<number[]>([])
-
-  // banner UNDO
-  const [undoMsg, setUndoMsg] = useState<string | null>(null)
 
   // modal de match
   const [matchModal, setMatchModal] = useState<{ title: string; poster_url: string | null; year?: number | null } | null>(null)
@@ -1710,15 +1706,6 @@ function Swipe() {
           error,
         )
       }
-
-      setUndoMsg(
-        t("Último swipe desfeito"),
-      )
-
-      setTimeout(
-        () => setUndoMsg(null),
-        1800,
-      )
     } catch (error: unknown) {
       console.error(error)
 
@@ -1980,7 +1967,7 @@ function Swipe() {
         <div className="swipe-stage-heading"><p>{t("Uma escolha de cada vez")}</p><span><ArrowLeftRight size={14} aria-hidden="true" />{t("Arraste o pôster para votar")}</span></div>
         <h1 className="sr-only">{t("Escolha o próximo filme")}</h1>
         <div className="swipe-card-stage">
-          {adsEnabled ? <AdSwipeCard id={`ad-interlude-${sessionId ?? 's'}`} active={isAdStep} /> : null}
+          {adsEnabled ? <AdSwipeCard onAdvance={v => react(v, { immediate: true })} onDragState={setDragging} id={`ad-interlude-${sessionId ?? 's'}`} active={isAdStep} /> : null}
           {current ? (isAdStep ? null : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onReviews={() => setReviewMovie(current)} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
             : <div className="swipe-empty" role="status">
               <Film size={34} aria-hidden="true" />
@@ -1992,7 +1979,7 @@ function Swipe() {
         </div>
         <footer className="swipe-voting" aria-label={t("Seu voto")}>
           <div>
-            {isAdStep ? <button type="button" className="swipe-tool swipe-ad-continue" disabled={busy} onClick={() => react(1, { immediate: true })}>{t('Continuar descobrindo')}</button> : <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />}
+            <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />
           </div>
         </footer>
       </div>
@@ -2000,7 +1987,6 @@ function Swipe() {
         <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={250} /></aside>
         <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={300} height={250} /></aside>
       </> : null}
-      <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
       {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
       {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
       {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {

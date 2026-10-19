@@ -530,3 +530,5 @@ html, body, #root { height: 100%; }
 .cinema-demo-notice { color: var(--cinema-muted); font-size: 12px; padding: 15px 0; border-bottom: 1px solid var(--cinema-line); }
 
 @media (pointer:coarse) { input:not([type=checkbox]):not([type=radio]), textarea, select { font-size:16px!important; } }
+
+.language-select img{display:block;width:20px;height:14px;object-fit:cover;border-radius:2px;flex-shrink:0}
