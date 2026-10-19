@@ -87,6 +87,103 @@ test('anúncio lento permanece montado e só se oculta quando o Google informa u
 })
 after(async () => { await browser?.close(); server?.kill() })
 
+for (const width of [320, 390, 768, 1024, 1440]) {
+  test(`AdSense em ${width}px: solicita somente espaços visíveis, separados dos votos`, async () => {
+    const height = width === 320 ? 844 : 900
+    const { ctx, page, state } = await context({ viewport: { width, height } })
+    try {
+      await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/, route => route.fulfill({ contentType: 'application/javascript', body: 'window.adsbygoogle=window.adsbygoogle||[];' }))
+      await page.goto(sessionUrl.href)
+      await page.waitForFunction(count => window.adsbygoogle?.length === count, width >= 1400 ? 2 : 1)
+      const visible = page.locator('ins.adsbygoogle:visible')
+      assert.equal(await visible.count(), width >= 1400 ? 2 : 1)
+      assert.equal(await page.locator('ins.adsbygoogle').count(), width >= 1400 ? 2 : 1, 'hidden, uninitialized units must not enter the Google queue')
+      for (const ad of await visible.all()) {
+        const box = await ad.boundingBox()
+        assert.equal(box.width, 300)
+        assert.equal(box.height, width >= 1400 ? 250 : 50)
+        assert.ok(box.x >= 0 && box.x + box.width <= width)
+        assert.equal(await ad.getAttribute('data-ad-format'), null, 'fixed dimensions must not be overridden by auto sizing')
+        if (width < 1400) {
+          const poster = await page.locator('.swipe-poster-frame').boundingBox()
+          assert.ok(box.y + box.height + 24 <= poster.y, 'keep the ad away from swipe interactions')
+        }
+      }
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+      const vote = await page.getByRole('button', { name: 'Quero assistir', exact: true }).boundingBox()
+      assert.ok(vote.y + vote.height <= height, 'voting must remain on screen')
+      await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
+      await page.waitForFunction(() => !document.querySelector('.is-undo').disabled)
+      assert.equal(state.reactions.length, 1)
+      if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/adsense-${width}.png` })
+    } finally { await ctx.close() }
+  })
+}
+
+for (const scenario of ['premium', 'adult', 'empty']) {
+  test(`AdSense não carrega em sessão ${scenario}`, async () => {
+    const { ctx, page } = await context()
+    let loads = 0
+    try {
+      await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/, route => { loads++; return route.fulfill({ contentType: 'application/javascript', body: 'window.adsbygoogle=window.adsbygoogle||[];' }) })
+      await page.route(/\/rest\/v1\/users\?/, route => route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', is_adult: scenario === 'adult', is_premium: scenario === 'premium' } }))
+      if (scenario === 'adult') await page.route(/\/rest\/v1\/session_filters\?/, route => route.fulfill({ json: { include_adult: true } }))
+      if (scenario === 'empty') await page.route(/\/functions\/v1\/discover/, route => route.fulfill({ json: { page: 1, total_pages: 1, results: [] } }))
+      await page.goto(sessionUrl.href)
+      await page.locator('.swipe-page').waitFor()
+      await page.waitForTimeout(300)
+      assert.equal(loads, 0)
+      assert.equal(await page.locator('ins.adsbygoogle').count(), 0)
+    } finally { await ctx.close() }
+  })
+}
+
+test('AdSense preserva as unidades ao redimensionar e permite carregar novamente após uma falha de rede', async () => {
+  const { ctx, page } = await context({ viewport: { width: 390, height: 844 } })
+  let attempts = 0
+  try {
+    await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/, route => {
+      attempts++
+      return attempts === 1 ? route.abort() : route.fulfill({ contentType: 'application/javascript', body: 'window.adsbygoogle=window.adsbygoogle||[];' })
+    })
+    await page.goto(sessionUrl.href)
+    await page.locator('.swipe-mobile-ad [data-ad-empty=true]').waitFor({ state: 'attached' })
+    assert.equal(await page.locator('.swipe-mobile-ad').isVisible(), false)
+    const notice = await page.getByRole('complementary', { name: 'Informação sobre publicidade' }).boundingBox()
+    const vote = await page.getByRole('button', { name: 'Quero assistir', exact: true }).boundingBox()
+    assert.ok(notice.y >= vote.y + vote.height, 'the failure notice must not cover controls')
+    await page.locator('.swipe-header a[href="/"]').first().click()
+    await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
+    await page.waitForURL(sessionUrl.href)
+    await page.waitForFunction(() => window.adsbygoogle?.length === 1)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.waitForFunction(() => window.adsbygoogle?.length === 3)
+    assert.equal(await page.locator('ins.adsbygoogle:visible').count(), 2)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.locator('.swipe-mobile-ad ins').waitFor({ state: 'visible' })
+    assert.equal(await page.evaluate(() => window.adsbygoogle.length), 3, 'resizing must not refresh an initialized unit')
+    assert.equal(attempts, 2, 'one shared script per page')
+    await page.locator('.swipe-mobile-ad ins').evaluate(el => el.setAttribute('data-ad-status', 'unfilled'))
+    await page.locator('.swipe-mobile-ad').waitFor({ state: 'hidden' })
+  } finally { await ctx.close() }
+})
+
+for (const [width, height] of [[320, 568], [844, 390]]) {
+test(`AdSense não solicita faixa em tela baixa de ${width}x${height}`, async () => {
+  const { ctx, page } = await context({ viewport: { width, height } })
+  let loads = 0
+  try {
+    await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/, route => { loads++; return route.fulfill({ contentType: 'application/javascript', body: 'window.adsbygoogle=window.adsbygoogle||[];' }) })
+    await page.goto(sessionUrl.href)
+    await page.locator('.swipe-page').waitFor()
+    await page.waitForTimeout(300)
+    assert.equal(loads, 0)
+    assert.equal(await page.locator('ins.adsbygoogle:visible').count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Quero assistir', exact: true }).isVisible(), true)
+  } finally { await ctx.close() }
+})
+}
+
 async function context(options = {}) {
   const { tutorial = false, ...browserOptions } = options
   const ctx = await browser.newContext({ locale: 'pt-BR', ...browserOptions })
