@@ -657,7 +657,7 @@ test('criação não duplica sessões e anúncio bloqueado permite votar e dispe
     await page.getByRole('button', { name: 'Abrir filtros' }).click()
     await page.getByRole('dialog').waitFor()
     await page.getByRole('button', { name: 'Fechar', exact: true }).click()
-    await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
+    await page.getByRole('dialog').waitFor({state:'hidden'})
     await page.keyboard.press('ArrowRight')
     for (let attempt = 0; attempt < 50 && state.reactions.length === 0; attempt++) await delay(100)
     assert.equal(state.reactions.length, 1)
@@ -782,7 +782,7 @@ for (const [width, height] of [[390, 844], [768, 1024], [1074, 884], [1101, 884]
       await page.goto(sessionUrl.href)
       await page.getByRole('button', { name: 'Quero assistir', exact: true }).waitFor()
       await page.waitForFunction(() => document.querySelector('.swipe-poster-image')?.classList.contains('is-ready'))
-      await page.locator('.swipe-header-members .member-avatar-trigger').first().waitFor()
+      await page.getByRole('button', { name: 'Ver participantes da sessão' }).waitFor()
       await page.evaluate(() => document.fonts.ready)
       const layout = await page.evaluate(() => {
         const bounds = element => { const r = element.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height } }
@@ -1173,15 +1173,18 @@ for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, pré
     await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
     assert.equal(await page.getByRole('dialog',{name:'Como votar no MovieMatch'}).count(),0)
     const participants=page.getByRole('group',{name:'Participantes da sessão'})
-    await participants.getByRole('button',{name:/Luna/}).waitFor()
-    assert.equal(await participants.getByRole('button').count(),2); assert.equal(await participants.getByRole('button',{name:/Convidado/}).count(),0)
-    await participants.getByRole('button',{name:/Perfil privado/}).focus()
+    await participants.getByRole('button',{name:'Ver participantes da sessão',exact:true}).click()
+    const panel=page.getByRole('dialog',{name:'Participantes da sessão'})
+    await panel.getByRole('button',{name:/Luna/}).waitFor()
+    assert.equal(await panel.locator('.member-avatar-trigger').count(),2); assert.equal(await panel.getByRole('button',{name:/Convidado/}).count(),0)
+    await panel.getByRole('button',{name:/Perfil privado/}).focus()
     const privatePreview=page.getByRole('region',{name:'Perfil de Perfil privado'});await privatePreview.waitFor();await page.keyboard.press('ArrowRight');assert.equal(state.reactions.length,0);assert.equal(await privatePreview.getByRole('link').count(),0)
     const privateBounds=await privatePreview.boundingBox();assert.ok(privateBounds.x>=0&&privateBounds.x+privateBounds.width<=width&&privateBounds.y>=0&&privateBounds.y+privateBounds.height<=900)
     await page.keyboard.press('Escape');await privatePreview.waitFor({state:'detached'})
-    await page.emulateMedia({reducedMotion:'reduce'});await participants.getByRole('button',{name:/Luna/}).hover()
+    await participants.getByRole('button',{name:'Ver participantes da sessão',exact:true}).click()
+    await page.emulateMedia({reducedMotion:'reduce'});await panel.getByRole('button',{name:/Luna/}).hover()
     await page.getByRole('region',{name:'Perfil de Luna'}).waitFor()
-    assert.equal(await participants.getByRole('button',{name:/Luna/}).locator('span').evaluate(el=>getComputedStyle(el).transform),'none')
+    assert.equal(await panel.getByRole('button',{name:/Luna/}).locator('span').evaluate(el=>getComputedStyle(el).transform),'none')
     await page.keyboard.press('Escape');await page.getByRole('region',{name:'Perfil de Luna'}).waitFor({state:'detached'})
     assert.equal(state.reactions.length,0)
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
@@ -1342,5 +1345,196 @@ test('ajustes: aviso de bloqueador é discreto, dispensável e não cobre votaç
   const box=await notice.boundingBox(),vote=await page.getByRole('button',{name:'Quero assistir',exact:true}).boundingBox()
   assert.ok(box.height<=40,JSON.stringify(box));assert.ok(box.y>=vote.y+vote.height)
   await page.getByRole('button',{name:'Dispensar aviso de publicidade'}).click();assert.equal(await notice.count(),0)
+ }finally{await ctx.close()}
+})
+
+for (const blockedStorage of [false, true]) test('convidado mantém identidade e votos após dez recargas, localStorage bloqueado=' + blockedStorage, async () => {
+  const { ctx, page } = await context({ tutorial: true, reducedMotion: 'reduce' })
+  let signups = 0
+  const votes = []
+  if (blockedStorage) await ctx.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError') } }))
+  await ctx.route(/supabase\.co\/auth\/v1\/signup/, async route => {
+    const id = 'aaaaaaaa-aaaa-4aaa-8aaa-' + String(++signups).padStart(12, '0')
+    const user = { id, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
+    const token = Buffer.from('{"alg":"HS256"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: id, exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url') + '.test'
+    await route.fulfill({ json: { access_token: token, refresh_token: 'fixture', token_type: 'bearer', expires_in: 3600, user } })
+  })
+  await ctx.route(/supabase\.co\/rest\/v1\/reactions/, async route => {
+    const req = route.request(), url = new URL(req.url())
+    if (req.method() === 'POST') { votes.push(req.postDataJSON()); await route.fulfill({ contentType: 'application/json', body: 'null' }); return }
+    await route.fulfill({ json: votes.filter(v => 'eq.' + v.user_id === url.searchParams.get('user_id')).map(v => ({ movie_id: v.movie_id })) })
+  })
+  await ctx.route(/supabase\.co\/rest\/v1\/movies/, route => {
+    const req=route.request()
+    const rows=[{id:1,tmdb_id:157336},{id:2,tmdb_id:194}]
+    if(req.method()==='POST') return route.fulfill({json:{id:rows.find(row=>row.tmdb_id===req.postDataJSON().tmdb_id).id}})
+    return route.fulfill({json:rows.filter(row=>votes.some(v=>v.movie_id===row.id))})
+  })
+  try {
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
+    await page.waitForFunction(() => !document.querySelector('.is-like').disabled)
+    assert.equal(votes.length, 1)
+    const uid = votes[0].user_id
+    // The ad between movies advances without a vote.
+    if (await page.locator('.swipe-page').getAttribute('data-ad-step') === 'true') {
+      await page.getByRole('button', { name: 'Passo', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('.swipe-page')?.dataset.adStep !== 'true' && !document.querySelector('.is-dislike').disabled)
+    }
+    await page.getByRole('button', { name: 'Passo', exact: true }).click()
+    await page.locator('.swipe-empty').waitFor()
+    assert.deepEqual(votes.map(v => v.value), [1, -1])
+    assert.ok(votes.every(v => v.user_id === uid))
+    for (let n = 0; n < 10; n++) {
+      await page.reload()
+      await page.locator('.swipe-header').waitFor()
+      await page.locator('.swipe-empty').waitFor()
+      await page.getByRole('button', { name: 'Abrir filtros', exact: true }).waitFor()
+      assert.equal(signups, 1, 'refresh must not create another anonymous account')
+      assert.equal(await page.locator('.swipe-poster-image img').count(), 0, 'already rated movies stay excluded')
+    }
+    assert.ok(uid)
+    assert.equal(votes.length, 2)
+  } finally { await ctx.close() }
+})
+
+test('sem armazenamento disponível não cria convidados descartáveis', async () => {
+  const { ctx, page, state } = await context({ tutorial: true })
+  await ctx.addInitScript(() => { for (const name of ['localStorage', 'sessionStorage']) Object.defineProperty(window, name, { get() { throw new DOMException('Blocked', 'SecurityError') } }) })
+  try {
+    await page.goto(sessionUrl.href)
+    await page.getByText(/Permita o armazenamento deste site/).first().waitFor()
+    await page.reload()
+    await page.getByText(/Permita o armazenamento deste site/).first().waitFor()
+    assert.equal(state.requests.filter(req => req.path.endsWith('/signup')).length, 0)
+  } finally { await ctx.close() }
+})
+
+test('duas abas abertas juntas compartilham a mesma criação de convidado', async () => {
+  const { ctx, page, state } = await context({ tutorial: true, reducedMotion: 'reduce' })
+  await ctx.route(/supabase\.co\/auth\/v1\/signup/, async route => { await delay(150); await route.fallback() })
+  const second = await ctx.newPage()
+  await second.routeWebSocket(/supabase\.co/, socket => socket.close())
+  try {
+    await Promise.all([page.goto(sessionUrl.href), second.goto(sessionUrl.href)])
+    await Promise.all([page.locator('.swipe-poster-image').waitFor(), second.locator('.swipe-poster-image').waitFor()])
+    assert.equal(state.requests.filter(req => req.path.endsWith('/signup')).length, 1)
+  } finally { await ctx.close() }
+})
+
+test('pôster mostra miniatura enquanto a imagem grande carrega e prepara a próxima imagem', async () => {
+  const { ctx, page } = await context({ tutorial: true, reducedMotion: 'reduce' })
+  const requested = []
+  let release
+  const fullImage = new Promise(resolve => { release = resolve })
+  const movies = [1, 2, 3].map(n => ({ movie_id: n, tmdb_id: n, title: 'Filme ' + n, year: 2026, poster_url: 'https://image.tmdb.org/t/p/w500/poster-' + n + '.jpg', genres: [] }))
+  await ctx.route(/supabase\.co\/functions\/v1\/discover/, route => route.fulfill({ json: { page: 1, total_pages: 1, results: movies } }))
+  await ctx.route(/https:\/\/image\.tmdb\.org\//, async route => {
+    requested.push(route.request().url())
+    if (!route.request().url().includes('/w92/')) await fullImage
+    try { await route.fulfill({ contentType: 'image/jpeg', body: posterFixture }) } catch { /* A cancelled test can close its context. */ }
+  })
+  try {
+    await page.goto(sessionUrl.href)
+    const preview = page.locator('.swipe-poster-preview')
+    await page.waitForFunction(() => document.querySelector('.swipe-poster-preview')?.naturalWidth > 0)
+    assert.equal(await preview.evaluate(el => getComputedStyle(el).opacity), '1')
+    assert.equal(await page.locator('.swipe-poster-image').evaluate(el => el.classList.contains('is-ready')), false)
+    assert.equal(new Set(requested.filter(url => !url.includes('/w92/')).map(url => url.split('/').pop())).size, 3, 'current + two future posters requested before voting')
+    const filename = (await preview.getAttribute('src')).split('/').pop()
+    assert.equal((await page.locator('.swipe-poster-image > img:not(.swipe-poster-preview)').getAttribute('src')).split('/').pop(), filename)
+    release()
+    await page.waitForFunction(() => document.querySelector('.swipe-poster-image')?.classList.contains('is-ready'))
+    assert.equal(await preview.count(), 0)
+    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
+  } finally { release(); await ctx.close() }
+})
+
+for (const [width, height] of [[320, 668], [911, 668], [1440, 900], [844, 390]]) test('participantes expandem sem reduzir pôster, com privacidade e teclado em ' + width + 'x' + height, async () => {
+  const { ctx, page, state } = await context({ viewport: { width, height } })
+  const people = Array.from({length: 8}, (_, n) => ({ member_key:n, id:null, handle:null, display_name:n === 0 ? 'Convidado com um nome muito longo 🎬' : 'Convidado ' + n, online:true, avatar_path:null }))
+  await ctx.route(/supabase\.co\/rest\/v1\/rpc\/session_participants/, route => route.fulfill({ json: people }))
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  try {
+    await page.goto(sessionUrl.href)
+    const trigger = page.getByRole('button', {name:'Ver participantes da sessão',exact:true})
+    await trigger.getByText('+5').waitFor()
+    const before = await page.locator('.swipe-poster-frame').boundingBox()
+    await trigger.click()
+    const panel = page.getByRole('dialog', {name:'Participantes da sessão',exact:true})
+    await panel.waitFor()
+    await page.waitForFunction(() => document.querySelector('.session-participants-panel').getAnimations({subtree:true}).every(animation=>animation.playState==='finished'))
+    assert.deepEqual(await page.locator('.swipe-poster-frame').boundingBox(),before)
+    const box = await panel.boundingBox()
+    assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height)
+    assert.equal(await panel.locator('.session-participant').count(),8)
+    assert.equal(await panel.getByRole('link').count(),0,'guests do not expose profile links')
+    await page.keyboard.press('ArrowRight'); assert.equal(state.reactions.length,0)
+    if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR + '/participants-expanded-' + width + '.png'})
+    await page.keyboard.press('Escape'); await panel.waitFor({state:'hidden'})
+    assert.equal(await trigger.evaluate(el=>el===document.activeElement),true)
+    await trigger.press('Enter'); await panel.waitFor()
+    assert.equal(await panel.evaluate(el=>el.getAnimations().length),0,'keyboard opens instantly')
+    await page.getByRole('button',{name:'Fechar participantes',exact:true}).click(); await panel.waitFor({state:'hidden'})
+    await page.emulateMedia({reducedMotion:'reduce'})
+    await trigger.click(); await panel.waitFor()
+    assert.equal(await panel.evaluate(el=>el.getAnimations({subtree:true}).length),0)
+    await page.mouse.click(2,height-2); await panel.waitFor({state:'hidden'})
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    assert.deepEqual(errors,[])
+  } finally { await ctx.close() }
+})
+
+for (const name of ['Quero assistir','Passo']) test('botão ' + name + ' deixa a animação terminar antes de trocar o pôster, mesmo com gravação rápida', async () => {
+  const {ctx,page,state}=await context({viewport:{width:911,height:668},reducedMotion:'no-preference'})
+  try {
+    await page.goto(sessionUrl.href)
+    const card=await page.locator('.swipe-film').elementHandle()
+    const button=page.getByRole('button',{name,exact:true})
+    await page.waitForFunction(()=>!document.querySelector('.is-like').disabled)
+    const started=Date.now()
+    await button.click()
+    await delay(120)
+    assert.equal(await card.evaluate(el=>el.isConnected),true,'fast API must not cut off the card exit')
+    assert.equal(state.reactions.length,1)
+    const offset=await card.evaluate(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).m41)
+    assert.ok(name==='Passo'?offset<0:offset>0)
+    await page.waitForFunction(el=>!el.isConnected,card)
+    assert.ok(Date.now()-started>=270,'button exit should remain perceptible')
+    assert.equal(state.reactions.length,1,'animation completion must not save a second vote')
+  } finally {await ctx.close()}
+})
+
+test('falha ao salvar voto devolve o card e permite tentar novamente sem perder filme',async()=>{
+ const {ctx,page,state}=await context({reducedMotion:'no-preference'})
+ let fail=true
+ await ctx.route(/supabase\.co\/rest\/v1\/reactions/,route=>route.request().method()==='POST'&&fail?route.fulfill({status:403,json:{message:'Voto não salvo'}}):route.fallback())
+ try {
+   await page.goto(sessionUrl.href)
+   const card=await page.locator('.swipe-film').elementHandle()
+   await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+   await page.getByText(/Erro ao salvar reação/).waitFor()
+   await page.waitForFunction(()=>!document.querySelector('.is-like').disabled)
+   assert.equal(await card.evaluate(el=>el.isConnected),true)
+   assert.equal(state.reactions.length,0)
+   fail=false
+   await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+   await page.waitForFunction(el=>!el.isConnected,card)
+   assert.equal(state.reactions.length,1)
+ }finally{await ctx.close()}
+})
+
+test('match com armazenamento bloqueado permite abrir a lista sem lançar erro',async()=>{
+ const {ctx,page}=await context({tutorial:true,reducedMotion:'reduce'})
+ await ctx.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Blocked','SecurityError')}}))
+ await ctx.route(/\/rpc\/check_session_match/,route=>route.fulfill({json:[{is_match:true,member_count:2,like_count:2}]}))
+ const errors=[];page.on('pageerror',error=>errors.push(error.message))
+ try {
+   await page.goto(sessionUrl.href)
+   await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+   await page.getByRole('dialog',{name:'Deu match.'}).getByRole('link',{name:'Ver matches'}).click()
+   await page.waitForURL('**/s/DEMO01/matches')
+   await page.locator('#matches-title').waitFor()
+   assert.deepEqual(errors,[])
  }finally{await ctx.close()}
 })

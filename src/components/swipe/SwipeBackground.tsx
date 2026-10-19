@@ -74,9 +74,10 @@ export default function SwipeBackground() {
     const visibility = new IntersectionObserver(entries => { visible = entries.some(e => e.isIntersecting); sync() })
     visibility.observe(container)
     const checkModal = () => {
-      const next = !!document.querySelector('dialog[open], [role="dialog"]')
+      const next = !!document.querySelector('dialog[open], [role="dialog"]:not([popover]), [popover]:popover-open')
       if (next !== modal) { modal = next; sync() }
     }
+    document.addEventListener('toggle', checkModal, true)
     const modals = new MutationObserver(checkModal)
     modals.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
     const click = (event: MouseEvent) => {
@@ -90,7 +91,7 @@ export default function SwipeBackground() {
     checkModal(); sync()
     return () => {
       cancelAnimationFrame(raf); resizeObserver.disconnect(); visibility.disconnect(); modals.disconnect()
-      window.removeEventListener('click', click); document.removeEventListener('visibilitychange', sync)
+      window.removeEventListener('click', click); document.removeEventListener('visibilitychange', sync); document.removeEventListener('toggle', checkModal, true)
     }
   }, [reducedMotion])
 

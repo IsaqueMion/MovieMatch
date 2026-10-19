@@ -29,10 +29,10 @@ import { Toaster, toast } from 'sonner'
 import AgeGateModal from '../components/AgeGateModal'
 import AdSlot from '../components/AdSlot'
 import SwipeBannerAd from '../components/swipe/SwipeBannerAd'
-import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import AdblockWall from '../components/AdblockWall'
 import confetti from 'canvas-confetti'
 import { ensureAnonymousUser } from '../lib/auth'
+import { tmdbPosterSrcs, SWIPE_POSTER_SIZES } from '../lib/images'
 import SwipeCard, {
   type SwipeCardHandle,
   type SwipeMovie,
@@ -217,11 +217,7 @@ function sessionFiltersFromRow(
   }
 }
 
-// tempo pro exit terminar antes de liberar clique
-const EXIT_DURATION_MS = 180
-
 function Swipe() {
-  const reducedMotion = usePrefersReducedMotion()
   const { locale } = useLocale()
   const { code } = useParams()
 
@@ -317,7 +313,12 @@ function Swipe() {
   // “novo match” (badge na estrela)
   const [latestMatchAt, setLatestMatchAt] = useState<number>(0)
   const LS_KEY = sessionId ? `mm:lastSeenMatch:${sessionId}` : ''
-  const lastSeenMatchAt = useMemo(() => (LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0), [LS_KEY])
+  const lastSeenMatchAt = useMemo(() => {
+    try { return LS_KEY ? Number(localStorage.getItem(LS_KEY) || 0) : 0 } catch { return 0 }
+  }, [LS_KEY])
+  const markMatchesSeen = () => {
+    try { if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now())) } catch { /* The badge is optional when storage is blocked. */ }
+  }
   const hasNewMatch = !!(latestMatchAt && latestMatchAt > lastSeenMatchAt)
 
   const current = movies[i]
@@ -848,6 +849,22 @@ function Swipe() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.tmdb_id, locale, filters.watchRegion])
+
+  // Warm only the next two images, at lower priority than the visible poster.
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+    if (connection?.saveData) return
+    for (const movie of movies.slice(i + 1, i + 3)) {
+      if (!movie.poster_url) continue
+      const { src, srcSet } = tmdbPosterSrcs(movie.poster_url)
+      const image = new Image()
+      image.fetchPriority = 'low'
+      image.decoding = 'async'
+      image.sizes = SWIPE_POSTER_SIZES
+      image.srcset = srcSet
+      image.src = src
+    }
+  }, [i, movies])
 
   // PREFETCH dos PRÓXIMOS
   useEffect(() => {
@@ -1474,14 +1491,11 @@ function Swipe() {
       // ===== CARD DE FILME =====
       if (clickGuardRef.current || busy) return
 
-      if (!options?.skipAnimation && !options?.immediate) {
-        cardRef.current?.swipe(value)
-      }
-
       clickGuardRef.current = true
       setBusy(true)
-
-      const releaseDelay = options?.immediate || reducedMotion || options?.skipAnimation ? 0 : EXIT_DURATION_MS
+      const exitAnimation = !options?.skipAnimation && !options?.immediate
+        ? cardRef.current?.swipe(value)
+        : undefined
 
       // Só vamos avançar para o próximo filme
       // se a reação realmente for salva.
@@ -1567,6 +1581,9 @@ function Swipe() {
         // realmente foi gravada no banco.
         reactionSaved = true
 
+        // Finish the visible exit before a fast response can open a match or replace the card.
+        await exitAnimation
+
         if (value === 1) {
           await checkMatch(movieId)
         }
@@ -1602,17 +1619,13 @@ function Swipe() {
               null
           }
 
-          await new Promise((res) =>
-            setTimeout(res, 16),
-          )
-
           await goNext()
         }
 
         setTimeout(() => {
           clickGuardRef.current = false
           setBusy(false)
-        }, releaseDelay + 60)
+        }, 60)
       }
     },
     [
@@ -1625,7 +1638,6 @@ function Swipe() {
       isAdStep,
       totalSteps,
       checkMatch,
-      reducedMotion,
     ],
   )
 
@@ -1731,7 +1743,7 @@ function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging || reviewMovie || openFilters || matchModal || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return
-      if (document.querySelector('.cinema-share-panel')) return
+      if (document.querySelector('.cinema-share-panel, .session-participants-panel:popover-open')) return
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
       if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1, { immediate: true }) }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1, { immediate: true }) }
@@ -1959,9 +1971,7 @@ function Swipe() {
   return (
     <main className="cinema-page swipe-page" id="conteudo" data-ad-step={isAdStep || undefined}>
       <SwipeBackground />
-      <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
-        if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
-      }} />
+      <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={markMatchesSeen} />
       {adsEnabled ? <SwipeBannerAd key={sessionId} sessionId={sessionId ?? 's'} /> : null}
       <div className="swipe-deck">
         <div className="swipe-stage-heading"><p>{t("Uma escolha de cada vez")}</p><span><ArrowLeftRight size={14} aria-hidden="true" />{t("Arraste o pôster para votar")}</span></div>
@@ -1990,7 +2000,7 @@ function Swipe() {
       {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
       {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
       {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {
-        if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
+        markMatchesSeen()
         setLatestMatchAt(0)
         setMatchModal(null)
       }} /> : null}

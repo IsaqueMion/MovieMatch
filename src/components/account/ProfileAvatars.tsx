@@ -5,6 +5,7 @@ import { ArrowUpRight, UserRound } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { mediaUrl } from '../../lib/account'
 import '../../styles/profile-avatars.css'
+import SessionParticipants from '../ui/session-participants'
 
 type Member = { member_key?: number; id: string | null; handle: string | null; display_name: string; bio: string | null; avatar_path: string | null; cover_path: string | null; online?: boolean }
 
@@ -41,9 +42,11 @@ export default function ProfileAvatars({ sessionId }: { sessionId?: string | nul
     return () => { active = false; observer?.disconnect(); window.clearInterval(interval); window.removeEventListener('moviematch:profile-changed', changed); window.removeEventListener('focus', changed) }
   }, [sessionId])
   return <div className="profile-avatars" ref={root} onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Backspace'].includes(event.key)) event.stopPropagation() }}>
-    <div className="profile-avatar-list" role="group" aria-label={sessionId ? t("Participantes da sessão") : t("Perfis públicos da comunidade")}>
+    {sessionId ? <SessionParticipants key={sessionId} participants={members.map(member => ({ key: member.member_key ?? member.id!, avatar: mediaUrl(member.avatar_path) }))}>
+      {members.map(member => <div className="session-participant" key={member.member_key ?? member.id!}><MemberAvatar member={member} /><span title={member.display_name}>{member.display_name}</span><small>{t('online')}</small></div>)}
+    </SessionParticipants> : <div className="profile-avatar-list" role="group" aria-label={t("Perfis públicos da comunidade")}>
       {members.map(member => <MemberAvatar key={member.member_key ?? member.id!} member={member} />)}
-    </div>
+    </div>}
     {!sessionId ? <small>{members.length ? t("Perfis públicos da comunidade · sessão ilustrativa") : error ? t("Comunidade indisponível agora · sessão ilustrativa") : t("Uma sessão ilustrativa do MovieMatch")}</small> : error ? <small role="status">{t("Não foi possível atualizar participantes.")}</small> : null}
   </div>
 }
