@@ -14,7 +14,6 @@ import Landing from './pages/Landing'
 import NotFound from './pages/NotFound'
 import SessionLoader from './components/ui/session-loader'
 import BackToTop from './components/ui/back-to-top'
-import LanguageSelect from './components/ui/language-select'
 
 const Swipe = lazy(
   () => import('./pages/Swipe'),
@@ -73,7 +72,6 @@ export default function App() {
           />
         </Routes>
       </Suspense>
-      <footer className="site-language-footer"><LanguageSelect /></footer>
     </BrowserRouter>
   )
 }

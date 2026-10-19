@@ -26,7 +26,7 @@ export default function SwipeActionButtons({
   const renderItem = (item: DockItemData) => <button type="button" className={`cinema-vote-button is-${item.id}`} onClick={item.onClick} disabled={item.disabled} aria-label={item.id === 'like' ? t("Quero assistir") : item.id === 'dislike' ? t("Passo") : t("Desfazer")} title={item.id === 'like' ? t("Quero assistir") : item.id === 'dislike' ? t("Não quero assistir") : t("Desfazer último voto")} {...previewProps}><span className="cinema-vote-icon" aria-hidden="true">{item.icon}</span></button>
   return (
     <div className={`cinema-vote-actions ${interactive ? '' : 'is-preview'}`}>
-      {interactive ? <Dock label={t('Seu voto')} items={items} panelHeight={68} baseItemSize={50} magnification={70} distance={145} renderItem={renderItem} /> : items.map(item => <div key={item.id}>{renderItem(item)}</div>)}
+      {interactive ? <Dock label={t('Seu voto')} items={items} panelHeight={60} baseItemSize={50} magnification={58} distance={145} renderItem={renderItem} /> : items.map(item => <div key={item.id}>{renderItem(item)}</div>)}
     </div>
   )
 }

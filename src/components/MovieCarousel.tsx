@@ -47,7 +47,7 @@ export default function MovieCarousel({ title, year, poster_url, details, fullHe
         </div>
       </FadeSlide>
     </div>
-    <Dock className="swipe-carousel-tabs" label={t('Conheça o filme')} baseItemSize={44} magnification={62} distance={100} panelHeight={56} items={[
+    <Dock className="swipe-carousel-tabs" label={t('Conheça o filme')} baseItemSize={44} magnification={50} distance={100} panelHeight={56} items={[
       ...slides.map(kind => { const Icon = slideIcons[kind]; return { id: kind, icon: <Icon size={18} aria-hidden="true" />, label: t(slideLabels[kind]), onClick: () => setSlide(kind) } }),
       ...(onReviews ? [{ id: 'reviews', icon: <MessageSquare size={18} aria-hidden="true" />, label: t('Avaliações'), onClick: onReviews }] : []),
     ]} renderItem={item => <button id={`${id}-tab-${item.id}`} type="button" aria-label={item.id === 'reviews' ? t('Avaliações dos usuários') : item.label} aria-pressed={item.id === 'reviews' ? undefined : item.id === active} aria-controls={item.id === 'reviews' ? undefined : `${id}-${item.id}`} onClick={item.onClick} data-interactive="true">{item.icon}</button>} />

@@ -8,6 +8,7 @@ import LandingSwipePreview from '../components/landing/LandingSwipePreview'
 import catalogue from '../data/landingMovies.json'
 import { selectLandingMovies } from '../lib/landingSelection'
 import CinemaButton from '../components/ui/cinema-button'
+import LanguageSelect from '../components/ui/language-select'
 import { preferredRegion } from '../lib/locale'
 const AccountMenu = lazy(() => import('../components/account/AccountMenu'))
 const HomeNavigation = lazy(() => import('../components/landing/HomeNavigation'))
@@ -225,6 +226,7 @@ export default function Landing() {
         <div className="cinema-footer-top"><a href="/" className="cinema-brand"><Clapperboard size={20} aria-hidden="true" />MovieMatch<span className="cinema-brand-dot">.</span></a><nav aria-label={t("Informações do site")}><a href="/assistidos">{t("Meus assistidos")}</a><a href="/privacy.html">{t("Privacidade")}</a><a href="/terms.html">{t("Termos")}</a><a href="/ads.html">{t("Publicidade")}</a></nav></div>
         <div className="cinema-footer-bottom"><span>{t("Feito para decidir juntos.")}</span><p>{t("Este produto usa a API do") + " "}<a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>{t(", mas não é endossado ou certificado pelo TMDB.")}</p></div>
       </footer>
+      <footer className="site-language-footer"><LanguageSelect /></footer>
     </div>
   )
 }

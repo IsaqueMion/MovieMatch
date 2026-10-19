@@ -29,14 +29,17 @@ before(async () => {
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) })
 })
 
-test('trocar idioma no swipe preserva filme, votos e região; metadados usam o novo idioma',async()=>{
+test('idioma escolhido na home é aplicado ao retomar o swipe preservando filme, votos e região',async()=>{
   const {ctx,page,state}=await context({locale:'en-US',serviceWorkers:'block'})
   try{
     await page.goto(sessionUrl.href)
     await page.getByRole('button',{name:'Want to watch',exact:true}).waitFor()
     const title=await page.locator('.swipe-film-title').textContent()
+    assert.equal(await page.locator('.language-select').count(),0)
     const localizedDetails=page.waitForResponse(response=>response.url().includes('/functions/v1/movie_details')&&new URL(response.url()).searchParams.get('language')==='es-ES')
+    await page.goto(baseUrl)
     await page.getByRole('button',{name:'Interface language',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Español/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
+    await page.goto(sessionUrl.href)
     await localizedDetails
     await page.getByRole('button',{name:'Quiero verla',exact:true}).waitFor()
     assert.equal(await page.locator('.swipe-film-title').textContent(),title)
@@ -49,7 +52,9 @@ test('trocar idioma no swipe preserva filme, votos e região; metadados usam o n
     await page.getByRole('button',{name:'Quiero verla',exact:true}).click()
     await page.waitForFunction(old=>document.querySelector('.swipe-film-title')?.textContent!==old,title)
     const next=await page.locator('.swipe-film-title').textContent()
+    await page.goto(baseUrl)
     await page.getByRole('button',{name:'Idioma de la interfaz',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Português/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
+    await page.goto(sessionUrl.href)
     await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
     assert.equal(await page.locator('.swipe-film-title').textContent(),next)
     assert.equal(state.reactions.length,1)
@@ -86,6 +91,92 @@ test('anúncio lento permanece montado e só se oculta quando o Google informa u
   }finally{await ctx.close()}
 })
 after(async () => { await browser?.close(); server?.kill() })
+
+test('anotações: pôster maior, controles proporcionais e dicas separadas mesmo com hover em 1536x724', async () => {
+  const { ctx, page } = await context({ viewport: { width: 1536, height: 724 } })
+  try {
+    await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/, route => route.fulfill({ contentType: 'application/javascript', body: 'window.adsbygoogle=window.adsbygoogle||[];' }))
+    await page.goto(sessionUrl.href)
+    const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
+    await like.waitFor()
+    await page.evaluate(() => document.fonts.ready)
+    const poster = await page.locator('.swipe-poster-frame').boundingBox()
+    assert.ok(poster.height >= 430, JSON.stringify(poster))
+    assert.ok((await like.boundingBox()).width <= 64)
+    const tabs = await page.getByRole('toolbar', { name: 'Conheça o filme' }).boundingBox()
+    assert.ok(tabs.x >= poster.x + poster.width + 8, 'film controls must leave the entire poster visible')
+    await like.hover()
+    await delay(600)
+    const hovered = await like.boundingBox()
+    const hint = await page.locator('.cinema-vote-actions .cinema-dock-shortcut').last().boundingBox()
+    assert.ok(hovered.width <= 80, JSON.stringify(hovered))
+    assert.ok(hint.y >= hovered.y + hovered.height + 8, 'keyboard hints must clear the enlarged button')
+    assert.equal(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight + 1), false)
+    if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/swipe-proportions-1536.png' })
+    await page.setViewportSize({ width: 1440, height: 1200 })
+    const reviews = page.getByRole('button', { name: 'Avaliações dos usuários' })
+    await reviews.hover()
+    const tooltip = await reviews.locator('../..').locator('.cinema-dock-label').boundingBox()
+    const advertisement = await page.locator('.swipe-ad-right').boundingBox()
+    assert.ok(tooltip.x + tooltip.width + 8 <= advertisement.x, 'film tooltips must not cover advertisements on tall screens')
+  } finally { await ctx.close() }
+})
+
+test('anotações: compartilhar mantém fundo até a base, sem rodapé de idioma nem barra branca', async () => {
+  const { ctx, page } = await context({ viewport: { width: 1536, height: 724 } })
+  try {
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button', { name: 'Compartilhar sessão' }).click()
+    await page.getByRole('dialog', { name: 'Convidar para a sessão' }).waitFor()
+    await page.waitForFunction(() => [...document.querySelectorAll('.cinema-share-action')].every(el => getComputedStyle(el).opacity === '1'))
+    assert.equal(await page.locator('.site-language-footer').count(), 0)
+    const box = await page.locator('.swipe-page').boundingBox()
+    assert.equal(box.y + box.height, 724)
+    assert.equal(await page.evaluate(() => !!document.elementFromPoint(5, innerHeight - 2)?.closest('.swipe-page')), true)
+    if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/swipe-share-1536.png' })
+  } finally { await ctx.close() }
+})
+
+test('anotações: resumo dos filtros acomoda um ou vários chips sem barras de rolagem', async () => {
+  const { ctx, page } = await context({ viewport: { width: 1536, height: 724 } })
+  try {
+    await page.route(/\/rest\/v1\/users\?/, route => route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', is_adult: true } }))
+    await page.route(/\/rest\/v1\/session_filters\?/, route => route.fulfill({ json: { include_adult: true } }))
+    await page.goto(sessionUrl.href)
+    await page.getByRole('button', { name: 'Abrir filtros', exact: true }).click()
+    const summary = page.locator('.filter-summary-chips')
+    await summary.getByRole('button', { name: 'Remover filtro: Conteúdo adulto' }).hover()
+    await delay(400)
+    assert.equal(await summary.evaluate(el => getComputedStyle(el).overflowX), 'visible')
+    assert.equal(await summary.evaluate(el => getComputedStyle(el).overflowY), 'visible')
+    await page.getByRole('button', { name: 'Gêneros', exact: true }).click()
+    for (const name of ['Ação', 'Aventura', 'Animação', 'Comédia', 'Drama']) await page.getByRole('button', { name, exact: true }).first().click()
+    await page.setViewportSize({ width: 320, height: 740 })
+    const chips = await summary.locator('button').evaluateAll(elements => elements.map(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right } }))
+    assert.ok(chips.every(r => r.left >= 0 && r.right <= 320), JSON.stringify(chips))
+    assert.equal(await summary.evaluate(el => getComputedStyle(el).flexWrap), 'wrap')
+    assert.equal(await page.getByRole('button', { name: 'Aplicar filtros', exact: true }).isVisible(), true)
+    if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/filter-summary-320.png' })
+  } finally { await ctx.close() }
+})
+
+test('anotações: seletor de idioma existe somente na página inicial e a preferência persiste', async () => {
+  const { ctx, page } = await context()
+  try {
+    await page.goto(baseUrl)
+    await page.getByRole('button', { name: 'Idioma da interface', exact: true }).click()
+    await page.getByRole('menuitemradio', { name: /Español/ }).click()
+    for (const path of ['/s/DEMO01', '/s/DEMO01/matches', '/conta', '/assistidos', '/perfil']) {
+      await page.goto(new URL(path, baseUrl).href)
+      await page.locator('main').waitFor()
+      await page.waitForFunction(() => document.documentElement.lang === 'es-ES')
+      assert.equal(await page.locator('.language-select').count(), 0, path)
+      assert.equal(await page.locator('html').getAttribute('lang'), 'es-ES')
+    }
+    await page.goto(baseUrl)
+    await page.getByRole('button', { name: 'Idioma de la interfaz', exact: true }).waitFor()
+  } finally { await ctx.close() }
+})
 
 for (const width of [320, 390, 768, 1024, 1440]) {
   test(`AdSense em ${width}px: solicita somente espaços visíveis, separados dos votos`, async () => {
@@ -271,7 +362,7 @@ test('Gateway Flow mantém a fonte registrada, preenche a tela e reage sem bloqu
     assert.deepEqual(await frame.evaluate(() => window.testClicks[0]), [20, 250])
     for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
       await page.setViewportSize({ width, height })
-      const sceneHeight = height - 52 // The discreet footer has its own 52px row.
+      const sceneHeight = height
       await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height && document.querySelector('#flow-canvas').width === width * devicePixelRatio, { width, height: sceneHeight })
       const bounds = await element.boundingBox()
       assert.deepEqual(bounds, { x: 0, y: 0, width, height: sceneHeight })
@@ -722,7 +813,9 @@ for (const [width, height] of [[390, 844], [768, 1024], [1074, 884], [1101, 884]
       assert.ok(layout.scrollWidth <= width)
       assert.ok(layout.scrollHeight <= height + 1)
       assert.ok(layout.buttons.every(button => button.top >= 0 && button.bottom <= height && button.left >= 0 && button.right <= width), JSON.stringify(layout.buttons))
-      assert.ok(layout.tabs.every(tab => tab.left >= layout.poster.left - 1 && tab.right <= layout.poster.right + 1), JSON.stringify(layout.tabs))
+      assert.ok(layout.tabs.every(tab => tab.left >= 0 && tab.right <= width && tab.top >= 0 && tab.bottom <= height), JSON.stringify(layout.tabs))
+      assert.ok(layout.tabs.every(tab => tab.left >= layout.poster.right || tab.top >= layout.poster.bottom), 'the dock must not cover the poster')
+      assert.ok(layout.tabs.every(tab => tab.bottom <= Math.min(...layout.buttons.map(button => button.top)) || tab.left >= layout.poster.right), 'film and voting controls remain separate')
       assert.deepEqual(errors, [])
       if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/swipe-modern-${width}x${height}.png` })
     } finally { await ctx.close() }
@@ -738,6 +831,17 @@ test('pôster, trailer e sinopse usam clique/Tab; as setas votam mesmo com foco 
     const poster = page.getByRole('button', { name: 'Pôster', exact: true })
     const trailer = page.getByRole('button', { name: 'Trailer', exact: true })
     await trailer.waitFor()
+    for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }]) {
+      await page.setViewportSize(viewport)
+      const image = await page.locator('.swipe-poster-frame').boundingBox()
+      for (const button of await page.locator('.swipe-carousel-tabs button').all()) {
+        const box = await button.boundingBox()
+        assert.ok(box.width >= 44 && box.height >= 44, 'film controls retain touch targets')
+        assert.ok(box.x >= 0 && box.x + box.width <= viewport.width && box.y >= 0 && box.y + box.height <= viewport.height)
+        assert.ok(box.x >= image.x + image.width || box.y >= image.y + image.height, 'all four controls must stay off the poster')
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 })
     const title = await page.locator('.swipe-film-title').innerText()
     assert.equal(await page.locator('.swipe-carousel iframe').count(), 0)
     await trailer.click()
@@ -818,7 +922,7 @@ test('Dock amplia os controles com mouse e mantém tamanhos estáveis no toque e
       await like.waitFor()
       const control = like.locator('..')
       await like.hover()
-      if (!touch) await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.is-like').parentElement).transform).a > 1.2)
+      if (!touch) await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.is-like').parentElement).transform).a > 1.1)
       else assert.equal(await control.evaluate(element => new DOMMatrixReadOnly(getComputedStyle(element).transform).a), 1)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.is-like').parentElement).transform).a === 1)
@@ -827,7 +931,7 @@ test('Dock amplia os controles com mouse e mantém tamanhos estáveis no toque e
       if (process.env.VISUAL_CAPTURE_DIR && !touch) {
         await page.emulateMedia({ reducedMotion: 'no-preference' })
         await like.hover()
-        await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.is-like').parentElement).transform).a > 1.2)
+        await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.is-like').parentElement).transform).a > 1.1)
         await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + '/swipe-dock-1440.png' })
       }
     } finally { await ctx.close() }

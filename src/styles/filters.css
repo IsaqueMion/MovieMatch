@@ -28,7 +28,7 @@
 .filter-summary{display:flex;align-items:center;gap:16px;min-width:0}.filter-summary>.filter-eyebrow{flex-shrink:0;font-size:9px;color:var(--cinema-muted)}
 .filter-summary p{font-size:11px;color:var(--cinema-muted)}
 .filter-error{margin-top:8px;font-size:12px;color:#ffb9bc}
-.filter-summary-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;padding-block:2px}
+.filter-summary-chips{display:flex;flex:1;flex-wrap:wrap;min-width:0;gap:8px;overflow:visible;padding-block:2px}
 .filter-summary-chips button{display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:32px;padding:6px 10px;border:1px solid var(--cinema-line);border-radius:20px;font-size:10px;color:var(--cinema-accent)}
 .filter-footer{display:flex;align-items:center;gap:16px;padding:16px 32px 24px;flex-shrink:0}
 .filter-reset,.filter-cancel{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font-size:11px;color:var(--cinema-muted)}
