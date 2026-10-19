@@ -82,3 +82,12 @@ test('shuffle não move filmes para outra janela', () => {
     assert.deepEqual(actual, expected)
   }
 })
+
+import { swipeDirection } from '../src/components/swipe/swipeMotion.ts'
+test('swipe direction follows a qualifying flick, then distance, without accidental small votes',()=>{
+ assert.equal(swipeDirection(30,-900),-1)
+ assert.equal(swipeDirection(-30,900),1)
+ assert.equal(swipeDirection(140,100),1)
+ assert.equal(swipeDirection(-140,100),-1)
+ assert.equal(swipeDirection(30,100),null)
+})

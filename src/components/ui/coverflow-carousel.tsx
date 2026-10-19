@@ -1,6 +1,7 @@
 import { translate as t, useLocale } from '../../hooks/useLocale'
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
+import { cubicBezier } from 'motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import '../../styles/coverflow.css'
 
@@ -74,26 +75,29 @@ export function CoverflowCarousel({ slides, rotate = 44, depth = .6, perspective
     })
   }, [count, depth, fade, falloff, gap, isLooping, rotate])
 
-  const settle = useCallback((target: number) => {
+  const settle = useCallback((target: number, immediate = false) => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     targetRef.current = target
     setSelected(indexAt(target))
-    if (reducedMotion) { posRef.current = target; paint(); return }
-    const step = () => {
-      const remaining = target - posRef.current
-      if (Math.abs(remaining) < .0004) { posRef.current = target; paint(); rafRef.current = null; return }
-      posRef.current += remaining * .16
+    if (reducedMotion || immediate) { posRef.current = target; paint(); return }
+    const from = posRef.current
+    const started = performance.now()
+    const ease = cubicBezier(.23, 1, .32, 1)
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - started) / 200)
+      posRef.current = from + (target - from) * ease(progress)
+      if (progress === 1) { paint(); rafRef.current = null; return }
       paint()
       rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
   }, [indexAt, paint, reducedMotion])
-  const goTo = useCallback((index: number) => {
+  const goTo = useCallback((index: number, immediate = false) => {
     const target = isLooping ? index + Math.round((targetRef.current - index) / count) * count : index
-    settle(clamp(target))
+    settle(clamp(target), immediate)
   }, [clamp, count, isLooping, settle])
-  const nudge = (by: number) => settle(clamp(Math.round(targetRef.current) + by))
+  const nudge = (by: number, immediate = false) => settle(clamp(Math.round(targetRef.current) + by), immediate)
 
   useLayoutEffect(() => {
     const frame = frameRef.current
@@ -167,9 +171,9 @@ export function CoverflowCarousel({ slides, rotate = 44, depth = .6, perspective
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || count < 2) return
         event.preventDefault()
         frameRef.current?.focus({ preventScroll: true })
-        if (event.key === 'Home') goTo(0)
-        else if (event.key === 'End') goTo(count - 1)
-        else nudge(event.key === 'ArrowLeft' ? -1 : 1)
+        if (event.key === 'Home') goTo(0, true)
+        else if (event.key === 'End') goTo(count - 1, true)
+        else nudge(event.key === 'ArrowLeft' ? -1 : 1, true)
       }}>
         <div className="coverflow-track">
           {slides.map((slide, index) => <div key={slide.id} ref={node => { cardRefs.current[index] = node }} className="coverflow-card" role="group" aria-roledescription="slide" aria-label={`${index + 1} de ${count}`} aria-hidden={index !== activeIndex}>

@@ -69,7 +69,7 @@ html, body, #root { height: 100%; }
 .cinema-dock-shortcut kbd { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #3c4841; border-radius: 5px; color: #c1cec6; font-family: inherit; }
 .lucide-star { color: var(--cinema-rating); }
 .cinema-dock-default { display: grid; place-items: center; background: var(--cinema-surface); color: var(--cinema-accent); border: 1px solid var(--cinema-line); border-radius: 20px; }
-.cinema-vote-button { --vote-color: #75efb8; --vote-rim: #2b5140; --vote-hover-rim: #40725a; position: relative; display: grid; place-items: center; width: 68px; height: 68px; border: 7px solid var(--vote-rim); border-radius: 26px; background: #19241f; color: var(--vote-color); box-shadow: inset 0 -3px 8px #0006, 0 6px 18px #0003; touch-action: manipulation; transition: transform .4s cubic-bezier(.68, -.55, .27, 1.55), border-color .4s, background-color .4s; }
+.cinema-vote-button { --vote-color: #75efb8; --vote-rim: #2b5140; --vote-hover-rim: #40725a; position: relative; display: grid; place-items: center; width: 68px; height: 68px; border: 7px solid var(--vote-rim); border-radius: 26px; background: #19241f; color: var(--vote-color); box-shadow: inset 0 -3px 8px #0006, 0 6px 18px #0003; touch-action: manipulation; transition: transform .12s cubic-bezier(.23, 1, .32, 1), border-color .15s, background-color .15s; }
 .cinema-vote-button.is-dislike { --vote-color: #f4a495; --vote-rim: #513632; --vote-hover-rim: #795048; background: #2c211f; }
 .cinema-vote-button.is-undo { --vote-color: #dccda8; --vote-rim: #444237; --vote-hover-rim: #68614e; width: 54px; height: 54px; border-width: 6px; border-radius: 21px; background: #25251f; }
 .cinema-vote-icon { display: grid; place-items: center; width: 30px; height: 30px; }
@@ -83,18 +83,11 @@ html, body, #root { height: 100%; }
 .cinema-vote-button:is(:hover, :focus-visible):not(:disabled) .empty { opacity: 0; }
 .cinema-vote-button:is(:hover, :focus-visible):not(:disabled) .filled { opacity: 1; }
 @media (hover: hover) {
-  .cinema-vote-button:hover:not(:disabled) { transform: scale(1.05); background-color: #25332c; animation: cinema-vote-border 3s ease-in-out infinite; }
+  .cinema-vote-button:hover:not(:disabled) { transform: scale(1.05); background-color: #25332c; }
   .cinema-vote-button.is-dislike:hover:not(:disabled) { background-color: #382824; }
   .cinema-vote-button.is-undo:hover:not(:disabled) { background-color: #302f27; }
-  .cinema-vote-button.is-like:hover:not(:disabled) .filled { animation: cinema-heartbeat 1.2s infinite; }
-  .cinema-vote-button.is-dislike:hover:not(:disabled) .cinema-vote-icon { animation: cinema-refuse .55s ease both; }
-  .cinema-vote-button.is-undo:hover:not(:disabled) .cinema-vote-icon { animation: cinema-undo .55s ease both; }
   .cinema-vote-button:active:not(:disabled) { transform: scale(.93); }
 }
-@keyframes cinema-vote-border { 0%, 100% { border-color: var(--vote-rim); } 50% { border-color: var(--vote-hover-rim); } }
-@keyframes cinema-heartbeat { 0%, 30%, 60%, 100% { transform: scale(1); } 15%, 45% { transform: scale(1.15); } }
-@keyframes cinema-refuse { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(-12deg); } 70% { transform: rotate(8deg); } }
-@keyframes cinema-undo { 0% { transform: rotate(0); } 45% { transform: rotate(-35deg); } 100% { transform: rotate(0); } }
 @media (min-width: 640px) {
   .cinema-vote-actions { --vote-control-size: 76px; gap: 26px; }
   .cinema-vote-button { width: 76px; height: 76px; border-width: 8px; border-radius: 29px; }
@@ -141,12 +134,15 @@ html, body, #root { height: 100%; }
 .cinema-button-light { --button-fill: var(--cinema-ink); --button-line: #f5f4ee55; --button-arrow: var(--cinema-bg); --button-hover-ink: var(--cinema-bg); --button-glow: #f5f4ee26; }
 .cinema-button-right { --arrow-x: 34px; --arrow-y: 0px; }
 .cinema-button-down { --arrow-x: 0px; --arrow-y: 34px; }
-.cinema-button-circle { position: absolute; top: 1px; right: 1px; width: var(--button-circle); height: var(--button-circle); border-radius: calc(var(--button-circle) / 2); background: var(--button-fill); z-index: -1; transition: width .45s cubic-bezier(.65, 0, .076, 1), box-shadow .45s; }
-.cinema-button-text { position: relative; white-space: nowrap; transition: color .45s, transform .45s cubic-bezier(.65, 0, .076, 1); }
+.cinema-button-circle { position: absolute; top: 1px; right: 1px; width: calc(100% - 2px); height: var(--button-circle); border-radius: calc(var(--button-circle) / 2); background: var(--button-fill); z-index: -1; clip-path: inset(0 0 0 calc(100% - var(--button-circle)) round calc(var(--button-circle) / 2)); transition: clip-path .2s cubic-bezier(.23, 1, .32, 1); }
+.cinema-button-text { position: relative; white-space: nowrap; transition: color .2s, transform .2s cubic-bezier(.23, 1, .32, 1); }
 .cinema-button-arrow { position: absolute; top: 1px; right: 1px; display: grid; place-items: center; width: var(--button-circle); height: var(--button-circle); overflow: hidden; border-radius: 50%; color: var(--button-arrow); }
-.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-circle { width: calc(100% - 2px); box-shadow: 0 0 18px var(--button-glow); }
-.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-text { color: var(--button-hover-ink); transform: translateX(-3px); }
-.cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-arrow svg { animation: cinema-arrow-travel .55s cubic-bezier(.4, 0, .2, 1) both; }
+.cinema-button:focus-visible:not(:disabled) .cinema-button-circle { clip-path: inset(0 round calc(var(--button-circle) / 2)); box-shadow: 0 0 18px var(--button-glow); }
+@media (hover:hover) and (pointer:fine) { .cinema-button:hover:not(:disabled) .cinema-button-circle { clip-path: inset(0 round calc(var(--button-circle) / 2)); box-shadow: 0 0 18px var(--button-glow); } }
+.cinema-button:focus-visible:not(:disabled) .cinema-button-text { color: var(--button-hover-ink); transform: translateX(-3px); }
+@media (hover:hover) and (pointer:fine) { .cinema-button:hover:not(:disabled) .cinema-button-text { color: var(--button-hover-ink); transform: translateX(-3px); } }
+.cinema-button:focus-visible:not(:disabled) .cinema-button-arrow svg { animation: cinema-arrow-travel .2s cubic-bezier(.23, 1, .32, 1) both; }
+@media (hover:hover) and (pointer:fine) { .cinema-button:hover:not(:disabled) .cinema-button-arrow svg { animation: cinema-arrow-travel .2s cubic-bezier(.23, 1, .32, 1) both; } }
 .cinema-button:active:not(:disabled) { transform: scale(.97); }
 .cinema-specular-fx { opacity: 0; border-radius: inherit; transition: opacity .2s; }
 .cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-specular-fx,
@@ -298,7 +294,8 @@ html, body, #root { height: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cinema-page *, .cinema-page *::before, .cinema-page *::after { scroll-behavior: auto !important; transition: none !important; }
-  .cinema-button:active:not(:disabled), .cinema-button:is(:hover, :focus-visible):not(:disabled) .cinema-button-text { transform: none; }
+  .cinema-button:active:not(:disabled), .cinema-button:focus-visible:not(:disabled) .cinema-button-text { transform: none; }
+@media (hover:hover) and (pointer:fine) { .cinema-button:hover:not(:disabled) .cinema-button-text { transform: none; } }
   .cinema-button .cinema-button-arrow svg { animation: none !important; }
 }
 @media (max-width: 359px) {
@@ -531,3 +528,5 @@ html, body, #root { height: 100%; }
 
 .cinema-demo-badge { margin-left: 6px; padding: 2px 5px; border: 1px solid var(--cinema-accent); border-radius: 4px; color: var(--cinema-accent); font-size: 9px; }
 .cinema-demo-notice { color: var(--cinema-muted); font-size: 12px; padding: 15px 0; border-bottom: 1px solid var(--cinema-line); }
+
+@media (pointer:coarse) { input:not([type=checkbox]):not([type=radio]), textarea, select { font-size:16px!important; } }

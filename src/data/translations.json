@@ -2650,5 +2650,13 @@
   "Não foi possível aplicar os filtros. Tente novamente.": [
     "Could not apply filters. Try again.",
     "No se pudieron aplicar los filtros. Inténtalo de nuevo."
+  ],
+  "Fechar anúncio do topo": [
+    "Close top advertisement",
+    "Cerrar anuncio superior"
+  ],
+  "Publicidade indisponível. Você pode continuar.": [
+    "Advertisement unavailable. You can continue.",
+    "Publicidad no disponible. Puedes continuar."
   ]
 }

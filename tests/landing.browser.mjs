@@ -83,6 +83,8 @@ test('anúncio lento permanece montado e só se oculta quando o Google informa u
     await page.waitForTimeout(2000)
     assert.equal(await page.locator('.swipe-ad ins.adsbygoogle').count(),2)
     await page.locator('.swipe-ad-left ins').evaluate(el=>el.setAttribute('data-ad-status','filled'))
+    await page.locator('.swipe-ad-right ins').evaluate(el=>el.setAttribute('data-ad-status','filled'))
+    assert.equal(await page.locator('.swipe-ad-right').isVisible(),true)
     assert.equal(await page.locator('.swipe-ad-left').isVisible(),true)
     await page.locator('.swipe-ad-left ins').evaluate(el=>el.setAttribute('data-ad-status','unfilled'))
     await page.waitForFunction(()=>document.querySelector('.swipe-ad-left [data-ad-empty=true]'))
@@ -323,66 +325,50 @@ async function context(options = {}) {
   return { ctx, page, state }
 }
 
-test('Gateway Flow mantém a fonte registrada, preenche a tela e reage sem bloquear os votos', async () => {
-  for (const [path, sha] of [
-    ['neuform-isolated/NeuformBatchEffects.tsx', 'dc68c51bea26b922965de44b4fb8d6c432607508fb2b61e16ed60d245da1a69f'],
-    ['neuform-isolated/sources/gateway-flow.html', 'c5a1de43138ffba96b9f0ecdcf3c054ae251ec94344e88c6ad502bae362b17d0'],
-    ['threeui.css', 'efe4447139f1358dd8e9be68edf6fa46cbefbd1de423a4d6c439ca61d2c8eccf'],
-  ]) assert.equal(createHash('sha256').update(await readFile(new URL('../src/shaders/' + path, import.meta.url))).digest('hex'), sha)
-  const { ctx, page, state } = await context({ viewport: { width: 1440, height: 900 } })
-  const errors = []
-  page.on('pageerror', error => errors.push(error.message))
+test('Gateway Flow nativo mantém referência preservada, desenha e pausa sem bloquear votos', async () => {
+  for (const [path,sha] of [
+    ['neuform-isolated/NeuformBatchEffects.tsx','dc68c51bea26b922965de44b4fb8d6c432607508fb2b61e16ed60d245da1a69f'],
+    ['neuform-isolated/sources/gateway-flow.html','c5a1de43138ffba96b9f0ecdcf3c054ae251ec94344e88c6ad502bae362b17d0'],
+    ['threeui.css','efe4447139f1358dd8e9be68edf6fa46cbefbd1de423a4d6c439ca61d2c8eccf'],
+  ]) assert.equal(createHash('sha256').update(await readFile(new URL('../src/shaders/'+path,import.meta.url))).digest('hex'),sha)
+  const {ctx,page,state}=await context({viewport:{width:1440,height:900},deviceScaleFactor:3})
+  const errors=[];page.on('pageerror',error=>errors.push(error.message))
   try {
     await page.goto(sessionUrl.href)
-    const element = page.locator('.swipe-background iframe')
-    await element.waitFor()
-    assert.equal(await element.getAttribute('sandbox'), 'allow-scripts')
-    assert.equal(await element.getAttribute('tabindex'), '-1')
-    assert.equal(await page.locator('.swipe-background').evaluate(el => el.inert), true)
-    const frame = await element.elementHandle().then(el => el.contentFrame())
-    await frame.waitForFunction(() => document.body?.hasAttribute('data-threeui-ready') && document.querySelector('#flow-canvas')?.width > 0)
-    const pixels = () => frame.evaluate(() => {
-      const c = document.querySelector('#flow-canvas')
-      const data = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
-      let lit = 0, hash = 0
-      for (let i = 3; i < data.length; i += 4) { if (data[i]) lit++; hash = (hash * 31 + data[i]) | 0 }
-      return { lit, hash }
+    const background=page.locator('.swipe-background')
+    await page.waitForFunction(()=>document.querySelector('.swipe-flow-lines')?.width>0)
+    assert.equal(await background.evaluate(el=>el.inert),true)
+    assert.equal(await background.locator('iframe').count(),0)
+    const hash=()=>page.locator('.swipe-flow-particles').evaluate(c=>{
+      const data=c.getContext('2d').getImageData(0,0,c.width,c.height).data
+      let hash=0;for(let i=3;i<data.length;i+=4)hash=(hash*31+data[i])|0
+      return hash
     })
-    await frame.waitForFunction(() => {
-      const c = document.querySelector('#flow-canvas')
-      return c && c.getContext('2d').getImageData(0, 0, c.width, c.height).data.some((v, i) => i % 4 === 3 && v > 0)
-    })
-    const first = await pixels()
-    assert.ok(first.lit > 1000, 'authored trajectories must be painted')
-    await delay(150)
-    assert.notEqual((await pixels()).hash, first.hash, 'particles must animate')
-    await frame.evaluate(() => { window.testClicks = []; window.addEventListener('click', e => window.testClicks.push([e.clientX, e.clientY])) })
-    await page.mouse.click(20, 250)
-    await frame.waitForFunction(() => window.testClicks.length === 1)
-    assert.deepEqual(await frame.evaluate(() => window.testClicks[0]), [20, 250])
-    for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
-      await page.setViewportSize({ width, height })
-      const sceneHeight = height
-      await frame.waitForFunction(({ width, height }) => innerWidth === width && innerHeight === height && document.querySelector('#flow-canvas').width === width * devicePixelRatio, { width, height: sceneHeight })
-      const bounds = await element.boundingBox()
-      assert.deepEqual(bounds, { x: 0, y: 0, width, height: sceneHeight })
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
-      if (process.env.VISUAL_CAPTURE_DIR) await page.screenshot({ path: process.env.VISUAL_CAPTURE_DIR + `/gateway-flow-${width}x${height}.png` })
+    assert.ok(await page.locator('.swipe-flow-lines').evaluate(c=>c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((n,i)=>i%4===3&&n>0)))
+    const first=await hash();await delay(180);assert.notEqual(await hash(),first)
+    for(const [width,height] of [[1440,900],[390,844],[844,390]]){
+      await page.setViewportSize({width,height})
+      await page.waitForFunction(w=>document.querySelector('.swipe-flow-lines').width===Math.round(w*1.5),width)
+      assert.deepEqual(await background.boundingBox(),{x:0,y:0,width,height})
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     }
-    await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
-    await page.waitForFunction(() => !document.querySelector('.is-undo').disabled)
-    assert.equal(state.reactions.at(-1).value, 1)
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-    await element.waitFor({ state: 'detached' })
-    await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
-    await page.waitForFunction(() => document.querySelector('.is-undo').disabled)
-    assert.equal(await page.getByRole('button', { name: 'Quero assistir', exact: true }).isVisible(), true)
-    await page.emulateMedia({ reducedMotion: 'no-preference' })
-    await element.waitFor()
-    await page.locator('.swipe-header a[href="/"]').first().click()
-    await element.waitFor({ state: 'detached' })
-    assert.deepEqual(errors, [])
-  } finally { await ctx.close() }
+    await page.getByRole('button',{name:'Abrir filtros',exact:true}).click()
+    await page.waitForFunction(()=>document.querySelector('.swipe-background').dataset.animated==='false')
+    const stopped=await hash();await delay(180);assert.equal(await hash(),stopped)
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(()=>document.querySelector('.swipe-background').dataset.animated==='true')
+    await page.emulateMedia({reducedMotion:'reduce'})
+    await page.waitForFunction(()=>document.querySelector('.swipe-background').dataset.animated==='false')
+    const still=await hash();await delay(180);assert.equal(await hash(),still)
+    assert.equal(await background.isVisible(),true,'reduced motion keeps a static background')
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+    await page.waitForFunction(()=>!document.querySelector('.is-undo').disabled)
+    assert.equal(state.reactions.at(-1).value,1)
+    await page.getByRole('button',{name:'Desfazer',exact:true}).click()
+    const toast=page.getByText('Último swipe desfeito',{exact:true});await toast.waitFor()
+    assert.equal(await toast.evaluate(e=>getComputedStyle(e).transform),'none')
+    assert.deepEqual(errors,[])
+  }finally{await ctx.close()}
 })
 
 for (const width of [320, 390, 768, 781, 1440]) {
@@ -490,19 +476,21 @@ test('botões expandem o círculo e animam cada seta na sua direção, respeitan
     await page.locator('#session-code').fill('DEMO01')
     for (const [name, xSign, ySign] of [['Criar uma sessão', 1, -1], ['Tenho um código', 0, 1], ['Entrar', 1, 0]]) {
       const button = page.getByRole('button', { name, exact: true })
+      const circleWidth = await button.locator('.cinema-button-circle').evaluate(e=>e.getBoundingClientRect().width)
       await button.hover()
       const arrow = button.locator('.cinema-button-arrow svg')
       await arrow.evaluate(element => {
         const animation = element.getAnimations().find(animation => animation instanceof CSSAnimation)
         animation.pause()
-        animation.currentTime = 120
+        animation.currentTime = 10
       })
       const movement = await arrow.evaluate(element => {
         const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform)
         return [Math.sign(matrix.m41), Math.sign(matrix.m42)]
       })
       assert.deepEqual(movement, [xSign, ySign])
-      await page.waitForFunction(element => element.querySelector('.cinema-button-circle').getBoundingClientRect().width >= element.getBoundingClientRect().width - 5, await button.elementHandle())
+      await page.waitForFunction(element => getComputedStyle(element.querySelector('.cinema-button-circle')).clipPath.startsWith('inset(0px round'), await button.elementHandle())
+      assert.equal(await button.locator('.cinema-button-circle').evaluate(e=>e.getBoundingClientRect().width),circleWidth)
       assert.equal(await button.innerText(), name)
     }
     await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -589,7 +577,7 @@ test('novos controles permitem curtir, desfazer e recusar; foco e movimento redu
     assert.equal(await undo.isDisabled(), true)
     await like.hover()
     await page.waitForFunction(() => getComputedStyle(document.querySelector('.is-like .filled')).opacity === '1')
-    assert.equal(await like.locator('.filled').evaluate(element => getComputedStyle(element).animationName), 'cinema-heartbeat')
+    assert.equal(await like.locator('.filled').evaluate(element => getComputedStyle(element).animationName), 'none')
     await like.click()
     for (let attempt = 0; attempt < 50 && state.reactions.length < 1; attempt++) await delay(100)
     assert.equal(state.reactions.length, 1)
@@ -1199,4 +1187,84 @@ for (const width of [390,1440]) test(`avatares em ${width}px: perfis reais, pré
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+`/swipe-participants-${width}.png`})
   } finally { await ctx.close() }
+})
+
+
+test('otimização: Dock mantém largura e posição durante hover', async () => {
+  const {ctx,page}=await context({viewport:{width:1536,height:724}})
+  try {
+    await page.goto(sessionUrl.href)
+    const items=page.locator('.cinema-vote-actions .cinema-dock-item')
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
+    await page.evaluate(()=>document.fonts.ready)
+    const before=await items.evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width})))
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).hover();await delay(250)
+    const after=await items.evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width})))
+    assert.deepEqual(after,before)
+  } finally {await ctx.close()}
+})
+
+test('otimização: campos de login e filtros usam 16px em toque', async () => {
+  const {ctx,page}=await context({viewport:{width:390,height:844},hasTouch:true,isMobile:true})
+  try {
+    await page.goto(baseUrl+'/conta');await page.locator('input[type=email]').waitFor()
+    assert.ok((await page.locator('input').evaluateAll(es=>es.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(n=>n>=16))
+    await page.goto(sessionUrl.href);await page.getByRole('button',{name:'Abrir filtros',exact:true}).click()
+    assert.ok((await page.locator('.filter-dialog input').evaluateAll(es=>es.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(n=>n>=16))
+    assert.match(await page.locator('meta[name=viewport]').getAttribute('content'),/viewport-fit=cover/)
+  }finally{await ctx.close()}
+})
+
+test('otimização: faixa mobile pode ser fechada sem afetar os votos', async () => {
+  const {ctx,page,state}=await context({viewport:{width:390,height:844}})
+  try {
+    await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/,r=>r.fulfill({contentType:'application/javascript',body:'window.adsbygoogle=window.adsbygoogle||[];'}))
+    await page.goto(sessionUrl.href)
+    const close=page.getByRole('button',{name:'Fechar anúncio do topo',exact:true})
+    await close.click();assert.equal(await page.locator('.swipe-mobile-ad').count(),0)
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+    await page.waitForFunction(()=>!document.querySelector('.is-undo').disabled)
+    assert.equal(state.reactions.length,1)
+    await page.reload();await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
+    assert.equal(await page.locator('.swipe-mobile-ad').count(),0)
+  }finally{await ctx.close()}
+})
+
+test('otimização: anúncio central em todas as telas, sem gesto de voto ou atualização automática', async () => {
+  const {ctx,page,state}=await context({viewport:{width:1536,height:900},reducedMotion:'reduce'})
+  try {
+    await page.route(/pagead2\.googlesyndication\.com\/pagead\/js\/adsbygoogle\.js/,r=>r.fulfill({contentType:'application/javascript',body:'window.adsbygoogle=window.adsbygoogle||[];'}))
+    await page.route(/\/functions\/v1\/discover/,r=>r.fulfill({json:{page:1,total_pages:1,results:Array.from({length:35},(_,i)=>({id:i+1,tmdb_id:157336+i,title:'Filme '+i,year:2014,poster_url:'/demo/interstellar.jpg'}))}}))
+    await page.goto(sessionUrl.href)
+    for(let i=0;i<14&&!await page.locator('.swipe-ad-card:visible').count();i++){
+      await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+      await page.waitForFunction(()=>document.querySelector('.swipe-ad-card:not([hidden])')||!document.querySelector('.cinema-vote-button.is-like')?.disabled)
+    }
+    await page.locator('.swipe-ad-card ins:visible').waitFor()
+    const votes=state.reactions.length
+    const ad=await page.locator('.swipe-ad-card ins:visible').elementHandle()
+    for(const [width,height] of [[1536,900],[911,668],[390,844],[844,390],[320,568]]){
+      await page.setViewportSize({width,height});await delay(80)
+      assert.equal(await page.locator('.swipe-ad-card ins:visible').count(),1)
+      const box=await page.locator('.swipe-ad-card ins:visible').boundingBox()
+      assert.equal(box.width,300);assert.equal(box.height,height<=500?50:250)
+      assert.ok(box.x>=0&&box.x+box.width<=width)
+      if(process.env.VISUAL_CAPTURE_DIR)await page.screenshot({path:process.env.VISUAL_CAPTURE_DIR+'/central-ad-'+width+'x'+height+'.png'})
+      const next=await page.getByRole('button',{name:'Continuar descobrindo',exact:true}).boundingBox()
+      assert.ok(next.y+next.height<=height)
+      assert.equal(await page.locator('.swipe-ad-card').evaluate(e=>e.closest('[draggable=true]')!==null),false)
+    }
+    await page.getByRole('button',{name:'Continuar descobrindo',exact:true}).click()
+    await page.getByRole('button',{name:'Quero assistir',exact:true}).waitFor()
+    assert.equal(state.reactions.length,votes)
+    assert.equal(await ad.evaluate(e=>e.isConnected),true,'preserve the initialized unit between steps')
+    assert.equal(await page.locator('.swipe-ad-card').isVisible(),false)
+    const pushes=await page.evaluate(()=>window.adsbygoogle.length)
+    for(let i=0;i<14&&!await page.locator('.swipe-ad-card:visible').count();i++){
+      await page.getByRole('button',{name:'Quero assistir',exact:true}).click()
+      await page.waitForFunction(()=>document.querySelector('.swipe-ad-card:not([hidden])')||!document.querySelector('.cinema-vote-button.is-like')?.disabled)
+    }
+    assert.equal(await page.locator('.swipe-ad-card').isVisible(),true)
+    assert.equal(await page.evaluate(()=>window.adsbygoogle.length),pushes,'revisiting the card must not refresh ads')
+  }finally{await ctx.close()}
 })

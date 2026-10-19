@@ -45,13 +45,8 @@ function DockItem({ item, mouseX, spring, distance, baseItemSize, magnification,
   })
   const targetScale = useTransform(mouseDistance, [-distance, 0, distance], [1, magnification / baseItemSize, 1])
   const scale = useSpring(targetScale, spring)
-  const width = useTransform(scale, value => dimensions.width * value)
   const canMagnify = enabled && !item.disabled
-  return <motion.div ref={ref} className="cinema-dock-item" style={{ width: canMagnify ? width : dimensions.width, height: dimensions.height + (item.shortcut ? 32 : 22) }} onFocus={() => {
-    if (!canMagnify) return
-    const bounds = ref.current?.getBoundingClientRect()
-    if (bounds) mouseX.set(bounds.left + bounds.width / 2)
-  }} onBlur={() => mouseX.set(Infinity)}>
+  return <motion.div ref={ref} className="cinema-dock-item" style={{ width: dimensions.width, height: dimensions.height + (item.shortcut ? 32 : 22) }}>
     <motion.div className="cinema-dock-control" style={{ scale: canMagnify ? scale : 1, transformOrigin: 'center bottom' }}>
       {renderItem ? renderItem(item) : <button type="button" className={`cinema-dock-default ${item.className ?? ''}`} disabled={item.disabled} onClick={item.onClick} aria-label={item.label} style={{ width: baseItemSize, height: baseItemSize }}>{item.icon}</button>}
     </motion.div>
