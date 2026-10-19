@@ -267,16 +267,24 @@ test('falha ao remover sala conserva os dados; confirmação pode ser cancelada'
   }finally{await context.close()}
 })
 
-test('idioma automático e manual preserva os campos; painel e fundo ficam estáveis ao trocar acesso',async()=>{
+test('idioma escolhido na home; troca de acesso preserva email e limpa senha; painel e fundo estáveis',async()=>{
   const {context,page,state}=await fixture({path:'/conta',loggedIn:false,width:1440,height:884,locale:'en-US'})
   try{
     await page.getByRole('heading',{name:'The session continues.'}).waitFor()
     const story=await page.locator('.account-story').boundingBox(), panel=await page.locator('.account-entry-panel').boundingBox()
     assert.ok(await page.locator('.account-floating-paths path').count() > 0)
     await page.getByRole('group',{name:'Account access'}).getByRole('button',{name:'Create account',exact:true}).click()
+    await page.locator('input[type=email]').fill('fixture@example.com')
     await page.getByLabel('Password',{exact:true}).fill('Mm!7zQp9')
+    await page.getByRole('group',{name:'Account access'}).getByRole('button',{name:'Sign in',exact:true}).click()
+    assert.equal(await page.getByLabel('Password',{exact:true}).inputValue(),'')
+    assert.equal(await page.locator('input[type=email]').inputValue(),'fixture@example.com')
+    assert.equal(await page.locator('.language-select').count(),0)
+    await page.goto(base)
     await page.getByRole('button',{name:'Interface language',exact:true}).click(); await page.getByRole('menuitemradio',{name:/Español/}).click(); await page.evaluate(()=>window.scrollTo(0,0))
+    await page.goto(base+'/conta?modo=cadastro')
     await page.getByRole('heading',{name:'Tu cine empieza aquí.'}).waitFor()
+    await page.getByLabel('Contraseña',{exact:true}).fill('Mm!7zQp9')
     assert.equal(await page.getByLabel('Contraseña',{exact:true}).inputValue(),'Mm!7zQp9')
     const nextStory=await page.locator('.account-story').boundingBox(), nextPanel=await page.locator('.account-entry-panel').boundingBox()
     assert.equal(nextStory.height,story.height);assert.equal(nextStory.y,story.y);assert.equal(nextPanel.height,panel.height)
@@ -290,8 +298,9 @@ test('idioma automático e manual preserva os campos; painel e fundo ficam está
   const mobile=await fixture({path:'/conta',loggedIn:false,width:320,locale:'es-MX'})
   try{
     await mobile.page.getByRole('heading',{name:'La sesión continúa.'}).waitFor()
-    const link=await mobile.page.locator('.account-guest-link').boundingBox(), language=await mobile.page.locator('.site-language-footer').boundingBox()
-    assert.ok(language.y>=link.y+link.height)
+    const link=await mobile.page.locator('.account-guest-link').boundingBox()
+    assert.ok(link.y>=0)
+    assert.equal(await mobile.page.locator('.site-language-footer').count(),0)
     assert.equal(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   }finally{await mobile.context.close()}
 })

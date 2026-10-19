@@ -381,7 +381,7 @@ for(const width of [390,768,1440])test(`atalhos centralizados na ordem dos contr
   try{
     await page.emulateMedia({reducedMotion:'reduce'})
     assert.deepEqual(await page.locator('.cinema-dock-shortcut kbd').allTextContents(),['←','⌫','→'])
-    const alignment=await page.locator('.cinema-dock-item').evaluateAll(items=>items.map(item=>{const b=item.querySelector('button').getBoundingClientRect(),l=item.querySelector('.cinema-dock-label').getBoundingClientRect();return Math.abs(b.left+b.width/2-l.left-l.width/2)}))
+    const alignment=await page.locator('.cinema-vote-actions .cinema-dock-item').evaluateAll(items=>items.map(item=>{const b=item.querySelector('button').getBoundingClientRect(),l=item.querySelector('.cinema-dock-label').getBoundingClientRect();return Math.abs(b.left+b.width/2-l.left-l.width/2)}))
     if(width>=1024) assert.ok(alignment.every(delta=>delta<1),JSON.stringify(alignment))
     else assert.equal(await page.locator('.cinema-dock-shortcut').first().isVisible(),false)
     await page.getByText('Testes',{exact:true}).waitFor()
