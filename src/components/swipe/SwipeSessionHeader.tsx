@@ -29,9 +29,11 @@ export default function SwipeSessionHeader({ code, sessionId = null, onlineCount
     return () => document.removeEventListener('pointerdown', outside)
   }, [])
   return <header className="swipe-header">
+    <div className="swipe-header-identity">
     <Link className="cinema-brand" to="/" aria-label={t("MovieMatch, página inicial")}><span className="cinema-brand-mark"><Clapperboard size={22} aria-hidden="true" /></span>MovieMatch<span className="cinema-brand-dot">.</span></Link>
-    <div className="swipe-header-members">{sessionId ? <ProfileAvatars sessionId={sessionId} /> : null}</div>
     <div className="swipe-session"><span>{t("Sessão") + " "}<strong>{code.toUpperCase()}</strong>{demo ? <small className="cinema-demo-badge" title={t("Sala de testes com votos iniciais de exemplo")}>{t("Testes")}</small> : null}</span><span className="swipe-online"><i aria-hidden="true" />{onlineCount}{" " + t("online")}</span></div>
+    </div>
+    <div className="swipe-header-members">{sessionId ? <ProfileAvatars sessionId={sessionId} /> : null}</div>
     <div className="swipe-header-actions">
     <nav className="swipe-navigation" aria-label={t("Sua sessão")}>
       <button type="button" onClick={onFilters} className="swipe-tool" aria-label={t("Abrir filtros")} title={t("Abrir filtros")}><SlidersHorizontal size={18} aria-hidden="true" /><span>{t("Filtros")}</span>{filtersCount > 0 ? <small aria-label={`${filtersCount} filtros ativos`}>{filtersCount}</small> : null}</button>

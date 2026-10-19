@@ -28,7 +28,7 @@ export default function SwipeBackground() {
       ctx.clearRect(0, 0, width, height)
       ctx.fillStyle = 'rgba(255,255,255,.65)'
       paths.forEach((path, i) => {
-        if (i % 2) return
+        if (i % 4 >= 2) return
         const p = pointOnCurve((i * .137 + elapsed * (.07 + i % 5 * .012)) % 1, path)
         for (const burst of bursts) {
           const age = elapsed - burst.started

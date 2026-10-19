@@ -2,7 +2,7 @@ import { translate as t, useLocale } from '../hooks/useLocale'
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
-const DISMISSED_KEY = 'mm:ads-notice-dismissed:v1'
+const DISMISSED_KEY = 'mm:ads-notice-dismissed:v2'
 type Props = { enabled?: boolean }
 
 function wasDismissed() {
@@ -52,7 +52,7 @@ export default function AdblockWall({ enabled = true }: Props) {
   if (!enabled || dismissed || !unavailable) return null
   return (
     <aside className="mm-ad-notice" aria-label={t("Informação sobre publicidade")}>
-      <p role="status">{t("Os anúncios ajudam a manter o MovieMatch gratuito. Se estiverem indisponíveis, você pode continuar normalmente.") + " "}<a href="/ads.html" target="_blank" rel="noreferrer">{t("Saiba mais")}</a></p>
+      <p role="status">{t("Os anúncios financiam o MovieMatch. Se você usa um bloqueador, pode liberar o site para apoiar o projeto.") + " "}<a href="/ads.html" target="_blank" rel="noreferrer">{t("Saiba mais")}</a></p>
       <button ref={closeRef} type="button" onClick={dismiss} aria-label={t("Dispensar aviso de publicidade")}><X size={16} aria-hidden="true" /></button>
     </aside>
   )
