@@ -18,8 +18,7 @@ import type { MovieDetails } from '../../lib/functions'
 import MovieCarousel from '../MovieCarousel'
 import {
   DRAG_LIMIT,
-  SWIPE_DISTANCE,
-  SWIPE_VELOCITY,
+  swipeDirection,
   TWEEN_SNAP,
   TWEEN_SWIPE,
   vibrate,
@@ -122,7 +121,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         },
 
         reset: () => {
-          animate(x, 0, reducedMotion ? { ...TWEEN_SNAP, duration: 0 } : TWEEN_SNAP)
+          if (reducedMotion) x.set(0)
+          else animate(x, 0, TWEEN_SNAP)
         },
       }),
       [onDecision, reducedMotion, x],
@@ -149,18 +149,10 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         onDragEnd={(_, info) => {
           onDragState(false)
 
-          const passDistance =
-            Math.abs(info.offset.x) > SWIPE_DISTANCE
-          const passVelocity =
-            Math.abs(info.velocity.x) > SWIPE_VELOCITY
-          const shouldSwipe =
-            passDistance || passVelocity
-
-          if (shouldSwipe) {
+          const direction = swipeDirection(info.offset.x, info.velocity.x)
+          if (direction !== null) {
             vibrate(10)
 
-            const direction =
-              info.offset.x > 0 ? 1 : -1
             const endX =
               direction * (window.innerWidth + 180)
 
@@ -171,7 +163,8 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
               onDecision(direction === 1 ? 1 : -1),
             )
           } else {
-            animate(x, 0, reducedMotion ? { ...TWEEN_SNAP, duration: 0 } : TWEEN_SNAP)
+            if (reducedMotion) x.set(0)
+            else animate(x, 0, TWEEN_SNAP)
           }
         }}
       >

@@ -175,3 +175,28 @@
 @media(max-width:639px){.swipe-header{margin-inline:16px;gap:6px 8px}.swipe-header .swipe-navigation{gap:5px}.swipe-header .cinema-brand{font-size:18px}.swipe-header .swipe-tool,.swipe-more>summary,.swipe-header .cinema-share-trigger{width:36px;height:40px}.swipe-header .swipe-session{font-size:9px;gap:8px}.swipe-header .swipe-online{gap:4px}.swipe-more-panel .swipe-tool{width:100%}}
 @media(max-width:479px){.swipe-header .cinema-brand{font-size:0;min-width:28px;gap:0}.swipe-header .cinema-brand-dot{display:none}}
 @media(max-height:500px) and (min-width:640px){.swipe-header{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding-block:8px}.swipe-header>.cinema-brand{grid-row:1;font-size:0;min-width:28px;gap:0}.swipe-header>.swipe-session{grid-column:1;grid-row:1;width:auto;margin-left:40px;gap:6px}.swipe-header-members{grid-column:2;grid-row:1;max-width:100px}.swipe-header-actions{grid-column:3;grid-row:1;gap:8px}.swipe-header .cinema-brand-dot{display:none}.swipe-stage-heading{display:none}}
+
+/* Fixed creatives stay clear of voting and never become drag targets. */
+.swipe-mobile-ad>header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px;color:#a6afaa;font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.swipe-mobile-ad>header button{display:grid;place-items:center;min-width:44px;min-height:36px;border:1px solid var(--cinema-line);border-radius:20px;background:var(--cinema-surface);color:var(--cinema-ink)}
+.swipe-page[data-ad-step=true] .swipe-card-stage{margin-bottom:0}
+.swipe-ad-card{height:100%;min-height:0;overflow:auto;overscroll-behavior:contain;display:grid;align-items:safe center;justify-items:center}
+.swipe-ad-card[hidden]{display:none}
+.swipe-ad-card .swipe-ad-interlude{width:300px;padding:0;border:0;border-radius:0;background:none;margin-block:8px 24px}
+.swipe-ad-card .cinema-eyebrow{margin-bottom:16px;font-size:9px}
+.swipe-ad-continue{min-height:44px;height:auto;padding:12px 24px;background:var(--cinema-surface);color:var(--cinema-accent)}
+.swipe-ad-unavailable{display:none;font-size:12px;line-height:1.6;color:var(--cinema-muted);min-height:100px;align-content:center}
+.swipe-ad-interlude:has(.swipe-ad-interlude-full[data-ad-empty=true]) .swipe-ad-unavailable{display:block}
+.swipe-ad-interlude [data-ad-empty=true]{display:none}
+.swipe-background canvas{position:absolute;inset:0;width:100%;height:100%}
+.swipe-background{background:radial-gradient(ellipse at center,#14221b55,transparent 70%)}
+
+.swipe-ad-interlude-compact{display:none}
+@media(max-height:500px){.swipe-ad-interlude-full{display:none}.swipe-ad-interlude-compact{display:block}.swipe-page[data-ad-step=true] .swipe-stage-heading{display:none}}
+
+.swipe-page{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+@media(max-height:500px){.swipe-ad-interlude .swipe-ad-unavailable{display:none}.swipe-ad-interlude:has(.swipe-ad-interlude-compact[data-ad-empty=true]) .swipe-ad-unavailable{display:block}}
+
+.swipe-ad-continue{width:auto;min-width:200px;max-width:calc(100vw - 32px);white-space:nowrap}
+
+.swipe-page[data-ad-step=true] .swipe-stage-heading{display:none}

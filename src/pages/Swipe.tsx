@@ -29,6 +29,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import AgeGateModal from '../components/AgeGateModal'
 import AdSlot from '../components/AdSlot'
+import SwipeBannerAd from '../components/swipe/SwipeBannerAd'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import AdblockWall from '../components/AdblockWall'
 import confetti from 'canvas-confetti'
 import { ensureAnonymousUser } from '../lib/auth'
@@ -217,9 +219,10 @@ function sessionFiltersFromRow(
 }
 
 // tempo pro exit terminar antes de liberar clique
-const EXIT_DURATION_MS = 400
+const EXIT_DURATION_MS = 180
 
 function Swipe() {
+  const reducedMotion = usePrefersReducedMotion()
   const { locale } = useLocale()
   const { code } = useParams()
 
@@ -329,7 +332,7 @@ function Swipe() {
   const adOffset = hash32(adSeed + ':o') % adInterval
   const totalSteps = i + adsShown.current
   const isAdStep =
-    !isPremium &&
+    !isPremium && !filters.includeAdult &&
     totalSteps > 0 &&
     suppressAdForMovieIndexRef.current !== i &&
     (
@@ -1457,58 +1460,32 @@ function Swipe() {
   const react = useCallback(
     async (
       value: 1 | -1,
-      options?: { skipAnimation?: boolean },
+      options?: { skipAnimation?: boolean; immediate?: boolean },
     ) => {
       if (!sessionId || !userId || !current) return
 
-      // ===== CARD DE ANÚNCIO =====
+      // Ads are stationary placements and advancing them never records a vote.
       if (isAdStep) {
-        if (!options?.skipAnimation) {
-          cardRef.current?.swipe(value)
-        }
-
+        if (clickGuardRef.current || busy) return
         clickGuardRef.current = true
+        consumedAdStepsRef.current.add(totalSteps)
+        adsShown.current += 1
         setBusy(true)
-
-        const releaseDelay = options?.skipAnimation
-          ? 360
-          : EXIT_DURATION_MS
-
-        try {
-          // Anúncio não gera reação no banco.
-        } finally {
-          await new Promise((res) =>
-            setTimeout(res, 16),
-          )
-
-          consumedAdStepsRef.current.add(
-            totalSteps,
-          )
-
-          adsShown.current += 1
-
-          setTimeout(() => {
-            clickGuardRef.current = false
-            setBusy(false)
-          }, releaseDelay + 60)
-        }
-
+        setTimeout(() => { clickGuardRef.current = false; setBusy(false) }, 60)
         return
       }
 
       // ===== CARD DE FILME =====
       if (clickGuardRef.current || busy) return
 
-      if (!options?.skipAnimation) {
+      if (!options?.skipAnimation && !options?.immediate) {
         cardRef.current?.swipe(value)
       }
 
       clickGuardRef.current = true
       setBusy(true)
 
-      const releaseDelay = options?.skipAnimation
-        ? 360
-        : EXIT_DURATION_MS
+      const releaseDelay = options?.immediate || reducedMotion || options?.skipAnimation ? 0 : EXIT_DURATION_MS
 
       // Só vamos avançar para o próximo filme
       // se a reação realmente for salva.
@@ -1652,6 +1629,7 @@ function Swipe() {
       isAdStep,
       totalSteps,
       checkMatch,
+      reducedMotion,
     ],
   )
 
@@ -1768,8 +1746,8 @@ function Swipe() {
       if (busy || dragging || reviewMovie || openFilters || matchModal || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return
       if (document.querySelector('.cinema-share-panel')) return
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
-      if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1) }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1) }
+      if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1, { immediate: true }) }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1, { immediate: true }) }
       else if (e.key === 'Backspace') { e.preventDefault(); undoRef.current?.() }
     }
     window.addEventListener('keydown', onKey)
@@ -1992,18 +1970,18 @@ function Swipe() {
   const adsEnabled = !!current && !isPremium && !filters.includeAdult
 
   return (
-    <main className="cinema-page swipe-page" id="conteudo">
+    <main className="cinema-page swipe-page" id="conteudo" data-ad-step={isAdStep || undefined}>
       <SwipeBackground />
       <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />
-      {adsEnabled ? <aside className="swipe-mobile-ad" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-mobile-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={50} /></aside> : null}
+      {adsEnabled ? <SwipeBannerAd key={sessionId} sessionId={sessionId ?? 's'} /> : null}
       <div className="swipe-deck">
         <div className="swipe-stage-heading"><p>{t("Uma escolha de cada vez")}</p><span><ArrowLeftRight size={14} aria-hidden="true" />{t("Arraste o pôster para votar")}</span></div>
         <h1 className="sr-only">{t("Escolha o próximo filme")}</h1>
         <div className="swipe-card-stage">
-          {current ? (isAdStep ? <AdSwipeCard ref={cardRef} key={`ad-${i}-${adsShown.current}`} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />
-            : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onReviews={() => setReviewMovie(current)} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
+          {adsEnabled ? <AdSwipeCard id={`ad-interlude-${sessionId ?? 's'}`} active={isAdStep} /> : null}
+          {current ? (isAdStep ? null : <SwipeCard ref={cardRef} key={`movie-${current.tmdb_id}`} movie={current} details={det} onReviews={() => setReviewMovie(current)} onDragState={setDragging} onDecision={v => react(v, { skipAnimation: true })} />)
             : <div className="swipe-empty" role="status">
               <Film size={34} aria-hidden="true" />
               <p className="cinema-eyebrow">{noResults ? t("Um novo caminho para o play") : t("Mais histórias pela frente")}</p>
@@ -2014,7 +1992,7 @@ function Swipe() {
         </div>
         <footer className="swipe-voting" aria-label={t("Seu voto")}>
           <div>
-            <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />
+            {isAdStep ? <button type="button" className="swipe-tool swipe-ad-continue" disabled={busy} onClick={() => react(1, { immediate: true })}>{t('Continuar descobrindo')}</button> : <SwipeActionButtons onDislike={() => react(-1)} onUndo={() => undo()} onLike={() => react(1)} dislikeDisabled={busy || dragging || !current} undoDisabled={busy || dragging || isAdStep || historyRef.current.length === 0} likeDisabled={busy || dragging || !current} />}
           </div>
         </footer>
       </div>
@@ -2022,7 +2000,7 @@ function Swipe() {
         <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={250} /></aside>
         <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={300} height={250} /></aside>
       </> : null}
-      <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
+      <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
       {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
       {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
       {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {
