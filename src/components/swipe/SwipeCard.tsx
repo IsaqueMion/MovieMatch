@@ -21,6 +21,7 @@ import {
   swipeDirection,
   TWEEN_SNAP,
   TWEEN_SWIPE,
+  TWEEN_BUTTON_SWIPE,
   vibrate,
 } from './swipeMotion'
 
@@ -34,7 +35,7 @@ export type SwipeMovie = {
 }
 
 export type SwipeCardHandle = {
-  swipe: (value: 1 | -1) => void
+  swipe: (value: 1 | -1) => Promise<void>
   reset: () => void
 }
 
@@ -104,20 +105,18 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
     useImperativeHandle(
       ref,
       () => ({
-        swipe: (value: 1 | -1) => {
+        swipe: async (value: 1 | -1) => {
           const direction = value === 1 ? 1 : -1
           const endX =
             direction * (window.innerWidth + 180)
 
           vibrate(10)
 
-          const controls = animate(
+          await animate(
             x,
             endX,
-            reducedMotion ? { ...TWEEN_SWIPE, duration: 0 } : TWEEN_SWIPE,
+            reducedMotion ? { ...TWEEN_BUTTON_SWIPE, duration: 0 } : TWEEN_BUTTON_SWIPE,
           )
-
-          controls.then(() => onDecision(value))
         },
 
         reset: () => {
@@ -125,7 +124,7 @@ const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
           else animate(x, 0, TWEEN_SNAP)
         },
       }),
-      [onDecision, reducedMotion, x],
+      [reducedMotion, x],
     )
 
     return (

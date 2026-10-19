@@ -21,3 +21,5 @@ export function tmdbPosterSrcs(posterUrl?: string) {
 
   return { src, srcSet, sizes }
 }
+
+export const SWIPE_POSTER_SIZES = '(min-width: 900px) 390px, (max-height: 700px) 230px, 340px'

@@ -220,3 +220,5 @@
 @media(min-width:900px) and (max-height:500px){.swipe-header{padding-block:8px}.swipe-header-identity{flex-direction:row;align-items:center;gap:8px}.swipe-header .swipe-session{margin-left:0}.swipe-header-members{max-width:100px}}
 
 @media(min-width:900px){.swipe-header-members .profile-avatar-list{padding-block:2px}}
+
+.swipe-poster-image > img.swipe-poster-preview{position:absolute;inset:0;opacity:1;object-fit:contain;transition:none}.swipe-poster-image > img.swipe-poster-preview[hidden]{display:none}

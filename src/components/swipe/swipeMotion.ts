@@ -8,6 +8,12 @@ export const TWEEN_SWIPE = {
   ease: 'easeOut' as const,
 }
 
+export const TWEEN_BUTTON_SWIPE = {
+  ...TWEEN_SWIPE,
+  duration: 0.3,
+  ease: [0.77, 0, 0.175, 1] as const,
+}
+
 export const TWEEN_SNAP = {
   type: 'spring' as const,
   stiffness: 400,
