@@ -1989,6 +1989,7 @@ function Swipe() {
     return <main className="cinema-page swipe-error"><div className="swipe-empty"><Film size={32} aria-hidden="true" /><p className="cinema-eyebrow">{t("Vamos tentar de novo")}</p><h1>{t("Não foi possível iniciar a sessão")}</h1><p>{fatalError}</p><CinemaButton direction="right" onClick={() => window.location.reload()}>{t("Tentar novamente")}</CinemaButton></div><Toaster richColors position="bottom-center" /></main>
   }
   const det = current ? detailsCache[`${current.tmdb_id}:${locale}:${filters.watchRegion}`] : undefined
+  const adsEnabled = !!current && !isPremium && !filters.includeAdult
 
   return (
     <main className="cinema-page swipe-page" id="conteudo">
@@ -1996,6 +1997,7 @@ function Swipe() {
       <SwipeSessionHeader code={code ?? ''} sessionId={sessionId} onlineCount={onlineCount} filtersCount={filtersCount} hasNewMatch={hasNewMatch} onHelp={() => tutorialRef.current?.open()} onFilters={() => setOpenFilters(true)} onMatches={() => {
         if (LS_KEY) localStorage.setItem(LS_KEY, String(Date.now()))
       }} />
+      {adsEnabled ? <aside className="swipe-mobile-ad" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-mobile-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={50} /></aside> : null}
       <div className="swipe-deck">
         <div className="swipe-stage-heading"><p>{t("Uma escolha de cada vez")}</p><span><ArrowLeftRight size={14} aria-hidden="true" />{t("Arraste o pôster para votar")}</span></div>
         <h1 className="sr-only">{t("Escolha o próximo filme")}</h1>
@@ -2016,9 +2018,9 @@ function Swipe() {
           </div>
         </footer>
       </div>
-      {!isPremium ? <>
-        <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={180} height={180} /></aside>
-        <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={180} height={180} /></aside>
+      {adsEnabled ? <>
+        <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={250} /></aside>
+        <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={300} height={250} /></aside>
       </> : null}
       <AnimatePresence>{undoMsg ? <div className="fixed top-3 left-0 right-0 z-40 flex justify-center pointer-events-none"><motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18 }} className="pointer-events-auto w-fit max-w-[92vw] px-3 py-1.5 rounded-md bg-white/90 text-neutral-900 text-sm text-center shadow" role="status">{undoMsg}</motion.div></div> : null}</AnimatePresence>
       {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}

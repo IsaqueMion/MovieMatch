@@ -22,7 +22,11 @@ function ensureAdsense(client: string): Promise<void> {
     s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`
     s.setAttribute('crossorigin', 'anonymous')
     s.onload = () => resolve()
-    s.onerror = () => reject(new Error('adsense load error'))
+    s.onerror = () => {
+      s.remove()
+      adsenseLoading = null
+      reject(new Error('adsense load error'))
+    }
     document.head.appendChild(s)
   })
   return adsenseLoading
@@ -33,7 +37,6 @@ type AdSlotProps = {
   className?: string
   width?: number
   height?: number
-  // AdSense (opcional até aprovar)
   adClient?: string
   adSlot?: string
   adFormat?: 'auto' | 'rectangle' | 'vertical' | 'horizontal'
@@ -50,8 +53,8 @@ export default function AdSlot({
   height = 160,
   adClient,
   adSlot,
-  adFormat = 'auto',
-  fullWidthResponsive = true,
+  adFormat,
+  fullWidthResponsive,
   fallbackHref,
   fallbackImgSrc,
 }: AdSlotProps) {
@@ -62,53 +65,42 @@ export default function AdSlot({
   const insRef = useRef<HTMLModElement | null>(null)
   const pushedRef = useRef(false) // evita push duplicado
 
-  // Lazy render quando entrar na viewport
   useEffect(() => {
-      const el = ref.current
-      if (!el) return
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) setVisible(true)
-        })
-      }, { rootMargin: '120px' })
-      io.observe(el)
-      return () => io.disconnect()
-    }, [])
+    const el = ref.current
+    if (!el) return
+    const visibility = new IntersectionObserver(entries => {
+      setVisible(entries.some(entry => entry.isIntersecting && entry.intersectionRect.width > 0 && entry.intersectionRect.height > 0))
+    }, { rootMargin: '120px' })
+    visibility.observe(el)
+    return () => visibility.disconnect()
+  }, [])
 
-    useEffect(() => {
-    if (!visible) return
-
-    // sem IDs? vai direto para o fallback
+  useEffect(() => {
     if (!adClient || !adSlot) {
       setUseFallback(true)
       return
     }
-
     let cancelled = false
     const observer = new MutationObserver(() => {
       if (insRef.current?.getAttribute('data-ad-status') === 'unfilled') setUseFallback(true)
     })
     if (insRef.current) observer.observe(insRef.current, { attributes: true, attributeFilter: ['data-ad-status'] })
 
-    // carrega a tag do AdSense sob demanda
-    ensureAdsense(adClient)
-      .then(() => {
-        if (cancelled) return
-
-        try {
-          if (!pushedRef.current) {
+    if (visible) {
+      ensureAdsense(adClient)
+        .then(() => {
+          if (cancelled || pushedRef.current || !insRef.current?.getClientRects().length) return
+          try {
             (window.adsbygoogle = window.adsbygoogle || []).push({})
             pushedRef.current = true
+          } catch {
+            setUseFallback(true)
           }
-        } catch {
-          setUseFallback(true)
-          return
-        }
-
-      })
-      .catch(() => {
-        if (!cancelled) setUseFallback(true)
-      })
+        })
+        .catch(() => {
+          if (!cancelled) setUseFallback(true)
+        })
+    }
 
     return () => {
       cancelled = true
@@ -132,18 +124,19 @@ export default function AdSlot({
     </a> : null
   ) : (
     <ins
-      className="adsbygoogle block overflow-hidden rounded-xl ring-1 ring-white/15 bg-neutral-800/40"
-      style={{ width, height }}
+      className="adsbygoogle"
+      style={{ display: 'inline-block', width, height }}
       data-ad-client={adClient}
       data-ad-slot={adSlot}
       data-ad-format={adFormat}
-      data-full-width-responsive={fullWidthResponsive ? 'true' : 'false'}
+      data-full-width-responsive={fullWidthResponsive}
       ref={insRef}
     />
   )
   return (
   <div ref={ref} id={id} className={className} data-ad-empty={useFallback && !(fallbackImgSrc && fallbackHref) ? 'true' : undefined} style={{ width, height }}>
-    {visible ? Inner : null}
+    {/* Preserve initialized units across viewport changes; keep other hidden units out of the queue. */}
+    {visible || pushedRef.current ? Inner : null}
   </div>
 )
 

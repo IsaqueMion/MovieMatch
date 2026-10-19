@@ -2,6 +2,7 @@
 .swipe-background { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .swipe-page > .swipe-deck { position: relative; z-index: 1; }
 .swipe-page > .swipe-ad { z-index: 1; }
+.swipe-page > .mm-ad-notice { position: relative; inset: auto; transform: none; align-self: center; flex-shrink: 0; margin: 0 12px 12px; z-index: 1; }
 .swipe-header { z-index: 20; position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 0 40px; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 18px; border-bottom: 1px solid var(--cinema-line); }
 .swipe-header .cinema-brand { font-size: 22px; }
 .swipe-session { display: flex; align-items: center; gap: 20px; font-size: 11px; color: var(--cinema-muted); }
@@ -27,11 +28,12 @@
 .swipe-voting { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 22px 0 calc(22px + env(safe-area-inset-bottom, 0px)); }
 .swipe-vote-caption { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 41px; font-size: 9px; color: var(--cinema-muted); }
 .swipe-vote-caption span { width: 65px; text-align: center; }
-.swipe-ad { position: absolute; top: 50%; transform: translateY(-50%); width: 180px; display: none; }
+.swipe-ad { position: absolute; top: 50%; transform: translateY(-50%); width: 300px; display: none; }
+.swipe-mobile-ad { position: relative; z-index: 1; align-self: center; flex-shrink: 0; width: 300px; margin-top: 16px; }
 .swipe-ad-left { left: 24px; }
 .swipe-ad-right { right: 24px; }
-.swipe-ad > span { display: block; color: #7b8b80; font-size: 8px; text-align: center; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 10px; }
-.swipe-ad:has([data-ad-empty=true]){display:none}
+.swipe-ad > span, .swipe-mobile-ad > span { display: block; color: #7b8b80; font-size: 8px; text-align: center; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 10px; }
+.swipe-ad:has([data-ad-empty=true]), .swipe-mobile-ad:has([data-ad-empty=true]){display:none}
 .swipe-ad-interlude { width: min(100%, 430px); padding: 30px; border: 1px solid #40554a; border-radius: 12px; background: radial-gradient(ellipse at 20% 0%, #75efb824, transparent 70%), var(--cinema-surface); }
 .swipe-ad-interlude h2 { font-size: 44px; line-height: 1.08; letter-spacing: -.04em; margin: 20px 0; }
 .swipe-ad-interlude h2 span { color: var(--cinema-accent); }
@@ -82,6 +84,8 @@
 .swipe-match-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--cinema-line); }
 .swipe-match-link { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--cinema-accent); min-height: 44px; }
 @media (min-width: 1400px) { .swipe-deck { width: min(calc(100% - 480px), 980px); } .swipe-ad { display: block; } }
+@media (min-width: 1400px), (max-height: 700px) { .swipe-mobile-ad { display: none; } }
+@media (max-width: 1399px) and (min-height: 701px) { .swipe-mobile-ad:has(ins) + .swipe-deck { padding-top: 32px; } }
 @media (max-width: 899px) {
   .swipe-header { margin: 0 24px; gap: 14px; flex-wrap: wrap; padding: calc(12px + env(safe-area-inset-top, 0px)) 0 10px; }
   .swipe-header .cinema-brand { font-size: 20px; }
