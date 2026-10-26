@@ -11,6 +11,8 @@ import FloatingPaths from '../components/account/FloatingPaths'
 import PasswordStrength from '../components/account/PasswordStrength'
 import PasswordConfirmation, { PasswordMatchDots } from '../components/account/PasswordConfirmation'
 import { passwordStrength } from '../lib/passwordStrength'
+import { ageFromBirthdate } from '../lib/birthdate'
+import { useCurrentDate } from '../hooks/useCurrentDate'
 import '../styles/account.css'
 
 export default function Account() {
@@ -21,6 +23,8 @@ export default function Account() {
   const returnTo = safeReturnTo(params.get('voltar'))
   const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'password'>(params.get('recuperar') ? 'password' : params.get('modo') === 'cadastro' ? 'signup' : 'login')
   const [email, setEmail] = useState('')
+  const [birthdate, setBirthdate] = useState('')
+  const today = useCurrentDate()
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [confirming, setConfirming] = useState(false)
@@ -50,6 +54,7 @@ export default function Account() {
   async function submit(event: FormEvent) {
     event.preventDefault(); if (busy) return
     if ((mode === 'signup' || mode === 'password') && (password.length < 8 || password !== confirmation)) { setError(t("Use pelo menos 8 caracteres e confirme a mesma senha.")); return }
+    if (mode === 'signup' && ageFromBirthdate(birthdate, today) === null) { setError(t('Informe uma data de nascimento válida.')); return }
     setBusy(true); setError(''); setMessage('')
     try {
       if (mode === 'reset') {
@@ -63,7 +68,7 @@ export default function Account() {
       } else {
         await prepareGuestTransfer()
         const result = mode === 'signup'
-          ? await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/conta?voltar=${encodeURIComponent(returnTo)}` } })
+          ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { birthdate }, emailRedirectTo: `${window.location.origin}/conta?voltar=${encodeURIComponent(returnTo)}` } })
           : await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (result.error) throw result.error
         setPassword(''); setConfirmation('')
@@ -99,6 +104,7 @@ export default function Account() {
       {error || account.error ? <p className="account-auth-error" role="alert">{error || account.error}</p> : null}{message ? <p className="account-auth-message" role="status">{message}</p> : null}
       {signedIn ? <><CinemaButton onClick={() => void continueToRoom()} disabled={busy}>{t("Continuar para o início")}</CinemaButton>{error.includes('transferido') ? <button disabled={busy} onClick={() => { if (window.confirm(t("Continuar apenas com o histórico da conta? O histórico de visitante não será transferido."))) { discardGuestTransfer(); goHome() } }}>{t("Continuar apenas com o histórico da conta")}</button> : null}<Link to="/perfil">{t("Personalizar meu perfil")}</Link></> : mode === 'password' && !account.loading && !account.registered ? <p>{t("Este link não está ativo.") + " "}<button onClick={() => changeMode('reset')}>{t("Solicitar novo link de recuperação")}</button></p> : <form onSubmit={submit} aria-label={mode === 'signup' ? t("Criar conta") : mode === 'login' ? t("Entrar") : t("Recuperar senha")}>
         {mode !== 'password' ? <div className="account-field"><label htmlFor="account-email">{t("E-mail")}</label><div className="account-input-group"><Mail size={18} aria-hidden="true" /><input id="account-email" type="email" placeholder="voce@exemplo.com" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required maxLength={254} disabled={busy} /></div></div> : null}
+        {mode === 'signup' ? <div className="account-field"><label htmlFor="account-birthdate">{t('Data de nascimento')}</label><div className="account-input-group"><input id="account-birthdate" type="date" value={birthdate} onChange={event => setBirthdate(event.target.value)} min="1900-01-01" max={today} autoComplete="bday" required disabled={busy} aria-describedby="account-birthdate-hint" /></div><small id="account-birthdate-hint">{t('Sua data fica privada. O filtro 18+ fica disponível quando você completa 18 anos.')}</small></div> : null}
         {mode !== 'reset' ? <div className="account-field"><label htmlFor="account-password">{t("Senha")}</label><div className="account-input-group" data-assisted={assisted}><LockKeyhole size={18} aria-hidden="true" /><input id="account-password" onFocus={() => setConfirming(false)} type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? t("Sua senha") : t("Pelo menos 8 caracteres")} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? 1 : 8} maxLength={128} aria-describedby={mode === 'login' ? undefined : 'account-password-hint'} required disabled={busy} />{assisted ? <PasswordMatchDots password={password} value={confirmation} /> : null}<button className="account-password-toggle" type="button" aria-label={showPassword ? t("Ocultar senha") : t("Mostrar senha")} aria-pressed={showPassword} disabled={busy} onClick={() => { setConfirming(false); setShowPassword(!showPassword) }}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>{mode === 'login' ? <button className="account-forgot-password" type="button" disabled={busy} onClick={() => changeMode('reset')}>{t("Esqueci minha senha")}</button> : <div hidden={assisted}><small id="account-password-hint">{t("Use pelo menos 8 caracteres.")}</small><PasswordStrength value={password} /></div>}</div> : null}
         {mode === 'signup' || mode === 'password' ? <PasswordConfirmation password={password} value={confirmation} onChange={setConfirmation} onFocus={() => setConfirming(true)} disabled={busy} /> : null}
         <CinemaButton type="submit" disabled={busy || account.loading}>{busy ? t("Aguarde…") : mode === 'signup' ? t("Criar conta") : mode === 'reset' ? t("Enviar link") : mode === 'password' ? t("Salvar senha") : t("Entrar")}</CinemaButton>

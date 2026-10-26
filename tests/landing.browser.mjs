@@ -246,9 +246,7 @@ test('AdSense preserva as unidades ao redimensionar e permite carregar novamente
     await page.goto(sessionUrl.href)
     await page.locator('.swipe-mobile-ad [data-ad-empty=true]').waitFor({ state: 'attached' })
     assert.equal(await page.locator('.swipe-mobile-ad').isVisible(), false)
-    const notice = await page.getByRole('complementary', { name: 'Informação sobre publicidade' }).boundingBox()
-    const vote = await page.getByRole('button', { name: 'Quero assistir', exact: true }).boundingBox()
-    assert.ok(notice.y >= vote.y + vote.height, 'the failure notice must not cover controls')
+    assert.equal(await page.locator('.adblock-notice').count(), 0, 'network failure alone is not adblock')
     await page.locator('.swipe-header a[href="/"]').first().click()
     await page.getByRole('button', { name: 'Criar uma sessão', exact: true }).click()
     await page.waitForURL(sessionUrl.href)
@@ -311,6 +309,7 @@ async function context(options = {}) {
       result = [{ id: '22222222-2222-4222-8222-222222222222', code: 'DEMO01' }]
     } else if (path.includes('/rpc/community_profiles')) result = publicMembers
     else if (path.includes('/rpc/session_participants')) result = [{...publicMembers[0],member_key:1,online:true},{member_key:2,id:null,handle:null,display_name:'Convidado',bio:null,avatar_path:null,cover_path:null,online:false},{member_key:3,id:null,handle:null,display_name:'Perfil privado',bio:null,avatar_path:null,cover_path:null,online:true}]
+    else if (path.includes('/rpc/set_birthdate')) result = body.p_birthdate
     else if (path.includes('/rpc/touch_session_presence')) result = 2
     else if (path.includes('/rpc/check_session_match')) result = [{ is_match: false, member_count: 2, like_count: 1 }]
     else if (path.includes('/rpc/list_session_matches')) result = []
@@ -666,12 +665,11 @@ test('criação não duplica sessões e anúncio bloqueado permite votar e dispe
     for (let attempt = 0; attempt < 50 && state.reactions.length === 0; attempt++) await delay(100)
     assert.equal(state.reactions.length, 1)
     await dismiss.click()
-    assert.equal(await page.locator('.mm-ad-notice').count(), 0)
-    assert.equal(await page.evaluate(() => sessionStorage.getItem('mm:ads-notice-dismissed:v2')), '1')
+    await page.locator('.adblock-notice').waitFor({state:'detached'})
+    assert.equal(await page.evaluate(() => sessionStorage.getItem('mm:ads-notice-dismissed:v2')), null)
     await page.reload()
     await page.getByRole('button', { name: 'Abrir filtros' }).waitFor()
-    await delay(2200)
-    assert.equal(await page.locator('.mm-ad-notice').count(), 0)
+    await page.locator('.adblock-notice').waitFor()
   } finally { await ctx.close() }
 })
 
@@ -1529,11 +1527,11 @@ test('ajustes: aviso de bloqueador é discreto, dispensável e não cobre votaç
  try{
   await page.goto(sessionUrl.href)
   await page.addStyleTag({content:'.adsbox{display:none!important}'})
-  const notice=page.getByRole('complementary',{name:'Informação sobre publicidade'})
-  await notice.waitFor();assert.match(await notice.innerText(),/anúncios financiam o MovieMatch/)
+  const notice=page.getByRole('status',{name:'Ajude a manter o MovieMatch gratuito'})
+  await notice.waitFor();assert.match(await notice.innerText(),/desative-o neste site/)
   const box=await notice.boundingBox(),vote=await page.getByRole('button',{name:'Quero assistir',exact:true}).boundingBox()
-  assert.ok(box.height<=40,JSON.stringify(box));assert.ok(box.y>=vote.y+vote.height)
-  await page.getByRole('button',{name:'Dispensar aviso de publicidade'}).click();assert.equal(await notice.count(),0)
+  assert.ok(box.height<=250,JSON.stringify(box));assert.ok(box.y>=vote.y+vote.height)
+  await page.getByRole('button',{name:'Dispensar aviso de publicidade'}).click();await notice.waitFor({state:'detached'})
  }finally{await ctx.close()}
 })
 
@@ -1725,5 +1723,34 @@ test('match com armazenamento bloqueado permite abrir a lista sem lançar erro',
    await page.waitForURL('**/s/DEMO01/matches')
    await page.locator('#matches-title').waitFor()
    assert.deepEqual(errors,[])
+ }finally{await ctx.close()}
+})
+
+for (const legacy of [false, true]) test('data de nascimento menor bloqueia conteúdo 18+ mesmo com flag legada '+legacy,async()=>{
+ const {ctx,page,state}=await context()
+ try {
+  await page.route(/\/rest\/v1\/users\?/,route=>route.fulfill({json:{id:'11111111-1111-4111-8111-111111111111',birthdate:'2015-01-01',is_adult:legacy,is_premium:false}}))
+  await page.route(/\/rest\/v1\/session_filters\?/,route=>route.request().method()==='GET'?route.fulfill({json:{include_adult:true}}):route.fallback())
+  await page.goto(sessionUrl.href);await page.getByRole('button',{name:'Abrir filtros',exact:true}).click()
+  const dialog=page.getByRole('dialog',{name:'Encontre o filme certo'});await dialog.getByRole('button',{name:'Avançado',exact:true}).click()
+  const toggle=dialog.getByRole('button',{name:/Permitir conteúdo 18/});assert.equal(await toggle.isDisabled(),true);assert.equal(await toggle.getAttribute('aria-pressed'),'false')
+  assert.equal(await page.getByRole('dialog',{name:'Confirme sua idade'}).count(),0)
+  await dialog.getByRole('button',{name:'Aplicar filtros',exact:true}).click()
+  assert.ok(state.requests.filter(r=>r.path.includes('/session_filters')&&r.method==='POST').every(r=>r.body.include_adult===false))
+ }finally{await ctx.close()}
+})
+test('aniversário libera o filtro na aba aberta sem ligá-lo automaticamente',async()=>{
+ const {ctx,page}=await context()
+ const now=new Date(), tomorrow=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1))
+ const birthday=String(tomorrow.getUTCFullYear()-18)+tomorrow.toISOString().slice(4,10)
+ try {
+  await page.clock.install({time:now})
+  await page.route(/\/rest\/v1\/users\?/,route=>route.fulfill({json:{id:'11111111-1111-4111-8111-111111111111',birthdate:birthday,is_adult:false,is_premium:false}}))
+  await page.goto(sessionUrl.href);await page.getByRole('button',{name:'Abrir filtros',exact:true}).click()
+  const dialog=page.getByRole('dialog',{name:'Encontre o filme certo'});await dialog.getByRole('button',{name:'Avançado',exact:true}).click()
+  const toggle=dialog.getByRole('button',{name:/Permitir conteúdo 18/});assert.equal(await toggle.isDisabled(),true)
+  await page.clock.fastForward(tomorrow.getTime()-now.getTime()+1500)
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('Permitir conteúdo 18+')).disabled)
+  assert.equal(await toggle.getAttribute('aria-pressed'),'false');await toggle.click();assert.equal(await toggle.getAttribute('aria-pressed'),'true');assert.equal(await page.getByRole('dialog',{name:'Confirme sua idade'}).count(),0)
  }finally{await ctx.close()}
 })

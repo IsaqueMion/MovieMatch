@@ -11,8 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "refresh:landing-catalog": "node scripts/refresh-landing-catalog.mjs",
-    "test:browser": "node --test tests/landing.browser.mjs tests/dialogCompatibility.browser.mjs",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/swipeShuffle.test.ts tests/swipeProgress.test.ts tests/landingSelection.test.ts tests/profile-image-upload.test.mjs"
+    "test:browser": "node --test tests/landing.browser.mjs tests/dialogCompatibility.browser.mjs tests/adblock-tutorial.browser.mjs",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/swipeShuffle.test.ts tests/swipeProgress.test.ts tests/landingSelection.test.ts tests/profile-image-upload.test.mjs tests/birthdate.test.ts tests/adult-discover.test.mjs"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "4.3.5",

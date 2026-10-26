@@ -1,59 +1,55 @@
 import { translate as t, useLocale } from '../hooks/useLocale'
-import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { HeartHandshake } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import { AlertCard } from './ui/alert-card'
+import '../styles/adblock-notice.css'
 
-const DISMISSED_KEY = 'mm:ads-notice-dismissed:v2'
 type Props = { enabled?: boolean }
 
-function wasDismissed() {
-  try { return sessionStorage.getItem(DISMISSED_KEY) === '1' } catch { return false }
-}
-
-/** Best-effort detection is informational: ad failures never gate the session. */
+// shortcut: Network-only blockers are not detected; expand only with reliable evidence beyond failed ad requests.
 export default function AdblockWall({ enabled = true }: Props) {
   useLocale()
-  const [dismissed, setDismissed] = useState(wasDismissed)
-  const [unavailable, setUnavailable] = useState(false)
-  const closeRef = useRef<HTMLButtonElement>(null)
+  const { pathname } = useLocation()
+  const [dismissedAt, setDismissedAt] = useState<string | null>(null)
+  const [blockedAt, setBlockedAt] = useState<string | null>(null)
+  const dismissed = dismissedAt === pathname
 
   useEffect(() => {
     if (!enabled || dismissed) return
-    const bait = document.createElement('div')
+    const bait = document.createElement('div'), control = document.createElement('div')
     bait.className = 'adsbox ad-banner ad-unit'
-    bait.setAttribute('aria-hidden', 'true')
-    bait.style.cssText = 'width:1px;height:1px;position:absolute;left:-9999px;pointer-events:none;'
-    document.body.appendChild(bait)
-    const blocked = () => setUnavailable(true)
-    const scriptError = (event: Event) => {
-      const target = event.target
-      if (target instanceof HTMLScriptElement && target.src.includes('pagead2.googlesyndication.com')) blocked()
+    for (const element of [bait, control]) {
+      element.setAttribute('aria-hidden', 'true')
+      element.style.cssText = 'width:1px;height:1px;position:absolute;left:-9999px;pointer-events:none;'
+      document.body.appendChild(element)
     }
-    window.addEventListener('error', scriptError, true)
-    const timer = window.setTimeout(() => {
-      const style = getComputedStyle(bait)
-      if (style.display === 'none' || style.visibility === 'hidden' || bait.offsetHeight === 0 || bait.offsetWidth === 0) blocked()
-      bait.remove()
-    }, 2000)
+    const check = () => {
+      const style = getComputedStyle(bait), controlStyle = getComputedStyle(control)
+      const controlVisible = control.isConnected && control.offsetHeight > 0 && control.offsetWidth > 0 && controlStyle.visibility !== 'hidden'
+      const suppressed = !bait.isConnected || style.display === 'none' || style.visibility === 'hidden' || bait.offsetHeight === 0 || bait.offsetWidth === 0
+      setBlockedAt(controlVisible && suppressed ? pathname : null)
+    }
+    const visible = () => { if (!document.hidden) check() }
+    const timer = window.setTimeout(check, 2000)
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', visible)
     return () => {
       window.clearTimeout(timer)
-      window.removeEventListener('error', scriptError, true)
-      bait.remove()
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', visible)
+      bait.remove(); control.remove()
     }
-  }, [enabled, dismissed])
+  }, [enabled, dismissed, pathname])
 
   function dismiss() {
-    // Move keyboard focus back to the session rather than losing it with the notice.
-    const keyboardFocus = document.activeElement === closeRef.current
-    setDismissed(true)
-    try { sessionStorage.setItem(DISMISSED_KEY, '1') } catch { /* In-memory dismissal still works. */ }
-    if (keyboardFocus) document.querySelector<HTMLButtonElement>('button[aria-label="Abrir filtros"]')?.focus()
+    const keyboardFocus = document.activeElement?.closest('.adblock-notice')
+    setDismissedAt(pathname)
+    if (keyboardFocus) document.querySelector<HTMLButtonElement>('.cinema-vote-button.is-like:not(:disabled), .swipe-header button:not(:disabled)')?.focus()
   }
 
-  if (!enabled || dismissed || !unavailable) return null
-  return (
-    <aside className="mm-ad-notice" aria-label={t("Informação sobre publicidade")}>
-      <p role="status">{t("Os anúncios financiam o MovieMatch. Se você usa um bloqueador, pode liberar o site para apoiar o projeto.") + " "}<a href="/ads.html" target="_blank" rel="noreferrer">{t("Saiba mais")}</a></p>
-      <button ref={closeRef} type="button" onClick={dismiss} aria-label={t("Dispensar aviso de publicidade")}><X size={16} aria-hidden="true" /></button>
-    </aside>
-  )
+  return <AlertCard isVisible={enabled && !dismissed && blockedAt === pathname} icon={<HeartHandshake size={23} />}
+    title={t('Ajude a manter o MovieMatch gratuito')}
+    description={t('Parece que seu bloqueador está ocultando os anúncios. Se puder, desative-o neste site para apoiar o projeto. Você pode continuar votando normalmente.')}
+    buttonText={t('Continuar votando')} dismissLabel={t('Dispensar aviso de publicidade')} onDismiss={dismiss} />
 }

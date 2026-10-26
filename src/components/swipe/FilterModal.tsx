@@ -50,6 +50,7 @@ type Props = {
   defaultFilters: DiscoverFilters
   currentYear: number
   isAdult: boolean
+  adultLocked: boolean
   onRequestAdultVerification: () => void
   onClose: () => void
   onApply: (filters: DiscoverFilters) => void | false | Promise<void | false>
@@ -121,6 +122,7 @@ export default function FilterModal({
   defaultFilters,
   currentYear,
   isAdult,
+  adultLocked,
   onRequestAdultVerification,
   onClose,
   onApply,
@@ -149,31 +151,21 @@ export default function FilterModal({
   }, [open])
   useEffect(() => { contentRef.current?.scrollTo(0, 0) }, [category])
   const wasOpenRef = useRef(false)
-  const previousIsAdultRef = useRef(isAdult)
+  const pendingAdultRequest = useRef(false)
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setDraft(cloneFilters(filters))
+      setDraft({ ...cloneFilters(filters), includeAdult: isAdult && !!filters.includeAdult })
     }
 
     wasOpenRef.current = open
-  }, [open, filters])
+  }, [open, filters, isAdult])
 
   useEffect(() => {
-    const becameAdult =
-      open &&
-      !previousIsAdultRef.current &&
-      isAdult
-
-    if (becameAdult) {
-      setDraft((current) => ({
-        ...current,
-        includeAdult: true,
-      }))
-    }
-
-    previousIsAdultRef.current = isAdult
-  }, [isAdult, open])
+    if (open && isAdult && pendingAdultRequest.current) setDraft(current => ({ ...current, includeAdult: true }))
+    if (!open || isAdult || adultLocked) pendingAdultRequest.current = false
+    if (adultLocked) setDraft(current => current.includeAdult ? { ...current, includeAdult: false } : current)
+  }, [isAdult, adultLocked, open])
 
   const yearMin = draft.yearMin ?? 1990
   const yearMax = draft.yearMax ?? currentYear
@@ -942,13 +934,15 @@ export default function FilterModal({
                         <span className="text-sm font-medium text-white/80">{t("Conteúdo adulto")}</span>
                       </div>
 
-                      <p className="mb-3 text-xs leading-relaxed text-white/45">{t("Requer confirmação de maioridade. A data de nascimento não é armazenada.")}</p>
+                      <p className="mb-3 text-xs leading-relaxed text-white/45">{t("Sua data fica privada. O filtro 18+ fica disponível quando você completa 18 anos.")}</p>
 
                       <FilterButton
                         type="button"
+                        disabled={adultLocked}
                         aria-pressed={!!draft.includeAdult}
                         onClick={() => {
                           if (!draft.includeAdult && !isAdult) {
+                            pendingAdultRequest.current = true
                             onRequestAdultVerification()
                             return
                           }
@@ -969,7 +963,7 @@ export default function FilterModal({
                           <span className="mt-0.5 block text-xs text-white/40">
                             {draft.includeAdult
                               ? t("Ativado nesta seleção")
-                              : t("Desativado")}
+                              : adultLocked ? t("Disponível ao completar 18 anos") : t("Desativado")}
                           </span>
                         </span>
 

@@ -2396,7 +2396,7 @@
     "Borrar búsqueda"
   ],
   "Continuar votando": [
-    "Continue voting",
+    "Keep voting",
     "Seguir votando"
   ],
   "Deslize pelos filmes que conquistaram o grupo": [
@@ -2674,5 +2674,33 @@
   "Fechar participantes": [
     "Close participants",
     "Cerrar participantes"
+  ],
+  "Informe uma data de nascimento válida.": [
+    "Enter a valid date of birth.",
+    "Introduce una fecha de nacimiento válida."
+  ],
+  "Sua data fica privada. O filtro 18+ fica disponível quando você completa 18 anos.": [
+    "Your date stays private. The 18+ filter becomes available when you turn 18.",
+    "Tu fecha es privada. El filtro 18+ estará disponible cuando cumplas 18 años."
+  ],
+  "Conteúdo 18+ bloqueado até você completar 18 anos.": [
+    "18+ content is blocked until you turn 18.",
+    "El contenido 18+ está bloqueado hasta que cumplas 18 años."
+  ],
+  "Não foi possível confirmar sua data de nascimento. Tente novamente.": [
+    "We could not confirm your date of birth. Please try again.",
+    "No pudimos confirmar tu fecha de nacimiento. Inténtalo de nuevo."
+  ],
+  "Disponível ao completar 18 anos": [
+    "Available when you turn 18",
+    "Disponible al cumplir 18 años"
+  ],
+  "Ajude a manter o MovieMatch gratuito": [
+    "Help keep MovieMatch free",
+    "Ayuda a mantener MovieMatch gratis"
+  ],
+  "Parece que seu bloqueador está ocultando os anúncios. Se puder, desative-o neste site para apoiar o projeto. Você pode continuar votando normalmente.": [
+    "It looks like your blocker is hiding ads. If you can, disable it on this site to support the project. You can keep voting as usual.",
+    "Parece que tu bloqueador está ocultando los anuncios. Si puedes, desactívalo en este sitio para apoyar el proyecto. Puedes seguir votando normalmente."
   ]
 }
