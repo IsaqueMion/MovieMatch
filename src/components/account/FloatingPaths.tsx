@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { motion, useInView, useReducedMotion } from 'motion/react'
+import { motion, useInView } from 'motion/react'
+import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 
 /** Adapted from Efferd auth-2: https://legacy.efferd.com/r/auth-2.json */
 export default function FloatingPaths({ position }: { position: number }) {

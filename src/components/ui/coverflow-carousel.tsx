@@ -1,5 +1,6 @@
 import { translate as t, useLocale } from '../../hooks/useLocale'
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { observeElementResize } from '../../lib/browserEvents'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { cubicBezier } from 'motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -104,9 +105,7 @@ export function CoverflowCarousel({ slides, rotate = 44, depth = .6, perspective
     if (!frame) return
     const measure = () => { widthRef.current = cardRefs.current[0]?.offsetWidth ?? 0; paint() }
     measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(frame)
-    return () => observer.disconnect()
+    return observeElementResize(frame, measure)
   }, [paint])
   useEffect(() => () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }, [])
   useEffect(() => {

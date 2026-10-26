@@ -1,5 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState, type ComponentProps } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ComponentProps, type CSSProperties } from 'react'
 import { PosterImage } from './poster-image'
+import { observeElementResize } from '../../lib/browserEvents'
 
 export type CorridorPath = {
   perspective?: number
@@ -34,7 +35,7 @@ function keyframes(direction: 1 | -1, name: string, path: Required<CorridorPath>
     const depth = path.perspective * (1 - 1 / scale)
     const rail = path.railExit - (path.railExit - path.railBirth) * Math.pow(1 - progress, path.fan)
     const turn = path.turnBirth + (path.turnExit - path.turnBirth) * progress
-    steps.push(`${(progress * 100).toFixed(2)}%{transform:translate3d(${(direction * rail * rasterRatio).toFixed(2)}cqw,0,${depth.toFixed(2)}cqw) rotateY(${(-direction * turn).toFixed(2)}deg)}`)
+    steps.push(`${(progress * 100).toFixed(2)}%{transform:translate3d(calc(${(direction * rail * rasterRatio).toFixed(2)} * var(--image-stream-unit)),0,calc(${depth.toFixed(2)} * var(--image-stream-unit))) rotateY(${(-direction * turn).toFixed(2)}deg)}`)
   }
   return `@keyframes ${name}{${steps.join('')}}`
 }
@@ -68,6 +69,12 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
 
   useEffect(() => {
     const element = rootRef.current
+    let stopSizing: (() => void) | undefined
+    if (element && (typeof CSS === 'undefined' || !CSS.supports('width', '1cqw'))) {
+      const measure = () => element.style.setProperty('--image-stream-unit', `${element.clientWidth / 100}px`)
+      measure()
+      stopSizing = observeElementResize(element, measure)
+    }
     const observer = typeof IntersectionObserver !== 'undefined' && element
       ? new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting))
       : null
@@ -77,22 +84,23 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
     document.addEventListener('visibilitychange', updateVisibility)
     return () => {
       observer?.disconnect()
+      stopSizing?.()
       document.removeEventListener('visibilitychange', updateVisibility)
     }
   }, [])
 
   return (
-    <div ref={rootRef} className={`image-stream-hero ${className}`} {...props} style={{ containerType: 'inline-size', ...style }}>
+    <div ref={rootRef} className={`image-stream-hero ${className}`} {...props} style={{ '--image-stream-unit': '1cqw', containerType: 'inline-size', ...style } as CSSProperties}>
       <style>{css}</style>
-      <div aria-hidden="true" className="image-stream-corridor" style={{ perspective: `${geometry.perspective}cqw`, perspectiveOrigin: `50% ${axis}%` }}>
+      <div aria-hidden="true" className="image-stream-corridor" style={{ perspective: `calc(${geometry.perspective} * var(--image-stream-unit))`, perspectiveOrigin: `50% ${axis}%` }}>
         <div className="image-stream-rails">
           {[right, left].map((name, railIndex) => Array.from({ length: count }, (_, index) => {
             const image = uniqueImages[railIndex * count + index]
             return (
               <div key={`${name}-${index}`} className={`image-stream-card ${cardClass}`} style={{
-                left: '50%', top: `${axis}%`, width: `${rasterWidth}cqw`, height: `${rasterHeight}cqw`,
-                marginLeft: `${-rasterWidth / 2}cqw`, marginTop: `${-rasterHeight / 2}cqw`,
-                borderRadius: `${geometry.cardRadius * rasterHeight / geometry.cardHeight}cqw`, animation: `${name} ${duration}s linear infinite`,
+                left: '50%', top: `${axis}%`, width: `calc(${rasterWidth} * var(--image-stream-unit))`, height: `calc(${rasterHeight} * var(--image-stream-unit))`,
+                marginLeft: `calc(${-rasterWidth / 2} * var(--image-stream-unit))`, marginTop: `calc(${-rasterHeight / 2} * var(--image-stream-unit))`,
+                borderRadius: `calc(${geometry.cardRadius * rasterHeight / geometry.cardHeight} * var(--image-stream-unit))`, animation: `${name} ${duration}s linear infinite`,
                 animationDelay: `${-(index * duration) / count}s`, animationPlayState: paused || !visible || !pageVisible ? 'paused' : 'running',
                 backfaceVisibility: 'hidden',
               }}>

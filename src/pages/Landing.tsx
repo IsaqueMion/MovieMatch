@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } 
 import { useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Clapperboard, Heart, SlidersHorizontal, Users } from 'lucide-react'
 import { usePageMeta } from '../hooks/usePageMeta'
+import { listenToMediaQuery } from '../lib/browserEvents'
 import { ImageStreamHero, type StreamImage } from '../components/ui/image-stream-hero'
 import LandingSwipePreview from '../components/landing/LandingSwipePreview'
 import catalogue from '../data/landingMovies.json'
@@ -65,8 +66,7 @@ export default function Landing() {
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)')
     const update = () => setReducedMotion(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
+    return listenToMediaQuery(query, update)
   }, [])
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {

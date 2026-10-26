@@ -4,7 +4,7 @@ import { Check, Heart, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CinemaButton from '../ui/cinema-button'
 import MatchPoster from '../matches/MatchPoster'
-import { trapDialogFocus } from '../../lib/dialogFocus'
+import { openDialog, trapDialogFocus } from '../../lib/dialogFocus'
 
 type Props = {
   movie: { title: string; year?: number | null; poster_url: string | null }
@@ -19,9 +19,9 @@ export default function SwipeMatchDialog({ movie, code, onClose, onMatches }: Pr
   useEffect(() => {
     const dialog = ref.current
     const opener = document.activeElement as HTMLElement | null
-    dialog?.showModal()
+    const closeDialog = openDialog(dialog)
     return () => {
-      dialog?.close()
+      closeDialog()
       if (opener?.isConnected && !opener.matches(':disabled')) opener.focus({ preventScroll: true })
       else document.querySelector<HTMLButtonElement>('.cinema-vote-button.is-like:not(:disabled)')?.focus({ preventScroll: true })
     }

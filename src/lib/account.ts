@@ -48,8 +48,15 @@ export async function savedRooms(): Promise<SavedRoom[]> {
 
 export async function uploadProfileImage(profile: Profile, kind: 'avatar' | 'cover', file: File) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 6 * 1024 * 1024) throw new Error('Use JPG, PNG ou WebP com até 6 MB.')
-  const image = await createImageBitmap(file)
+  const imageUrl = typeof createImageBitmap === 'function' ? null : URL.createObjectURL(file)
+  let image: ImageBitmap | HTMLImageElement | undefined
   try {
+    image = imageUrl ? await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image()
+      element.onload = () => resolve(element)
+      element.onerror = () => reject(new Error('Não foi possível abrir a imagem.'))
+      element.src = imageUrl
+    }) : await createImageBitmap(file)
     if (image.width * image.height > 40_000_000) throw new Error('Use uma imagem de até 40 megapixels.')
     const max = kind === 'avatar' ? 512 : 1600
     const ratio = Math.min(1, max / Math.max(image.width, image.height))
@@ -59,13 +66,20 @@ export async function uploadProfileImage(profile: Profile, kind: 'avatar' | 'cov
     if (!context) throw new Error('Não foi possível preparar a imagem.')
     context.drawImage(image, 0, 0, canvas.width, canvas.height)
     const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Não foi possível converter a imagem.')), 'image/webp', 0.85))
-    const path = `${profile.id}/${kind}-${crypto.randomUUID()}.webp`
-    const uploaded = await supabase.storage.from('profile-media').upload(path, blob, { contentType: 'image/webp', cacheControl: '31536000' })
+    const extension = blob.type === 'image/webp' ? 'webp' : blob.type === 'image/png' ? 'png' : null
+    if (!extension) throw new Error('Não foi possível converter a imagem.')
+    if (blob.size > 2 * 1024 * 1024) throw new Error('Use uma imagem que ocupe até 2 MB após a conversão.')
+    const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('')
+    const path = `${profile.id}/${kind}-${id}.${extension}`
+    const uploaded = await supabase.storage.from('profile-media').upload(path, blob, { contentType: blob.type, cacheControl: '31536000' })
     if (uploaded.error) throw uploaded.error
     const field = kind === 'avatar' ? 'avatar_path' : 'cover_path'
     const updated = await supabase.from('profiles').update({ [field]: path }).eq('id', profile.id).select(profileFields).single()
     if (updated.error) { await supabase.storage.from('profile-media').remove([path]); throw updated.error }
     if (profile[field]) await supabase.storage.from('profile-media').remove([profile[field]!])
     return updated.data as Profile
-  } finally { image.close() }
+  } finally {
+    if (image && 'close' in image) image.close()
+    if (imageUrl) URL.revokeObjectURL(imageUrl)
+  }
 }

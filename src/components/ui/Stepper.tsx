@@ -1,4 +1,5 @@
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { observeElementResize } from '../../lib/browserEvents'
 // Source: https://reactbits.dev/r/Stepper-TS-TW.json
 // Adaptations: cinema styling, Portuguese completion, native keyboard-accessible indicators, resize tracking and reduced motion.
 
@@ -210,9 +211,7 @@ function SlideTransition({ children, direction, onHeightReady }: SlideTransition
     if (!element) return;
     const measure = () => onHeightReady(element.offsetHeight);
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
+    return observeElementResize(element, measure);
   }, [onHeightReady]);
 
   return (

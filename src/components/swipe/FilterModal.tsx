@@ -28,7 +28,7 @@ import type {
   MonetizationType,
 } from '../../lib/functions'
 import { filtersSig } from '../../lib/swipeProgress'
-import { trapDialogFocus } from '../../lib/dialogFocus'
+import { openDialog, trapDialogFocus } from '../../lib/dialogFocus'
 import '../../styles/filters.css'
 import ActiveFiltersSummary, {
   type ActiveFilterItem,
@@ -141,9 +141,9 @@ export default function FilterModal({
   useEffect(() => {
     const dialog = dialogRef.current
     const previousFocus = document.activeElement
-    if (open && dialog && !dialog.open) dialog.showModal()
+    const closeDialog = open ? openDialog(dialog) : () => {}
     return () => {
-      dialog?.close()
+      closeDialog()
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus()
     }
   }, [open])

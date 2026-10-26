@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { ArrowLeftRight, Heart, SlidersHorizontal, Share2, X } from 'lucide-react'
 import Stepper, { Step } from '../ui/Stepper'
 import SwipeActionButtons from './SwipeActionButtons'
-import { trapDialogFocus } from '../../lib/dialogFocus'
+import { openDialog, trapDialogFocus } from '../../lib/dialogFocus'
 
 export type SwipeTutorialHandle = { open: () => void }
 type Props = { sessionId: string; code: string }
@@ -32,9 +32,9 @@ function TutorialDialog({ code, onClose }: { code: string; onClose: () => void }
   useEffect(() => {
     const dialog = dialogRef.current
     const opener = document.activeElement as HTMLElement | null
-    dialog?.showModal()
+    const closeDialog = openDialog(dialog)
     return () => {
-      dialog?.close()
+      closeDialog()
       if (opener?.isConnected && opener.matches('button:not(:disabled), a[href], summary')) opener.focus({ preventScroll: true })
       else (document.querySelector<HTMLButtonElement>('.cinema-vote-button.is-like:not(:disabled)') ?? document.querySelector<HTMLButtonElement>('[aria-label="Abrir filtros"]'))?.focus({ preventScroll: true })
     }

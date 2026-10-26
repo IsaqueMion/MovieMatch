@@ -1,6 +1,7 @@
 import { translate as t, useLocale } from '../../hooks/useLocale'
 import { useEffect, useState } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { motion } from 'motion/react'
+import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { passwordStrength } from '../../lib/passwordStrength'
 
 // Adapted from interior.dev/password-strength; the extra rules are guidance, not signup requirements.

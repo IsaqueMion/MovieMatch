@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { Check, ChevronDown, X } from 'lucide-react'
 import { useLocale } from '../../hooks/useLocale'
 

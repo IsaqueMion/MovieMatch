@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Camera, UserRound, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { mediaUrl, profileFields, uploadProfileImage, type Profile } from '../../lib/account'
-import { trapDialogFocus } from '../../lib/dialogFocus'
+import { openDialog, trapDialogFocus } from '../../lib/dialogFocus'
 import { GENRES } from '../swipe/filterOptions'
 import CinemaButton from '../ui/cinema-button'
 
@@ -20,10 +20,9 @@ export default function ProfileEditorDialog({ profile, onClose }: { profile: Pro
   const [error, setError] = useState('')
   useEffect(() => {
     const element = dialog.current, opener = document.activeElement as HTMLElement | null, selectedPhotos = photos.current
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'; element?.showModal()
+    const closeDialog = openDialog(element)
     return () => {
-      element?.close(); document.body.style.overflow = overflow
+      closeDialog()
       Object.values(selectedPhotos).forEach(photo => URL.revokeObjectURL(photo.url))
       if (opener?.isConnected && opener !== document.body) opener.focus({ preventScroll: true })
       else document.querySelector<HTMLElement>('.account-menu-trigger, .profile-edit-trigger')?.focus({ preventScroll: true })
