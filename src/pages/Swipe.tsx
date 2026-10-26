@@ -27,6 +27,8 @@ import { ArrowLeftRight, Film } from 'lucide-react'
 
 import { Toaster, toast } from 'sonner'
 import AgeGateModal from '../components/AgeGateModal'
+import { ageFromBirthdate } from '../lib/birthdate'
+import { useCurrentDate } from '../hooks/useCurrentDate'
 import AdSlot from '../components/AdSlot'
 import SwipeBannerAd from '../components/swipe/SwipeBannerAd'
 import AdblockWall from '../components/AdblockWall'
@@ -305,7 +307,12 @@ function Swipe() {
   const [openFilters, setOpenFilters] = useState(false)
 
   // verificação de idade
-  const [isAdult, setIsAdult] = useState(false)
+  const [birthdate, setBirthdate] = useState<string | null>(null)
+  const [legacyAdult, setLegacyAdult] = useState(false)
+  const [verifyingAge, setVerifyingAge] = useState(false)
+  const today = useCurrentDate()
+  const isAdult = birthdate ? (ageFromBirthdate(birthdate, today) ?? -1) >= 18 : legacyAdult
+  const adultLocked = !!birthdate && !isAdult
   const [showAgeGate, setShowAgeGate] = useState(false)
 
   const [isPremium, setIsPremium] = useState(false)
@@ -711,10 +718,11 @@ function Swipe() {
         // ler se já é adulto
         const { data: prof } = await supabase
           .from('users')
-          .select('is_adult, is_premium')
+          .select('birthdate, is_adult, is_premium')
           .eq('id', uid)
           .maybeSingle()
-        setIsAdult(!!prof?.is_adult)
+        setBirthdate(prof?.birthdate ?? null)
+        setLegacyAdult(!!prof?.is_adult)
         setIsPremium(!!prof?.is_premium)
 
         // ⚠️ busca da sessão com single + limit(1)
@@ -1756,59 +1764,21 @@ function Swipe() {
 
   // A verificação apenas autoriza o usuário a selecionar conteúdo adulto.
   // O filtro só é efetivamente aplicado pelo FilterModal ao clicar em Aplicar.
-  const confirmAdult = async (birthdateISO?: string) => {
-    if (!birthdateISO) {
-      toast.error(
-        t("Informe sua data de nascimento para ativar conteúdo adulto."),
-      )
-      setIsAdult(false)
-      setShowAgeGate(true)
-      return
-    }
-
-    const age = calcAge(birthdateISO)
-
-    if (age < 18) {
-      toast.error(
-        t("Você precisa ter 18+ para ver esse conteúdo."),
-      )
-      setIsAdult(false)
-      setShowAgeGate(false)
-      return
-    }
-
+  const confirmAdult = async (value: string) => {
+    if (verifyingAge || ageFromBirthdate(value, today) === null) return
+    setVerifyingAge(true)
     try {
-      if (userId) {
-        const { error } = await supabase
-          .from('users')
-          .update({ is_adult: true })
-          .eq('id', userId)
-
-        if (error) throw error
-      } else {
-        try {
-          localStorage.setItem('mm:isAdult', '1')
-        } catch (error) {
-          console.error(
-            'failed to persist adult status locally:',
-            error,
-          )
-        }
-      }
-
-      setIsAdult(true)
+      if (!userId) throw new Error('Session unavailable')
+      const { data, error } = await supabase.rpc('set_birthdate', { p_birthdate: value })
+      if (error) throw error
+      if (typeof data !== 'string' || ageFromBirthdate(data, today) === null) throw new Error('Invalid birthdate response')
+      setBirthdate(data)
       setShowAgeGate(false)
-
-      toast.success(
-        t("Verificação concluída. Conteúdo adulto autorizado."),
-      )
-    } catch (error: unknown) {
-      toast.error(
-        `Falha ao confirmar maioridade: ${getErrorMessage(error)}`,
-      )
-      setIsAdult(false)
-      setShowAgeGate(true)
-    }
+      if ((ageFromBirthdate(data, today) ?? -1) >= 18) toast.success(t('Verificação concluída. Conteúdo adulto autorizado.'))
+      else toast.info(t('Conteúdo 18+ bloqueado até você completar 18 anos.'))
+    } catch {
+      toast.error(t('Não foi possível confirmar sua data de nascimento. Tente novamente.'))
+    } finally { setVerifyingAge(false) }
   }
 
   const cancelAdult = () => {
@@ -1820,6 +1790,7 @@ function Swipe() {
   ) {
     const nextFilters: DiscoverFilters = {
       ...filterSnapshot,
+      includeAdult: isAdult && !!filterSnapshot.includeAdult,
 
       genres: [
         ...(filterSnapshot.genres ?? []),
@@ -1997,28 +1968,19 @@ function Swipe() {
         <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={250} /></aside>
         <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={300} height={250} /></aside>
       </> : null}
-      {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
+      {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} adultLocked={adultLocked} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
       {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
       {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {
         markMatchesSeen()
         setLatestMatchAt(0)
         setMatchModal(null)
       }} /> : null}
-      {showAgeGate ? <AgeGateModal open onConfirm={confirmAdult} onCancel={cancelAdult} /> : null}
+      {showAgeGate ? <AgeGateModal open onConfirm={confirmAdult} onCancel={cancelAdult} busy={verifyingAge} /> : null}
       {sessionId ? <SwipeTutorial key={sessionId} ref={tutorialRef} sessionId={sessionId} code={code ?? ''} /> : null}
       <AdblockWall enabled={!isPremium} />
       <Toaster richColors position="bottom-center" />
     </main>
   )
-}
-
-function calcAge(birthdateISO: string): number {
-  const today = new Date()
-  const dob = new Date(birthdateISO)
-  let age = today.getFullYear() - dob.getFullYear()
-  const m = today.getMonth() - dob.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
-  return age
 }
 
 // === ErrorBoundary local p/ esta página ===

@@ -23,7 +23,7 @@
 @media(max-width:479px){.account-entry .account-entry-panel{padding-top:150px}.account-language{top:76px;right:24px}}
 @keyframes account-mode-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.account-form-transition{animation:none}}
-@media(max-width:899px){.account-entry-panel{min-height:1120px}}
+@media(max-width:899px){.account-entry-panel{min-height:1280px}}
 .account-entry .account-auth{display:grid;grid-template-columns:1fr 1fr;min-height:100vh;min-height:100svh}
 .account-story{position:sticky;top:0;height:100vh;height:100svh;display:flex;flex-direction:column;justify-content:space-between;isolation:isolate;overflow:hidden;padding:40px;border-right:1px solid var(--cinema-line);background:#111915}
 .account-story>.cinema-brand{align-self:flex-start;position:relative;z-index:1}.account-story .cinema-brand>svg,.account-mobile-brand>svg{color:var(--cinema-accent)}
@@ -32,7 +32,7 @@
 .account-story-copy{padding-top:14rem;max-width:36rem}.account-story-copy>.cinema-eyebrow{color:#b7c4bc;font-size:.65rem}
 .account-story-title{font-family:var(--cinema-display);font-size:clamp(2.5rem,4vw,4.5rem);line-height:1.04;letter-spacing:-.045em;margin:1.25rem 0}.account-story-title>span{color:var(--cinema-accent)}
 .account-story-copy>p:not(.cinema-eyebrow):not(.account-story-title){max-width:29rem;font-size:.875rem;line-height:1.8;color:#b4c1b8}.account-story-signature{display:block;margin-top:2rem;font-size:.7rem;color:#8d9e93}
-.account-entry-panel{position:relative;display:flex;align-items:flex-start;justify-content:center;min-width:0;min-height:max(100vh,1120px);min-height:max(100svh,1120px);padding:100px 40px 56px;background:radial-gradient(ellipse at 100% 0,#1a211b80,transparent 70%),var(--cinema-bg)}
+.account-entry-panel{position:relative;display:flex;align-items:flex-start;justify-content:center;min-width:0;min-height:max(100vh,1280px);min-height:max(100svh,1280px);padding:100px 40px 56px;background:radial-gradient(ellipse at 100% 0,#1a211b80,transparent 70%),var(--cinema-bg)}
 .account-guest-link{position:absolute;left:40px;top:28px;display:inline-flex;align-items:center;gap:.5rem;min-height:44px;font-size:.8rem;color:#c6cec8}.account-guest-link:hover{color:var(--cinema-accent)}
 .account-entry .account-form{width:100%;max-width:400px;min-width:0;padding:0;background:none;border:0;border-radius:0}
 .account-entry .account-form-transition>h1{font-size:clamp(2rem,2.8vw,2.6rem);font-family:var(--cinema-display);line-height:1.08;letter-spacing:-.045em;margin:.75rem 0}

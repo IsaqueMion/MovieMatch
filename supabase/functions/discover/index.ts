@@ -9,6 +9,19 @@ function buildCorsHeaders(req: Request) {
   };
 }
 
+async function adultContentAllowed(req: Request): Promise<boolean> {
+  const authorization = req.headers.get('authorization');
+  if (!authorization?.startsWith('Bearer ')) return false;
+  try {
+    const response = await fetch(Deno.env.get('SUPABASE_URL') + '/rest/v1/rpc/adult_content_allowed', {
+      method: 'POST',
+      headers: { authorization, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '', 'Content-Type': 'application/json' },
+      body: '{}', signal: AbortSignal.timeout(5000),
+    });
+    return response.ok && await response.json() === true;
+  } catch { return false; }
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
 
@@ -53,7 +66,7 @@ Deno.serve(async (req) => {
 
     // bandeiras padrão
     qs.set("include_video", "false");
-    qs.set("include_adult", String(!!f.includeAdult));
+    qs.set("include_adult", String(f.includeAdult === true && await adultContentAllowed(req)));
 
     // idioma original do filme (2 letras)
     if (f.language) {
@@ -156,7 +169,7 @@ Deno.serve(async (req) => {
       {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "public, max-age=120, s-maxage=120", // opcional
+          "Cache-Control": "private, no-store", // Eligibility is specific to the authenticated viewer.
           ...corsHeaders,
         },
       },

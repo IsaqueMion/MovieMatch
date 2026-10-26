@@ -90,9 +90,11 @@ test('cadastro exige confirmação e nunca armazena senha; visitante continua se
   const {context,page,state}=await fixture({path:'/conta',loggedIn:false})
   try{
     await page.getByRole('button',{name:'Ainda não tenho conta'}).click();await page.getByLabel('E-mail',{exact:true}).fill('fixture@example.test');await page.getByLabel('Senha',{exact:true}).fill('new-password-123');await page.getByLabel('Confirmar senha',{exact:true}).fill('new-password-123')
+    await page.getByLabel('Data de nascimento',{exact:true}).fill('2010-01-01')
     await page.getByRole('form',{name:'Criar conta',exact:true}).getByRole('button',{name:'Criar conta',exact:true}).click();await page.getByText(/Confira seu e-mail/).waitFor()
     assert.equal(state.requests.some(x=>x.path.includes('signInAnonymously')),false)
     assert.equal(await page.evaluate(()=>Object.values({...localStorage,...sessionStorage}).some(value=>String(value).includes('new-password-123'))),false)
+    assert.equal(state.requests.find(x=>x.path.includes('/auth/v1/signup')).body.data.birthdate,'2010-01-01')
     await page.getByRole('link',{name:'Continuar sem cadastro'}).click();await page.waitForURL(base+'/')
   }finally{await context.close()}
 })
@@ -149,6 +151,7 @@ test('confirmação acompanha cada caractere, bloqueia divergência e aceita oit
     assert.equal(await page.locator('.password-confirmation-dots span[data-state=matched]').count(),8)
     await password.fill('Mm!7zQp9');assert.equal(await page.getByRole('meter',{name:'Força da senha'}).isVisible(),true);assert.equal(await page.locator('.password-confirmation-dots').count(),0);await page.getByText('As senhas não coincidem.',{exact:true}).waitFor();await submit.click();assert.equal(state.requests.some(x=>x.path.includes('/auth/v1/signup')),false)
     await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.password-confirmation .account-input-group').evaluate(el=>getComputedStyle(el).animationName),'none')
+    await page.getByLabel('Data de nascimento',{exact:true}).fill('2000-01-01')
     await confirm.fill('Mm!7zQp9');await submit.click();await page.getByText(/Confira seu e-mail/).waitFor()
     assert.equal(state.requests.filter(x=>x.path.includes('/auth/v1/signup')).length,1)
     assert.equal(await password.inputValue(),'');assert.equal(await confirm.inputValue(),'')
@@ -303,4 +306,9 @@ test('idioma escolhido na home; troca de acesso preserva email e limpa senha; pa
     assert.equal(await mobile.page.locator('.site-language-footer').count(),0)
     assert.equal(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   }finally{await mobile.context.close()}
+})
+
+for(const birthdate of ['', '2099-01-01']) test('signup rejects missing or future birthday: '+birthdate,async()=>{
+ const {context,page,state}=await fixture({path:'/conta?modo=cadastro',loggedIn:false})
+ try {await page.getByLabel('E-mail',{exact:true}).fill('date@example.test');await page.getByLabel('Senha',{exact:true}).fill('password123');await page.getByLabel('Confirmar senha',{exact:true}).fill('password123');await page.getByLabel('Data de nascimento',{exact:true}).fill(birthdate);await page.getByRole('form',{name:'Criar conta'}).getByRole('button',{name:'Criar conta',exact:true}).click();assert.equal(await page.locator('#account-birthdate').evaluate(el=>el.validity.valid),false);assert.equal(state.requests.some(r=>r.path.includes('/signup')),false)} finally {await context.close()}
 })

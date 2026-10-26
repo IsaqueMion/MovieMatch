@@ -139,8 +139,10 @@
 .swipe-tutorial-step > p { margin: 18px 0; font-size: 12px; line-height: 1.9; color: #bccdc0; }
 .swipe-tutorial-step > small { display: block; font-size: 10px; line-height: 1.7; color: #93a99a; margin-top: 16px; }
 .swipe-tutorial-votes { padding-top: 6px; }
-.swipe-tutorial-keys { display: flex; justify-content: center; gap: 22px; margin-top: 13px; color: var(--cinema-muted); font-size: 9px; }
-.swipe-tutorial-keys > span { display: inline-flex; align-items: center; gap: 5px; }
+.swipe-tutorial-votes .cinema-vote-actions.is-preview { display: grid; grid-template-columns: repeat(3, 68px); justify-content: center; align-items: center; gap: 22px; }
+.swipe-tutorial-votes .cinema-vote-actions.is-preview > div { display: flex; justify-content: center; }
+.swipe-tutorial-keys { display: grid; grid-template-columns: repeat(3, 68px); justify-content: center; gap: 22px; margin-top: 13px; color: var(--cinema-muted); font-size: 9px; }
+.swipe-tutorial-keys > span { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
 .swipe-tutorial-keys kbd { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #4b5f50; border-radius: 4px; }
 .swipe-tutorial-invite { display: flex; align-items: flex-start; gap: 15px; padding: 20px 0; margin-top: 22px; border-top: 1px solid #3b4e40; }
 .swipe-tutorial-invite svg { color: var(--cinema-accent); flex-shrink: 0; }
