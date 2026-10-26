@@ -1,4 +1,4 @@
-.library-page { min-height: 100dvh; background: radial-gradient(ellipse at 15% 5%, #29493322, transparent 50%), var(--cinema-bg); }
+.library-page { min-height: 100vh; min-height: 100dvh; background: radial-gradient(ellipse at 15% 5%, #29493322, transparent 50%), var(--cinema-bg); }
 .library-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-block: 28px; border-bottom: 1px solid var(--cinema-line); }
 .library-header .cinema-brand { display: inline-flex; align-items: center; gap: 8px; }
 .library-header .cinema-brand > svg { color: var(--cinema-accent); }
@@ -40,7 +40,7 @@
 .library-footer { padding-block: 28px 45px; border-top: 1px solid var(--cinema-line); color: var(--cinema-muted); font-size: 11px; line-height: 1.9; }
 .library-footer small { display: block; max-width: 530px; font-size: 10px; margin-top: 7px; }
 .library-footer a { display: inline-block; color: var(--cinema-accent); margin-top: 18px; }
-.library-dialog { position: relative; width: min(calc(100% - 28px), 740px); max-height: calc(100dvh - 28px); padding: 32px; margin: auto; overflow-y: auto; border: 1px solid #425d4b; border-radius: 16px; background: radial-gradient(ellipse at 0% 0%, #29493344, transparent 65%), #121b16; color: var(--cinema-ink); font-family: var(--cinema-body); box-shadow: 0 20px 90px #0009; scrollbar-width: thin; scrollbar-color: #506b59 transparent; }
+.library-dialog { position: relative; width: min(calc(100% - 28px), 740px); max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); padding: 32px; margin: auto; overflow-y: auto; border: 1px solid #425d4b; border-radius: 16px; background: radial-gradient(ellipse at 0% 0%, #29493344, transparent 65%), #121b16; color: var(--cinema-ink); font-family: var(--cinema-body); box-shadow: 0 20px 90px #0009; scrollbar-width: thin; scrollbar-color: #506b59 transparent; }
 .library-dialog::backdrop { background: #040b08d9; backdrop-filter: blur(7px); }
 .library-dialog-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
 .library-dialog-header h2 { font: 500 44px/1.05 var(--cinema-display); letter-spacing: -.045em; margin-top: 17px; }

@@ -1,6 +1,7 @@
 import { translate as t, useLocale } from '../../hooks/useLocale'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { observeElementResize } from '../../lib/browserEvents'
 
 export default function BackToTop() {
   useLocale()
@@ -12,12 +13,11 @@ export default function BackToTop() {
     update()
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
-    const observer = new ResizeObserver(update)
-    observer.observe(document.body)
+    const stopObserving = observeElementResize(document.body, update)
     return () => {
       window.removeEventListener('scroll', update)
       window.removeEventListener('resize', update)
-      observer.disconnect()
+      stopObserving()
     }
   }, [pathname])
 

@@ -1,6 +1,6 @@
 import { translate as t, useLocale } from '../hooks/useLocale'
 import { useEffect, useRef, useState } from 'react'
-import { trapDialogFocus } from '../lib/dialogFocus'
+import { openDialog, trapDialogFocus } from '../lib/dialogFocus'
 
 type Props = {
   open: boolean
@@ -15,8 +15,7 @@ export default function AgeGateModal({ open, onConfirm, onCancel }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const element = dialog.current
-    if (open && element && !element.open) element.showModal()
-    return () => { element?.close() }
+    if (open) return openDialog(element)
   }, [open])
 
   const age = birthdate ? calcAge(birthdate) : null

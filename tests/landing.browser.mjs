@@ -8,6 +8,10 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
 import { readFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const postcss = createRequire(require.resolve('autoprefixer'))('postcss')
 
 const posterFixture = await readFile(new URL('../public/demo/interstellar.jpg', import.meta.url))
 const catalogue = JSON.parse(await readFile(new URL('../src/data/landingMovies.json', import.meta.url), 'utf8'))
@@ -809,6 +813,191 @@ for (const [width, height] of [[390, 844], [768, 1024], [1074, 884], [1101, 884]
     } finally { await ctx.close() }
   })
 }
+
+// Feature removal in Chromium isolates fallbacks; it does not emulate an old browser engine.
+for (const feature of ['viewport', 'container', 'has']) {
+  for (const [width, height] of [[390, 844], [844, 390]]) {
+    test(`compatibilidade por retirada de CSS ${feature} em ${width}x${height}: home e swipe continuam utilizáveis`, async () => {
+      const { ctx, page, state } = await context({ viewport: { width, height }, reducedMotion: 'reduce' })
+      page.setDefaultTimeout(5000)
+      const errors = []
+      page.on('pageerror', error => errors.push(error.message))
+      let removed = 0
+      if (feature === 'container') await ctx.addInitScript(() => {
+        const supports = CSS.supports.bind(CSS)
+        CSS.supports = (...args) => args.some(value => /cq[wh]/i.test(value)) ? false : supports(...args)
+      })
+      await ctx.route(/\/assets\/[^/?]+\.css(?:\?|$)/, async route => {
+        const response = await route.fetch()
+        const css = postcss.parse(await response.text())
+        const unsupported = feature === 'viewport' ? /\b\d*(?:\.\d+)?[ds]vh\b/i : /\b\d*(?:\.\d+)?cq[wh]\b|container-type/i
+        if (feature === 'has') css.walkRules(rule => { if (rule.selector.includes(':has(')) { removed++; rule.remove() } })
+        else {
+          css.walkAtRules('supports', rule => { if (unsupported.test(rule.params)) { removed++; rule.remove() } })
+          css.walkDecls(declaration => { if (unsupported.test(`${declaration.prop}:${declaration.value}`)) { removed++; declaration.remove() } })
+        }
+        await route.fulfill({ response, body: css.toString() })
+      })
+      try {
+        await page.goto(baseUrl)
+        await page.getByRole('heading', { name: /A escolha de todos/ }).waitFor()
+        if (feature === 'container') {
+          assert.equal(await page.evaluate(() => CSS.supports('width', '1cqw')), false)
+          await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card')].length > 0 && [...document.querySelectorAll('.image-stream-card')].every(element => element.offsetWidth > 0 && element.offsetHeight > 0))
+          const cards = await page.locator('.image-stream-card').evaluateAll(elements => elements.map(element => ({ width: element.offsetWidth, height: element.offsetHeight, unit: getComputedStyle(element).getPropertyValue('--image-stream-unit').trim() })))
+          assert.ok(cards.every(card => card.width > 0 && card.height > 0 && /^\d+(?:\.\d+)?px$/.test(card.unit)), JSON.stringify(cards))
+        }
+        const example = page.locator('.cinema-match-example .cinema-poster')
+        await example.scrollIntoViewIfNeeded()
+        const homePoster = await example.boundingBox()
+        assert.ok(homePoster.width > 0 && homePoster.height > 0, JSON.stringify(homePoster))
+        assert.ok(Math.abs(homePoster.width / homePoster.height - 2 / 3) < .01, JSON.stringify(homePoster))
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+        await page.goto(sessionUrl.href)
+        const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
+        await like.waitFor()
+        await page.waitForFunction(() => document.querySelector('.swipe-poster-image')?.classList.contains('is-ready'))
+        await page.evaluate(() => document.fonts.ready)
+        const layout = await page.evaluate(() => {
+          const rect = element => { const r = element.getBoundingClientRect(); return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height } }
+          return { poster: rect(document.querySelector('.swipe-poster-frame')), page: rect(document.querySelector('.swipe-page')), buttons: [...document.querySelectorAll('.cinema-vote-button')].map(rect), scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight }
+        })
+        assert.ok(removed > 0, 'The served CSS must contain the feature removed by this regression test')
+        assert.ok(layout.poster.width > 0 && layout.poster.height > 0, JSON.stringify(layout))
+        assert.ok(Math.abs(layout.poster.width / layout.poster.height - 2 / 3) < .01, JSON.stringify(layout.poster))
+        assert.ok(layout.scrollWidth <= width && layout.scrollHeight <= height + 1, JSON.stringify(layout))
+        assert.ok(layout.page.top >= 0 && Math.abs(layout.page.height - height) <= 1 && layout.page.bottom <= height + 1, JSON.stringify(layout.page))
+        assert.equal(await page.locator('.site-language-footer').count(), 0)
+        assert.ok(layout.buttons.length > 0 && layout.buttons.every(button => button.width > 0 && button.height > 0 && button.top >= 0 && button.bottom <= height && button.left >= 0 && button.right <= width), JSON.stringify(layout.buttons))
+        const title = await page.locator('.swipe-film-title').textContent()
+        await like.click()
+        await page.waitForFunction(previous => document.querySelector('.swipe-film-title')?.textContent !== previous, title)
+        assert.equal(state.reactions.length, 1)
+        assert.deepEqual(errors, [])
+      } finally { await ctx.close() }
+    })
+  }
+}
+
+for (const feature of ['MediaQueryList.addEventListener', 'ResizeObserver']) {
+  test(`compatibilidade por retirada de ${feature}: home carrega e swipe registra voto`, async () => {
+    const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 } })
+    page.setDefaultTimeout(5000)
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    await ctx.addInitScript(feature => {
+      if (feature === 'ResizeObserver') window.ResizeObserver = undefined
+      else {
+        // Bind the legacy API before removing modern methods; Chromium's alias uses them internally.
+        const add = EventTarget.prototype.addEventListener
+        const remove = EventTarget.prototype.removeEventListener
+        Object.defineProperties(MediaQueryList.prototype, {
+          addListener: { configurable: true, value(listener) { add.call(this, 'change', listener) } },
+          removeListener: { configurable: true, value(listener) { remove.call(this, 'change', listener) } },
+          addEventListener: { configurable: true, value: undefined },
+          removeEventListener: { configurable: true, value: undefined },
+        })
+      }
+    }, feature)
+    try {
+      await page.goto(baseUrl)
+      await page.getByRole('heading', { name: /A escolha de todos/ }).waitFor()
+      await page.evaluate(() => window.scrollTo(0, 700))
+      const top = page.getByRole('button', { name: 'Voltar ao topo' })
+      await top.waitFor()
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await top.click()
+      await page.waitForFunction(() => window.scrollY === 0)
+      await page.goto(sessionUrl.href)
+      const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
+      await like.waitFor()
+      const title = await page.locator('.swipe-film-title').textContent()
+      await like.click()
+      await page.waitForFunction(previous => document.querySelector('.swipe-film-title')?.textContent !== previous, title)
+      assert.equal(state.reactions.length, 1)
+      assert.deepEqual(errors, [])
+    } finally { await ctx.close() }
+  })
+}
+
+test('compatibilidade por retirada de dialog.showModal/close: tutorial mantém foco, bloqueia votos e fecha com Escape', async () => {
+  const { ctx, page, state } = await context({ tutorial: true, viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+  page.setDefaultTimeout(5000)
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await ctx.addInitScript(() => {
+    HTMLDialogElement.prototype.showModal = undefined
+    HTMLDialogElement.prototype.close = undefined
+    sessionStorage.setItem('mm:created-session', '22222222-2222-4222-8222-222222222222')
+  })
+  try {
+    await page.goto(sessionUrl.href)
+    const dialog = page.getByRole('dialog', { name: 'Como votar no MovieMatch' })
+    await dialog.waitFor()
+    await page.getByRole('heading', { name: /Seu gosto entra/ }).waitFor()
+    for (let index = 0; index < 8; index++) {
+      await page.keyboard.press('Tab')
+      assert.equal(await dialog.evaluate(element => element.contains(document.activeElement)), true)
+    }
+    await page.keyboard.press('ArrowRight')
+    assert.equal(state.reactions.length, 0)
+    await page.keyboard.press('Escape')
+    await dialog.waitFor({ state: 'detached' })
+    const like = page.getByRole('button', { name: 'Quero assistir', exact: true })
+    const title = await page.locator('.swipe-film-title').textContent()
+    await like.click()
+    await page.waitForFunction(previous => document.querySelector('.swipe-film-title')?.textContent !== previous, title)
+    assert.equal(state.reactions.length, 1)
+    assert.deepEqual(errors, [])
+  } finally { await ctx.close() }
+})
+
+test('compatibilidade por retirada de popover: participantes mantêm teclado, fechamento e posicionamento', async () => {
+  const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+  page.setDefaultTimeout(5000)
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await ctx.addInitScript(() => {
+    for (const name of ['showPopover', 'hidePopover', 'togglePopover']) HTMLElement.prototype[name] = undefined
+    const matches = Element.prototype.matches
+    Element.prototype.matches = function (selector) {
+      if (selector.includes(':popover-open')) throw new DOMException('Unsupported pseudo-class', 'SyntaxError')
+      return matches.call(this, selector)
+    }
+    const querySelector = Document.prototype.querySelector
+    Document.prototype.querySelector = function (selector) {
+      if (selector.includes(':popover-open')) throw new DOMException('Unsupported pseudo-class', 'SyntaxError')
+      return querySelector.call(this, selector)
+    }
+  })
+  try {
+    await page.goto(sessionUrl.href)
+    const trigger = page.getByRole('button', { name: 'Ver participantes da sessão', exact: true })
+    await trigger.waitFor()
+    const panel = page.locator('.session-participants-panel')
+    assert.equal(await panel.isVisible(), false)
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
+    await trigger.click(); await panel.waitFor()
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
+    assert.equal(await panel.evaluate(element => getComputedStyle(element).opacity), '1')
+    const bounds = await panel.boundingBox()
+    assert.ok(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 390 && bounds.y + bounds.height <= 844)
+    assert.ok(await panel.locator('.session-participant').count() > 0)
+    await page.keyboard.press('ArrowRight'); assert.equal(state.reactions.length, 0)
+    await page.keyboard.press('Escape'); await panel.waitFor({ state: 'hidden' })
+    assert.equal(await trigger.evaluate(element => element === document.activeElement), true)
+    await trigger.press('Enter'); await panel.waitFor()
+    await page.setViewportSize({ width: 400, height: 844 }); await panel.waitFor({ state: 'hidden' })
+    assert.equal(await trigger.evaluate(element => element === document.activeElement), true)
+    await trigger.click(); await panel.waitFor()
+    await page.mouse.click(2, 842); await panel.waitFor({ state: 'hidden' })
+    await trigger.click(); await panel.waitFor()
+    await panel.getByRole('button', { name: 'Fechar participantes', exact: true }).click()
+    await panel.waitFor({ state: 'hidden' })
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
+    assert.equal(state.reactions.length, 0)
+    assert.deepEqual(errors, [])
+  } finally { await ctx.close() }
+})
 
 test('pôster, trailer e sinopse usam clique/Tab; as setas votam mesmo com foco nesses botões', async () => {
   const { ctx, page, state } = await context({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })

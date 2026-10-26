@@ -1,4 +1,5 @@
-import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
+import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { Check, Trash2, X } from 'lucide-react'
 import { useRef } from 'react'
 import { useLocale } from '../../hooks/useLocale'

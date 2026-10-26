@@ -9,7 +9,7 @@ import MatchPoster from '../matches/MatchPoster'
 import PeekRating from '../ui/PeekRating'
 import ReviewVoteButton from '../ui/review-vote-button'
 import { emptyReviewVote, getReviewVotes, setReviewVote, type ReviewVote } from '../../lib/reviewVotes'
-import { trapDialogFocus } from '../../lib/dialogFocus'
+import { openDialog, trapDialogFocus } from '../../lib/dialogFocus'
 import { deleteMovieReview, getMovieReviewPage, getMovieReviewSummary, getMyWatchedMovie, markMovieWatched, saveMovieReview, type LibraryMovie, type MovieReview, type ReviewDraft, type WatchedMovie } from '../../lib/movieLibrary'
 import '../../styles/library.css'
 
@@ -69,14 +69,11 @@ export default function MovieReviewsDialog({ movie, onClose }: { movie: LibraryM
   useEffect(() => {
     const dialog = dialogRef.current
     const opener = document.activeElement as HTMLElement | null
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    dialog?.showModal()
+    const closeDialog = openDialog(dialog)
     void load()
     return () => {
       cancelRequests()
-      dialog?.close()
-      document.body.style.overflow = overflow
+      closeDialog()
       if (opener?.isConnected) opener.focus({ preventScroll: true })
       else document.querySelector<HTMLElement>('.cinema-vote-button.is-like:not(:disabled), .matches-film-card, .matches-library-link, .library-rate-button')?.focus({ preventScroll: true })
     }

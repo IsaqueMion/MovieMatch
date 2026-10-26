@@ -11,8 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "refresh:landing-catalog": "node scripts/refresh-landing-catalog.mjs",
-    "test:browser": "node --test tests/landing.browser.mjs",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/swipeShuffle.test.ts tests/swipeProgress.test.ts tests/landingSelection.test.ts"
+    "test:browser": "node --test tests/landing.browser.mjs tests/dialogCompatibility.browser.mjs",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test tests/swipeShuffle.test.ts tests/swipeProgress.test.ts tests/landingSelection.test.ts tests/profile-image-upload.test.mjs"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "4.3.5",
@@ -47,5 +47,12 @@
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2"
   },
-  "packageManager": "pnpm@11.25.0"
+  "packageManager": "pnpm@11.25.0",
+  "browserslist": [
+    "Chrome >= 107",
+    "Edge >= 107",
+    "Firefox >= 104",
+    "Safari >= 16",
+    "iOS >= 16"
+  ]
 }

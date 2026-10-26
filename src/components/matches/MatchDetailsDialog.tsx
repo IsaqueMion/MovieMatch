@@ -5,6 +5,7 @@ import type { MovieDetails } from '../../lib/functions'
 import { extractProviders, resolveProviderLink } from '../../lib/matchProviders'
 import MatchPoster from './MatchPoster'
 import CinemaButton from '../ui/cinema-button'
+import { openDialog } from '../../lib/dialogFocus'
 
 type Props = {
   item: { title: string; year: number | null; poster_url: string | null; tmdb_id: number | null; likes: number; member_count: number }
@@ -24,12 +25,9 @@ export default function MatchDetailsDialog({ item, details, loading, region, onC
   useEffect(() => {
     const dialog = dialogRef.current
     const opener = document.activeElement as HTMLElement | null
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    dialog?.showModal()
+    const closeDialog = openDialog(dialog)
     return () => {
-      dialog?.close()
-      document.body.style.overflow = overflow
+      closeDialog()
       if (opener?.isConnected) opener.focus({ preventScroll: true })
     }
   }, [])

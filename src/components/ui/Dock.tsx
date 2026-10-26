@@ -1,4 +1,5 @@
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { listenToMediaQuery, observeElementResize } from '../../lib/browserEvents'
 // Source: https://reactbits.dev/r/Dock-TS-TW.json
 // Adapted for native disabled buttons, existing voting controls and stable touch targets.
 import { motion, useMotionValue, useSpring, useTransform, type MotionValue, type SpringOptions } from 'motion/react'
@@ -35,9 +36,7 @@ function DockItem({ item, mouseX, spring, distance, baseItemSize, magnification,
     if (!button) return
     const measure = () => setDimensions({ width: button.offsetWidth, height: button.offsetHeight })
     measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(button)
-    return () => observer.disconnect()
+    return observeElementResize(button, measure)
   }, [baseItemSize])
   const mouseDistance = useTransform(mouseX, value => {
     const rect = ref.current?.getBoundingClientRect()
@@ -62,8 +61,7 @@ export default function Dock({ items, className = '', spring = defaultSpring, ma
     const media = window.matchMedia('(hover: hover) and (pointer: fine)')
     const update = () => setFinePointer(media.matches)
     update()
-    media.addEventListener('change', update)
-    return () => media.removeEventListener('change', update)
+    return listenToMediaQuery(media, update)
   }, [])
   const enabled = finePointer && !reducedMotion
   return <div className={`cinema-dock ${className}`} style={{ minHeight: panelHeight }} role="toolbar" aria-label={label} onPointerMove={event => {

@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from 'react'
+import { listenToMediaQuery } from '../lib/browserEvents'
 
 let media: MediaQueryList | undefined
 const getMedia = () => media ??= window.matchMedia('(prefers-reduced-motion: reduce)')
 const subscribe = (listener: () => void) => {
   const query = getMedia()
-  query.addEventListener('change', listener)
-  return () => query.removeEventListener('change', listener)
+  return listenToMediaQuery(query, listener)
 }
 
 /** Reacts immediately when the operating-system preference changes mid-session. */

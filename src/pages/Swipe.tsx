@@ -1743,7 +1743,7 @@ function Swipe() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (busy || dragging || reviewMovie || openFilters || matchModal || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.defaultPrevented) return
-      if (document.querySelector('.cinema-share-panel, .session-participants-panel:popover-open')) return
+      if (document.querySelector('.cinema-share-panel, .session-participants-trigger[aria-expanded="true"]')) return
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select, .cinema-share, [contenteditable="true"], [role="dialog"], dialog')) return
       if (e.key === 'ArrowRight') { e.preventDefault(); reactRef.current?.(1, { immediate: true }) }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); reactRef.current?.(-1, { immediate: true }) }

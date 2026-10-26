@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { observeElementResize } from '../../lib/browserEvents'
 
 type Point = { x: number; y: number }
 const pointOnCurve = (t: number, points: Point[]) => {
@@ -69,17 +70,17 @@ export default function SwipeBackground() {
       paths.forEach(p => { lineContext.beginPath(); lineContext.moveTo(p[0].x, p[0].y); lineContext.bezierCurveTo(p[1].x, p[1].y, p[2].x, p[2].y, p[3].x, p[3].y); lineContext.stroke() })
       paintParticles()
     }
-    const resizeObserver = new ResizeObserver(resize)
-    resizeObserver.observe(container); resize()
+    const stopObserving = observeElementResize(container, resize)
+    resize()
     const visibility = new IntersectionObserver(entries => { visible = entries.some(e => e.isIntersecting); sync() })
     visibility.observe(container)
     const checkModal = () => {
-      const next = !!document.querySelector('dialog[open], [role="dialog"]:not([popover]), [popover]:popover-open')
+      const next = !!document.querySelector('dialog[open], [role="dialog"]:not([popover]):not([hidden])') || (typeof HTMLElement.prototype.showPopover === 'function' && !!document.querySelector('[popover]:popover-open'))
       if (next !== modal) { modal = next; sync() }
     }
     document.addEventListener('toggle', checkModal, true)
     const modals = new MutationObserver(checkModal)
-    modals.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
+    modals.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'hidden'] })
     const click = (event: MouseEvent) => {
       if (reducedMotion || modal || document.hidden) return
       const bounds = container.getBoundingClientRect()
@@ -90,7 +91,7 @@ export default function SwipeBackground() {
     document.addEventListener('visibilitychange', sync)
     checkModal(); sync()
     return () => {
-      cancelAnimationFrame(raf); resizeObserver.disconnect(); visibility.disconnect(); modals.disconnect()
+      cancelAnimationFrame(raf); stopObserving(); visibility.disconnect(); modals.disconnect()
       window.removeEventListener('click', click); document.removeEventListener('visibilitychange', sync); document.removeEventListener('toggle', checkModal, true)
     }
   }, [reducedMotion])

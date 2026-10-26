@@ -1,4 +1,5 @@
 import { usePrefersReducedMotion as useReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { observeElementResize } from '../../lib/browserEvents'
 // Source: https://reactbits.dev/r/SpecularButton-TS-TW.json
 // Adaptations: native button props, existing cinema styling, delayed interaction-only effects and reduced-motion/WebGL fallback.
 
@@ -219,8 +220,7 @@ const SpecularButton = ({
       program.uniforms.uCenter.value = [(PAD + w / 2) * dpr, (PAD + h / 2) * dpr];
       program.uniforms.uHalfSize.value = [(w / 2) * dpr, (h / 2) * dpr];
     };
-    const ro = new ResizeObserver(resize);
-    ro.observe(btn);
+    const stopObserving = observeElementResize(btn, resize);
     resize();
 
     // Light angle steers toward the pointer (anywhere on the page) and falls
@@ -290,7 +290,7 @@ const SpecularButton = ({
 
     dispose = () => {
       cancelAnimationFrame(raf);
-      ro.disconnect();
+      stopObserving();
       window.removeEventListener('pointermove', onPointerMove);
       if (gl.canvas.parentNode === fx) fx.removeChild(gl.canvas);
       gl.getExtension('WEBGL_lose_context')?.loseContext();
