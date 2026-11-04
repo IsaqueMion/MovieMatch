@@ -287,7 +287,7 @@ async function context(options = {}) {
   await ctx.route('**/sw.js', route => route.abort())
   if (!tutorial) await ctx.addInitScript(() => { if (window === window.top) localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1') })
   // Every test intercepts Supabase, including failures, so this suite never writes live data.
-  const state = { requests: [], reactions: [], creates: 0 }
+  const state = { requests: [], reactions: [], activeReactions: [], creates: 0 }
   const publicMembers = ['Luna','Leo','Ana'].map((display_name,index)=>({id:String(index+1),handle:display_name.toLowerCase(),display_name,bio:'Histórias que ficam.',avatar_path:null,cover_path:null}))
   const uid = '11111111-1111-4111-8111-111111111111'
   const user = { id: uid, aud: 'authenticated', role: 'authenticated', is_anonymous: true, created_at: new Date().toISOString(), app_metadata: {}, user_metadata: {} }
@@ -312,10 +312,26 @@ async function context(options = {}) {
     else if (path.includes('/rpc/set_birthdate')) result = body.p_birthdate
     else if (path.includes('/rpc/touch_session_presence')) result = 2
     else if (path.includes('/rpc/check_session_match')) result = [{ is_match: false, member_count: 2, like_count: 1 }]
+    else if (path.includes('/rpc/record_movie_reaction')) {
+      state.reactions.push({ ...body, value: body.p_value })
+      state.activeReactions.push({ movie_id: body.p_movie_id })
+      result = null
+    }
+    else if (path.includes('/rpc/undo_movie_reaction')) {
+      state.activeReactions = state.activeReactions.filter(row => row.movie_id !== body.p_movie_id)
+      result = null
+    }
     else if (path.includes('/rpc/list_session_matches')) result = []
     else if (path.includes('/rest/v1/users')) result = { id: uid, is_adult: false, is_premium: false }
     else if (path.includes('/rest/v1/session_filters')) result = null
-    else if (path.includes('/rest/v1/movies')) result = { ...movie, id: 1 }
+    else if (path.includes('/rest/v1/movies')) {
+      const tmdbId = body?.tmdb_id ?? Number(new URL(req.url()).searchParams.get('tmdb_id')?.replace('eq.', ''))
+      const ids = new URL(req.url()).searchParams.get('id')
+      result = ids?.startsWith('in.')
+        ? [...ids.matchAll(/\d+/g)].map(([id]) => ({ id: Number(id), tmdb_id: Number(id) }))
+        : { ...movie, id: tmdbId || movie.tmdb_id }
+    }
+    else if (path.includes('/rest/v1/reactions') && req.method() === 'GET') result = state.activeReactions
     else if (path.includes('/rest/v1/reactions') && req.method() === 'POST') { state.reactions.push(body); result = null }
     else if (path.includes('/functions/v1/discover')) result = { page: 1, total_pages: 1, results: [movie, { ...movie, movie_id: 2, tmdb_id: 194, title: 'O Fabuloso Destino de Amélie Poulain', poster_url: '/demo/amelie.jpg' }] }
     else if (path.includes('/functions/v1/movie_details')) result = { ...movie, vote_average: 8.6, runtime: 169, overview: 'Sinopse de teste.', trailer: null, age_rating: '12', genres: [{ id: 878, name: 'Ficção científica' }], providers: {} }
@@ -599,9 +615,9 @@ test('novos controles permitem curtir, desfazer e recusar; foco e movimento redu
     assert.equal(state.reactions[0].value, 1)
     await page.waitForFunction(() => !document.querySelector('.cinema-vote-button.is-undo').disabled)
     await undo.click()
-    for (let attempt = 0; attempt < 50 && !state.requests.some(request => request.path.includes('/reactions') && request.method === 'DELETE'); attempt++) await delay(100)
+    for (let attempt = 0; attempt < 50 && !state.requests.some(request => request.path.includes('/rpc/undo_movie_reaction')); attempt++) await delay(100)
     await page.waitForFunction(() => document.querySelector('.cinema-vote-button.is-undo').disabled && !document.querySelector('.cinema-vote-button.is-dislike').disabled)
-    assert.equal(state.requests.filter(request => request.path.includes('/reactions') && request.method === 'DELETE').length, 1)
+    assert.equal(state.requests.filter(request => request.path.includes('/rpc/undo_movie_reaction')).length, 1)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await like.focus()
     await page.keyboard.press('Shift+Tab')
@@ -1182,7 +1198,7 @@ test('arrastar o pôster salva um único voto e permite desfazer', async () => {
     assert.equal(state.reactions[0].value, 1)
     await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
     await page.waitForFunction(expected => document.querySelector('.swipe-film-title')?.innerText === expected && document.querySelector('.is-undo').disabled, title)
-    assert.equal(state.requests.filter(request => request.path.includes('/reactions') && request.method === 'DELETE').length, 1)
+    assert.equal(state.requests.filter(request => request.path.includes('/rpc/undo_movie_reaction')).length, 1)
   } finally { await ctx.close() }
 })
 
@@ -1550,10 +1566,12 @@ test('ajustes: aviso de bloqueador é discreto, dispensável e não cobre votaç
 for (const blockedStorage of [false, true]) test('convidado mantém identidade e votos após dez recargas, localStorage bloqueado=' + blockedStorage, async () => {
   const { ctx, page } = await context({ tutorial: true, reducedMotion: 'reduce' })
   let signups = 0
+  let currentUid = ''
   const votes = []
   if (blockedStorage) await ctx.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError') } }))
   await ctx.route(/supabase\.co\/auth\/v1\/signup/, async route => {
     const id = 'aaaaaaaa-aaaa-4aaa-8aaa-' + String(++signups).padStart(12, '0')
+    currentUid = id
     const user = { id, aud: 'authenticated', role: 'authenticated', is_anonymous: true, app_metadata: {}, user_metadata: {} }
     const token = Buffer.from('{"alg":"HS256"}').toString('base64url') + '.' + Buffer.from(JSON.stringify({ sub: id, exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url') + '.test'
     await route.fulfill({ json: { access_token: token, refresh_token: 'fixture', token_type: 'bearer', expires_in: 3600, user } })
@@ -1562,6 +1580,11 @@ for (const blockedStorage of [false, true]) test('convidado mantém identidade e
     const req = route.request(), url = new URL(req.url())
     if (req.method() === 'POST') { votes.push(req.postDataJSON()); await route.fulfill({ contentType: 'application/json', body: 'null' }); return }
     await route.fulfill({ json: votes.filter(v => 'eq.' + v.user_id === url.searchParams.get('user_id')).map(v => ({ movie_id: v.movie_id })) })
+  })
+  await ctx.route(/supabase\.co\/rest\/v1\/rpc\/record_movie_reaction/, async route => {
+    const body = route.request().postDataJSON()
+    votes.push({ movie_id: body.p_movie_id, value: body.p_value, user_id: currentUid })
+    await route.fulfill({ contentType: 'application/json', body: 'null' })
   })
   await ctx.route(/supabase\.co\/rest\/v1\/movies/, route => {
     const req=route.request()
@@ -1707,7 +1730,7 @@ for (const name of ['Quero assistir','Passo']) test('botão ' + name + ' deixa a
 test('falha ao salvar voto devolve o card e permite tentar novamente sem perder filme',async()=>{
  const {ctx,page,state}=await context({reducedMotion:'no-preference'})
  let fail=true
- await ctx.route(/supabase\.co\/rest\/v1\/reactions/,route=>route.request().method()==='POST'&&fail?route.fulfill({status:403,json:{message:'Voto não salvo'}}):route.fallback())
+ await ctx.route(/supabase\.co\/rest\/v1\/rpc\/record_movie_reaction/,route=>fail?route.fulfill({status:403,json:{message:'Voto não salvo'}}):route.fallback())
  try {
    await page.goto(sessionUrl.href)
    const card=await page.locator('.swipe-film').elementHandle()
