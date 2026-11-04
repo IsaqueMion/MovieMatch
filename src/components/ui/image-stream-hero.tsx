@@ -104,7 +104,7 @@ export function ImageStreamHero({ images, cards = 9, speed = 24, axis = 57, path
                 animationDelay: `${-(index * duration) / count}s`, animationPlayState: paused || !visible || !pageVisible ? 'paused' : 'running',
                 backfaceVisibility: 'hidden',
               }}>
-                {image ? <PosterImage key={image.src} src={image.src} preview={image.preview} alt="" corridor priority={index === count - 2 || index === count - 3} /> : null}
+                {image ? <PosterImage key={image.src} src={image.src} preview={image.preview} alt="" corridor priority={index === count - 2 || index === count - 3} lazy={index < count - 3} /> : null}
               </div>
             )
           }))}

@@ -1152,7 +1152,9 @@ function Swipe() {
 
     const timer = window.setInterval(
       () => {
-        void syncMatchesFromDatabase()
+        if (document.visibilityState === 'visible') {
+          void syncMatchesFromDatabase()
+        }
       },
       6_000,
     )
@@ -1321,7 +1323,9 @@ function Swipe() {
 
     const timer = window.setInterval(
       () => {
-        void syncFiltersFromDatabase()
+        if (document.visibilityState === 'visible') {
+          void syncFiltersFromDatabase()
+        }
       },
       6_000,
     )
