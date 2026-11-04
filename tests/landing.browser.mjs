@@ -386,7 +386,7 @@ for (const width of [320, 390, 768, 781, 1440]) {
       assert.match(await page.locator('h1').innerText(), /A escolha de todos/)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       assert.equal(await page.evaluate(() => document.fonts.check('600 40px "Bricolage Grotesque"') && document.fonts.check('400 14px Manrope')), true)
-      await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card img')].every(image => image.complete && image.naturalWidth > 0))
+      await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card img[loading="eager"]')].every(image => image.complete && image.naturalWidth > 0))
       const sources = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.src))
       assert.equal(sources.length, 18)
       assert.equal(new Set(sources).size, 18)
@@ -504,6 +504,18 @@ test('botões expandem o círculo e animam cada seta na sua direção, respeitan
   } finally { await ctx.close() }
 })
 
+test('o corredor prioriza seis pôsteres e adia os demais', async () => {
+  const { ctx, page } = await context({ viewport: { width: 1440, height: 1000 } })
+  try {
+    await page.goto(baseUrl)
+    await page.locator('.image-stream-card img').first().waitFor()
+    const loading = await page.locator('.image-stream-card img').evaluateAll(images => images.map(image => image.loading))
+    assert.equal(loading.length, 18)
+    assert.equal(loading.filter(value => value === 'eager').length, 6)
+    assert.equal(loading.filter(value => value === 'lazy').length, 12)
+  } finally { await ctx.close() }
+})
+
 test('o corredor seleciona pôster original em desktop de alta densidade e desenha uma camada maior', async () => {
   const { ctx, page } = await context({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2 })
   try {
@@ -551,7 +563,7 @@ test('rede lenta e recarga mostram miniaturas locais antes da imagem nítida, se
       }
     }
     release()
-    await page.waitForFunction(() => document.querySelectorAll('.image-stream-card .cinema-poster.is-ready').length === 18)
+    await page.waitForFunction(() => [...document.querySelectorAll('.image-stream-card img[loading="eager"]')].every(image => image.parentElement?.parentElement?.classList.contains('is-ready')))
   } finally { release(); await ctx.close() }
 })
 
