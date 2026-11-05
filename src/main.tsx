@@ -1,10 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { injectSpeedInsights } from '@vercel/speed-insights'
 import App from './App'
 import './index.css'
 import { installMediaQueryEventsFallback } from './lib/browserEvents'
 
 installMediaQueryEventsFallback()
+injectSpeedInsights()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

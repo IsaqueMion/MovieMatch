@@ -24,7 +24,7 @@ before(async () => {
 after(async () => { await browser?.close(); server?.kill() })
 
 async function fixture({ failure = false, manualSort = false, personalFailure = false, legacy = false } = {}) {
-  const ctx = await browser.newContext({ serviceWorkers: 'block', reducedMotion: 'reduce' })
+  const ctx = await browser.newContext({ locale: 'pt-BR', serviceWorkers: 'block', reducedMotion: 'reduce' })
   await ctx.addInitScript(() => localStorage.setItem('mm:swipe-tutorial:v1:22222222-2222-4222-8222-222222222222', '1'))
   const uid = '11111111-1111-4111-8111-111111111111'
   const sid = '22222222-2222-4222-8222-222222222222'
