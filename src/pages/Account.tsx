@@ -58,7 +58,7 @@ export default function Account() {
     setBusy(true); setError(''); setMessage('')
     try {
       if (mode === 'reset') {
-        const result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/conta?recuperar=1` })
+        const result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://moviematch-three.vercel.app/conta?recuperar=1' })
         if (result.error) throw result.error
         setMessage(t("Se esse e-mail tiver uma conta, você receberá um link para redefinir a senha."))
       } else if (mode === 'password') {
