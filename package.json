@@ -18,6 +18,7 @@
     "@hugeicons/core-free-icons": "4.3.5",
     "@hugeicons/react": "1.1.10",
     "@supabase/supabase-js": "^2.57.0",
+    "@vercel/speed-insights": "^2.0.0",
     "canvas-confetti": "^1.9.3",
     "framer-motion": "^12.23.12",
     "lucide-react": "^0.542.0",
