@@ -53,7 +53,6 @@ const MovieReviewsDialog = lazy(() => import('../components/reviews/MovieReviews
 import {
   clearProgress,
   filtersSig,
-  loadProgress,
   saveProgress,
 } from '../lib/swipeProgress'
 
@@ -61,6 +60,15 @@ import {
   hash32,
   shuffleWithinWindows,
 } from '../lib/swipeShuffle'
+import {
+  buildTasteProfile,
+  preferredGenreIds,
+  rankRecommendations,
+  rerankUnseen,
+  updateFeedback,
+  type MovieFeedback,
+} from '../lib/recommendations'
+import { loadRecommendationHistory, saveMovieReaction, undoMovieReaction } from '../lib/recommendationHistory'
 
 const FilterModal = lazy(
   () => import('../components/swipe/FilterModal'),
@@ -270,7 +278,8 @@ function Swipe() {
   const matchPollInitializedRef = useRef(false)
 
   // histórico p/ UNDO (guarda movie.id real)
-  const historyRef = useRef<number[]>([])
+  const historyRef = useRef<Array<{ movieId: number; tmdbId: number }>>([])
+  const feedbackRef = useRef<MovieFeedback[]>([])
 
   // modal de match
   const [matchModal, setMatchModal] = useState<{ title: string; poster_url: string | null; year?: number | null } | null>(null)
@@ -405,10 +414,19 @@ function Swipe() {
       requestVersion: number,
     ): Promise<LoadPageResult> => {
       try {
-        const data = await discoverMovies({
-          page: pageToLoad,
-          filters: f,
-        })
+        const profile = buildTasteProfile(feedbackRef.current)
+        const genres = preferredGenreIds(profile).filter((id) => !f.excludeGenres.includes(id))
+        const personalize = !f.sortBy || f.sortBy === 'popularity.desc'
+        const personalGenre = personalize && f.genres.length === 0
+          ? genres[(pageToLoad - 1) % Math.max(1, genres.length)] : undefined
+        const [base, personal] = await Promise.allSettled([
+          discoverMovies({ page: pageToLoad, filters: f }),
+          personalGenre === undefined ? Promise.resolve(null)
+            : discoverMovies({ page: pageToLoad, filters: { ...f, genres: [personalGenre] } }),
+        ])
+        if (base.status === 'rejected') throw base.reason
+        const data = base.value
+        const personalData = personal.status === 'fulfilled' ? personal.value : null
         // Se os filtros/sessão mudaram enquanto
         // a requisição estava em andamento, ignora
         // completamente o resultado antigo.
@@ -427,26 +445,33 @@ function Swipe() {
         }
 
         const sourceResults = data?.results ?? []
+        const candidates = [...sourceResults, ...(personalData?.results ?? [])]
 
         const baseSeed =
           `${sessionId ?? 'nosess'}:` +
           `${userIdRef.current ?? 'nouser'}`
 
-        const filtered = sourceResults.filter(
+        const batchIds = new Set<number>()
+        const filtered = candidates.filter(
           (movie: Movie) => {
             const tmdbId = Number(movie.tmdb_id)
 
-            return (
+            const include = (
               !seenRef.current.has(movie.movie_id) &&
-              !reactedTmdbRef.current.has(tmdbId)
+              !reactedTmdbRef.current.has(tmdbId) &&
+              !batchIds.has(tmdbId)
             )
+            if (include) batchIds.add(tmdbId)
+            return include
           },
         )
 
-        const unique = shuffleWithinWindows(
+        const shuffled = shuffleWithinWindows(
           filtered,
           baseSeed,
         )
+        const unique = personalize
+          ? rankRecommendations(shuffled, profile, { seed: baseSeed }) : filtered
 
         unique.forEach((movie: Movie) => {
           seenRef.current.add(movie.movie_id)
@@ -510,7 +535,6 @@ function Swipe() {
 
   const resetAndLoad = useCallback(
     async (
-      resume = false,
       f?: DiscoverFilters,
       sessionRef?: string | null,
     ) => {
@@ -545,20 +569,13 @@ function Swipe() {
       seenRef.current.clear()
 
       try {
-        const target = resume
-          ? loadProgress(
-              sid,
-              userIdRef.current,
-              effective,
-            )
-          : 0
-
-        let accumulated = 0
+        // Recommendation order changes as votes arrive; a saved index can skip unseen films.
+        clearProgress(sid, userIdRef.current, effective)
         let pageToLoad = 1
         let anyAdded = false
 
         while (
-          accumulated <= target &&
+          !anyAdded &&
           pageToLoad <= 30
         ) {
           if (!isCurrentLoad()) {
@@ -577,7 +594,6 @@ function Swipe() {
 
           if (result.added > 0) {
             anyAdded = true
-            accumulated += result.added
           }
 
           // A API realmente não tem mais páginas.
@@ -600,16 +616,7 @@ function Swipe() {
           return
         }
 
-        const safeMax = Math.max(
-          0,
-          accumulated - 1,
-        )
-
-        const resolved = resume
-          ? Math.min(target, safeMax)
-          : 0
-
-        setI(resolved)
+        setI(0)
       } catch (error: unknown) {
         console.error(error)
 
@@ -663,7 +670,6 @@ function Swipe() {
       )
 
       await resetAndLoad(
-        false,
         nextFilters,
         sessionId,
       )
@@ -683,6 +689,7 @@ function Swipe() {
     setSessionId(null)
     setMatchModal(null)
     setLatestMatchAt(0)
+    feedbackRef.current = []
 
     const myVersion =
       ++bootVersionRef.current
@@ -780,6 +787,14 @@ function Swipe() {
           console.warn('falha ao carregar reações antigas:', error)
         }
 
+        try {
+          const feedback = await loadRecommendationHistory()
+          if (bootVersionRef.current !== myVersion || cancelled) return
+          feedbackRef.current = feedback
+        } catch (error) {
+          console.warn('falha ao carregar preferências:', error)
+        }
+
         // Filtros persistidos da sessão.
         let effectiveFilters: DiscoverFilters = { ...DEFAULT_FILTERS }
 
@@ -816,7 +831,6 @@ function Swipe() {
         // Retoma o progresso somente depois de sessão,
         // reações e filtros estarem consistentes.
         await resetAndLoad(
-          true,
           effectiveFilters,
           sess.id,
         )
@@ -1512,6 +1526,7 @@ function Swipe() {
       // Só vamos avançar para o próximo filme
       // se a reação realmente for salva.
       let reactionSaved = false
+      const reactionBootVersion = bootVersionRef.current
 
       try {
         const {
@@ -1571,27 +1586,20 @@ function Swipe() {
           )
         }
 
-        const { error: rxErr } =
-          await supabase
-            .from('reactions')
-            .upsert(
-              {
-                session_id: sessionId,
-                user_id: userId,
-                movie_id: movieId,
-                value,
-              },
-              {
-                onConflict:
-                  'session_id,user_id,movie_id',
-              },
-            )
-
-        if (rxErr) throw rxErr
+        await saveMovieReaction({ sessionId, userId, movieId, value, genres: current.genres ?? [] })
+        if (reactionBootVersion !== bootVersionRef.current) return
 
         // A partir daqui sabemos que a reação
         // realmente foi gravada no banco.
         reactionSaved = true
+        feedbackRef.current = updateFeedback(feedbackRef.current, {
+          tmdb_id: current.tmdb_id, genres: current.genres ?? [], year: current.year,
+          session_id: sessionId, value, updated_at: new Date().toISOString(),
+        })
+        if (!filters.sortBy || filters.sortBy === 'popularity.desc') {
+          const profile = buildTasteProfile(feedbackRef.current)
+          setMovies((queue) => rerankUnseen(queue, i, profile, `${sessionId}:${userId}`))
+        }
 
         // Finish the visible exit before a fast response can open a match or replace the card.
         await exitAnimation
@@ -1600,7 +1608,7 @@ function Swipe() {
           await checkMatch(movieId)
         }
 
-        historyRef.current.push(movieId)
+        historyRef.current.push({ movieId, tmdbId: current.tmdb_id })
 
         reactedTmdbRef.current.add(
           Number(current.tmdb_id),
@@ -1650,6 +1658,7 @@ function Swipe() {
       isAdStep,
       totalSteps,
       checkMatch,
+      filters.sortBy,
     ],
   )
 
@@ -1675,22 +1684,25 @@ function Swipe() {
     if (!last) return
 
     setBusy(true)
+    const undoBootVersion = bootVersionRef.current
 
     try {
       // Primeiro apagamos a reação do banco.
-      const { error } = await supabase
-        .from('reactions')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('user_id', userId)
-        .eq('movie_id', last)
-
-      if (error) throw error
+      await undoMovieReaction({ sessionId, userId, movieId: last.movieId })
+      if (undoBootVersion !== bootVersionRef.current) return
 
       // Somente depois de confirmar que o
       // banco apagou a reação retiramos do
       // histórico local.
       historyRef.current.pop()
+      feedbackRef.current = feedbackRef.current.filter((entry) =>
+        entry.session_id !== sessionId || entry.tmdb_id !== last.tmdbId,
+      )
+      reactedTmdbRef.current.delete(last.tmdbId)
+      if (!filters.sortBy || filters.sortBy === 'popularity.desc') {
+        const profile = buildTasteProfile(feedbackRef.current)
+        setMovies((queue) => rerankUnseen(queue, Math.max(0, i - 1), profile, `${sessionId}:${userId}`))
+      }
 
       setI((index) => {
         const previousIndex =
@@ -1711,25 +1723,6 @@ function Swipe() {
         return previousIndex
       })
 
-      try {
-        const { data: mv } =
-          await supabase
-            .from('movies')
-            .select('tmdb_id')
-            .eq('id', last)
-            .maybeSingle()
-
-        if (mv?.tmdb_id != null) {
-          reactedTmdbRef.current.delete(
-            Number(mv.tmdb_id),
-          )
-        }
-      } catch (error) {
-        console.error(
-          'failed to restore reacted movie state:',
-          error,
-        )
-      }
     } catch (error: unknown) {
       console.error(error)
 
@@ -1745,6 +1738,7 @@ function Swipe() {
     busy,
     filters,
     isAdStep,
+    i,
   ])
 
   // atalhos de teclado
@@ -1911,7 +1905,6 @@ function Swipe() {
       // Recarrega usando exatamente os filtros
       // que acabaram de ser persistidos.
       await resetAndLoad(
-        false,
         nextFilters,
         sessionId,
       )
