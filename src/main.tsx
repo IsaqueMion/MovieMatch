@@ -4,9 +4,16 @@ import { injectSpeedInsights } from '@vercel/speed-insights'
 import App from './App'
 import './index.css'
 import { installMediaQueryEventsFallback } from './lib/browserEvents'
+import { redactSpeedInsightsUrl } from './lib/speedInsightsPrivacy'
 
 installMediaQueryEventsFallback()
-injectSpeedInsights()
+injectSpeedInsights({
+  beforeSend: (event) => {
+    const path = redactSpeedInsightsUrl(event.url, window.location.origin)
+
+    return { ...event, url: path, route: path }
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -36,7 +36,7 @@ Este produto usa a API do TMDB, mas não é endossado ou certificado pelo TMDB. 
 
 ### 5. Idade e uso responsável
 
-Respeite a classificação indicativa e as regras dos serviços acessados. Menores devem utilizar o serviço com a participação de seu responsável quando exigido pela legislação. A opção de conteúdo adulto é destinada exclusivamente a maiores de 18 anos; a verificação disponível no aplicativo não substitui outras obrigações legais ou o acompanhamento do responsável.
+O MovieMatch não solicita data de nascimento nem oferece filtro de conteúdo adulto. A busca exclui o parâmetro de conteúdo adulto explícito do catálogo TMDB, mas isso não exclui todos os filmes com classificação indicativa para adultos. Classificações variam por país, podem faltar ou estar desatualizadas; não descrever o serviço como infantil ou adequado a todas as idades sem análise do catálogo e das leis locais. A remoção do campo de nascimento, por si só, não elimina deveres de proteção de crianças e adolescentes.
 
 ### 6. Disponibilidade, encerramento e direitos
 
@@ -60,7 +60,7 @@ Isaque é o responsável informado pelo MovieMatch. Esta política explica os tr
 - **Biblioteca e comunidade:** filmes assistidos, datas, avaliações, notas, comentários, spoilers e votos em avaliações. A lista de assistidos é pessoal; avaliações publicadas são visíveis à comunidade. Favoritos e apresentação de avaliações no perfil seguem os controles disponíveis.
 - **Salas:** código, participantes, salvamentos, filmes, filtros e reações necessários à escolha coletiva. Pessoas com o código podem participar conforme as regras do serviço.
 - **Preferências e dados técnicos:** idioma, região do catálogo, armazenamento local, registros de acesso e segurança que os fornecedores de infraestrutura podem processar, incluindo IP, navegador e horários. O idioma é escolhido pela preferência do navegador ou manualmente; isso não exige localizar fisicamente o usuário.
-- **Maioridade:** se você habilitar conteúdo adulto, a data informada é usada na verificação; o aplicativo registra o resultado de maioridade, sem manter a data completa nesse fluxo.
+- **Métricas de desempenho:** Vercel Speed Insights recebe rota/URL sem parâmetros, velocidade da rede, navegador, dispositivo/sistema operacional, país, Web Vitals, dados técnicos do SDK e horário do evento. O MovieMatch remove parâmetros e fragmentos e mascara códigos de sessão e identificadores de perfil. A Vercel diz que os pontos de dados não são associados a visitantes ou IP; sua infraestrutura pode processar IP e registros técnicos para entrega e segurança.
 
 ### 3. Finalidades e fundamentos
 
@@ -88,7 +88,7 @@ Você pode alterar o perfil e suas opções de visibilidade, gerenciar favoritos
 
 Você pode solicitar confirmação de tratamento, acesso, correção, informação sobre compartilhamento e, quando cabível, portabilidade, anonimização, bloqueio, eliminação, revisão e revogação de consentimento, respeitadas as hipóteses legais de conservação. A exclusão integral da conta não possui atualmente um botão próprio; o pedido deverá ser recebido pelo canal privado publicado nesta política. Podemos solicitar uma verificação proporcional de identidade para impedir acesso indevido e responderemos nos prazos legais aplicáveis ao pedido.
 
-Solicitações devem evitar o envio de senhas e dados desnecessários. Se a resposta do responsável não resolver uma questão de proteção de dados, você poderá recorrer à autoridade competente, incluindo a ANPD no Brasil. O uso por crianças e adolescentes requer a proteção especial e a participação do responsável exigidas pela legislação; a opção de conteúdo adulto não se destina a menores de 18 anos.
+Solicitações devem evitar o envio de senhas e dados desnecessários. Se a resposta do responsável não resolver uma questão de proteção de dados, você poderá recorrer à autoridade competente, incluindo a ANPD no Brasil. Crianças e adolescentes exigem proteção apropriada à lei aplicável; remover a data de nascimento não demonstra, por si só, que o serviço esteja fora do alcance dessas regras.
 
 ### 7. Atualizações
 
@@ -99,5 +99,20 @@ Esta política poderá mudar para refletir funcionalidades, fornecedores e obrig
 - LGPD: https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm — transparência e contato do controlador, direitos, segurança e transferências.
 - CDC: https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm — preservar direitos obrigatórios e evitar exclusões abusivas de responsabilidade.
 - ANPD: https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares — orientações ao titular.
+- ECA Digital (Lei 15.211/2025): https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15211.htm — deveres de proteção de crianças e adolescentes em produtos digitais.
+- ANPD, guia sobre alcance e responsabilidades no ECA Digital: https://www.gov.br/anpd/pt-br/assuntos/noticias/anpd-publica-guia-que-esclarece-quem-deve-cumprir-e-quais-sao-as-responsabilidades-das-plataformas-na-protecao-de-criancas-e-adolescentes.
+- FTC, COPPA FAQs: https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions — serviços direcionados a crianças e serviços gerais que obtêm conhecimento da idade.
+- GDPR, artigo 8: https://eur-lex.europa.eu/eli/reg/2016/679/oj — consentimento de crianças em serviços da sociedade da informação.
+- Vercel Speed Insights: https://vercel.com/docs/speed-insights/privacy-policy — campos das métricas e associação dos eventos.
+- Vercel Privacy Notice: https://vercel.com/legal/privacy-notice — processamento pela infraestrutura da Vercel.
 
 Publicação pendente do contato confirmado e da revisão. Os documentos públicos atuais não foram substituídos por uma minuta com endereço fictício.
+
+## Pendências antes de expansão internacional
+
+- Confirmar nome legal do controlador/responsável e publicar um canal real e monitorado para direitos, denúncias e suporte.
+- Definir e implementar exclusão integral de conta e um processo de atendimento de pedidos de titulares; a minuta atual registra que não há botão de exclusão.
+- Revisar transferência internacional, localização, retenção, contratos e subprocessadores de Supabase, Vercel, Google e serviços de conteúdo.
+- Avaliar publicidade, consentimento de cookies/armazenamento e tratamento de dados de menores em cada mercado atendido.
+- Fazer análise de alcance de regras de proteção infantil, conteúdo gerado por usuários, denúncia/moderação e classificação indicativa por país. A interface traduzida e a remoção do filtro 18+ não comprovam conformidade mundial.
+- Publicar versões localizadas e revisadas dos Termos e da Política de Privacidade antes de promover a disponibilidade em novos idiomas/países.

@@ -4,8 +4,7 @@
   "criteria": {
     "ratingMin": 7.5,
     "voteCountMin": 3000,
-    "sortBy": "popularity.desc",
-    "includeAdult": false
+    "sortBy": "popularity.desc"
   },
   "movies": [
     {

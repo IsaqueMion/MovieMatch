@@ -11,8 +11,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   CalendarRange,
   ArrowUpRight,
-  Check,
-  Film,
   Gauge,
   RotateCcw,
   Settings2,
@@ -49,9 +47,6 @@ type Props = {
   filters: DiscoverFilters
   defaultFilters: DiscoverFilters
   currentYear: number
-  isAdult: boolean
-  adultLocked: boolean
-  onRequestAdultVerification: () => void
   onClose: () => void
   onApply: (filters: DiscoverFilters) => void | false | Promise<void | false>
 }
@@ -121,9 +116,6 @@ export default function FilterModal({
   filters,
   defaultFilters,
   currentYear,
-  isAdult,
-  adultLocked,
-  onRequestAdultVerification,
   onClose,
   onApply,
 }: Props) {
@@ -151,21 +143,13 @@ export default function FilterModal({
   }, [open])
   useEffect(() => { contentRef.current?.scrollTo(0, 0) }, [category])
   const wasOpenRef = useRef(false)
-  const pendingAdultRequest = useRef(false)
-
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setDraft({ ...cloneFilters(filters), includeAdult: isAdult && !!filters.includeAdult })
+      setDraft(cloneFilters(filters))
     }
 
     wasOpenRef.current = open
-  }, [open, filters, isAdult])
-
-  useEffect(() => {
-    if (open && isAdult && pendingAdultRequest.current) setDraft(current => ({ ...current, includeAdult: true }))
-    if (!open || isAdult || adultLocked) pendingAdultRequest.current = false
-    if (adultLocked) setDraft(current => current.includeAdult ? { ...current, includeAdult: false } : current)
-  }, [isAdult, adultLocked, open])
+  }, [open, filters])
 
   const yearMin = draft.yearMin ?? 1990
   const yearMax = draft.yearMax ?? currentYear
@@ -357,18 +341,6 @@ export default function FilterModal({
       })
     }
 
-    if (draft.includeAdult) {
-      items.push({
-        key: 'adult',
-        label: t("Conteúdo adulto"),
-        onRemove: () =>
-          setDraft((current) => ({
-            ...current,
-            includeAdult: false,
-          })),
-      })
-    }
-
     return items
   }, [
     currentYear,
@@ -423,11 +395,10 @@ export default function FilterModal({
       : 0)
 
   const advancedBadge =
-    ((draft.voteCountMin ?? 0) !==
+    (draft.voteCountMin ?? 0) !==
     (defaultFilters.voteCountMin ?? 0)
       ? 1
-      : 0) +
-    (draft.includeAdult ? 1 : 0)
+      : 0
 
   function resetAll() {
     setDraft(cloneFilters(defaultFilters))
@@ -579,7 +550,7 @@ export default function FilterModal({
                   title={t("Gêneros")}
                   description={t("Escolha o que quer ver e o que prefere evitar.")}
                 >
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid gap-5">
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -928,56 +899,6 @@ export default function FilterModal({
                       </div>
                     </div>
 
-                    <div className="sm:border-l sm:border-white/10 sm:pl-5">
-                      <div className="mb-2 flex items-center gap-2">
-                        <Film className="h-4 w-4 text-white/40" />
-                        <span className="text-sm font-medium text-white/80">{t("Conteúdo adulto")}</span>
-                      </div>
-
-                      <p className="mb-3 text-xs leading-relaxed text-white/45">{t("Sua data fica privada. O filtro 18+ fica disponível quando você completa 18 anos.")}</p>
-
-                      <FilterButton
-                        type="button"
-                        disabled={adultLocked}
-                        aria-pressed={!!draft.includeAdult}
-                        onClick={() => {
-                          if (!draft.includeAdult && !isAdult) {
-                            pendingAdultRequest.current = true
-                            onRequestAdultVerification()
-                            return
-                          }
-
-                          setDraft((current) => ({
-                            ...current,
-                            includeAdult: !current.includeAdult,
-                          }))
-                        }}
-                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition ${
-                          draft.includeAdult
-                            ? 'border-emerald-400/30 bg-emerald-400/10'
-                            : 'border-white/10 bg-white/[0.035] hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <span>
-                          <span className="block text-sm font-medium text-white/85">{t("Permitir conteúdo 18+")}</span>
-                          <span className="mt-0.5 block text-xs text-white/40">
-                            {draft.includeAdult
-                              ? t("Ativado nesta seleção")
-                              : adultLocked ? t("Disponível ao completar 18 anos") : t("Desativado")}
-                          </span>
-                        </span>
-
-                        <span
-                          className={`grid h-6 w-6 place-items-center rounded-full border ${
-                            draft.includeAdult
-                              ? 'border-emerald-400/40 bg-emerald-400 text-neutral-950'
-                              : 'border-white/15 bg-white/[0.04] text-transparent'
-                          }`}
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </span>
-                      </FilterButton>
-                    </div>
                   </div>
                 </FilterSection>
             </div>

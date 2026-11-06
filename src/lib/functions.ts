@@ -15,7 +15,6 @@ export type DiscoverFilters = {
   runtimeMax?: number
   language?: string
   sortBy?: string
-  includeAdult?: boolean
   providers?: number[]
   watchRegion?: string
   monetization?: MonetizationType[]
