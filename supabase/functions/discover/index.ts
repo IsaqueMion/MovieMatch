@@ -9,19 +9,6 @@ function buildCorsHeaders(req: Request) {
   };
 }
 
-async function adultContentAllowed(req: Request): Promise<boolean> {
-  const authorization = req.headers.get('authorization');
-  if (!authorization?.startsWith('Bearer ')) return false;
-  try {
-    const response = await fetch(Deno.env.get('SUPABASE_URL') + '/rest/v1/rpc/adult_content_allowed', {
-      method: 'POST',
-      headers: { authorization, apikey: Deno.env.get('SUPABASE_ANON_KEY') ?? '', 'Content-Type': 'application/json' },
-      body: '{}', signal: AbortSignal.timeout(5000),
-    });
-    return response.ok && await response.json() === true;
-  } catch { return false; }
-}
-
 Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req);
 
@@ -41,7 +28,7 @@ Deno.serve(async (req) => {
     const TMDB_KEY = Deno.env.get("TMDB_KEY");
     if (!TMDB_KEY) throw new Error("TMDB_KEY missing");
 
-    let body: { page?: number; displayLanguage?: string; filters?: { sortBy?: string; includeAdult?: boolean; language?: string; yearMin?: number; yearMax?: number; ratingMin?: number; voteCountMin?: number; runtimeMin?: number; runtimeMax?: number; genres?: number[]; excludeGenres?: number[]; providers?: number[]; watchRegion?: string; monetization?: string[] } } = {};
+    let body: { page?: number; displayLanguage?: string; filters?: { sortBy?: string; language?: string; yearMin?: number; yearMax?: number; ratingMin?: number; voteCountMin?: number; runtimeMin?: number; runtimeMax?: number; genres?: number[]; excludeGenres?: number[]; providers?: number[]; watchRegion?: string; monetization?: string[] } } = {};
     try {
       body = await req.json();
     } catch {
@@ -66,7 +53,7 @@ Deno.serve(async (req) => {
 
     // bandeiras padrão
     qs.set("include_video", "false");
-    qs.set("include_adult", String(f.includeAdult === true && await adultContentAllowed(req)));
+    qs.set("include_adult", "false");
 
     // idioma original do filme (2 letras)
     if (f.language) {
