@@ -25,7 +25,7 @@ export function filtersSig(filters: DiscoverFilters): string {
     `runtime=${filters.runtimeMin ?? ''}-${filters.runtimeMax ?? ''}`,
     `language=${filters.language ?? ''}`,
     `sort=${filters.sortBy ?? ''}`,
-    `adult=${filters.includeAdult ? '1' : '0'}`,
+    'adult=0',
     `providers=${normalizeNumbers(filters.providers)}`,
     `region=${filters.watchRegion ?? ''}`,
     `monetization=${normalizeStrings(filters.monetization)}`,

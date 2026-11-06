@@ -101,7 +101,7 @@ test('personal history ranks movies, preserves shared filters, commits genres an
     assert.deepEqual(state.discoveries[1].filters.genres, [878])
     assert.deepEqual(state.discoveries[1].filters.excludeGenres, [27])
     assert.deepEqual(state.discoveries[1].filters.providers, [8])
-    assert.equal(state.discoveries[1].filters.includeAdult, false)
+    assert.equal(Object.hasOwn(state.discoveries[1].filters, 'includeAdult'), false)
     await page.getByRole('button', { name: 'Quero assistir', exact: true }).click()
     await page.waitForFunction(() => document.querySelector('.cinema-vote-button.is-undo')?.disabled === false)
     assert.equal(state.votes.length, 1)

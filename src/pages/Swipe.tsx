@@ -26,9 +26,6 @@ import {
 import { ArrowLeftRight, Film } from 'lucide-react'
 
 import { Toaster, toast } from 'sonner'
-import AgeGateModal from '../components/AgeGateModal'
-import { ageFromBirthdate } from '../lib/birthdate'
-import { useCurrentDate } from '../hooks/useCurrentDate'
 import AdSlot from '../components/AdSlot'
 import SwipeBannerAd from '../components/swipe/SwipeBannerAd'
 import AdblockWall from '../components/AdblockWall'
@@ -207,10 +204,6 @@ function sessionFiltersFromRow(
       'popularity.desc',
     ),
 
-    includeAdult: Boolean(
-      row.include_adult,
-    ),
-
     providers: toNumberArray(
       row.providers,
     ),
@@ -300,7 +293,6 @@ function Swipe() {
     runtimeMax: 220,
     language: '',
     sortBy: 'popularity.desc',
-    includeAdult: false,
     providers: [],
     watchRegion: 'BR',
     monetization: ['flatrate'],
@@ -314,15 +306,6 @@ function Swipe() {
     filtersRef.current = filters
   }, [filters])
   const [openFilters, setOpenFilters] = useState(false)
-
-  // verificação de idade
-  const [birthdate, setBirthdate] = useState<string | null>(null)
-  const [legacyAdult, setLegacyAdult] = useState(false)
-  const [verifyingAge, setVerifyingAge] = useState(false)
-  const today = useCurrentDate()
-  const isAdult = birthdate ? (ageFromBirthdate(birthdate, today) ?? -1) >= 18 : legacyAdult
-  const adultLocked = !!birthdate && !isAdult
-  const [showAgeGate, setShowAgeGate] = useState(false)
 
   const [isPremium, setIsPremium] = useState(false)
 
@@ -345,7 +328,7 @@ function Swipe() {
   const adOffset = hash32(adSeed + ':o') % adInterval
   const totalSteps = i + adsShown.current
   const isAdStep =
-    !isPremium && !filters.includeAdult &&
+    !isPremium &&
     totalSteps > 0 &&
     suppressAdForMovieIndexRef.current !== i &&
     (
@@ -385,9 +368,6 @@ function Swipe() {
 
     filters.sortBy !==
       DEFAULT_FILTERS.sortBy,
-
-    filters.includeAdult !==
-      DEFAULT_FILTERS.includeAdult,
 
     (filters.providers?.length ?? 0) > 0,
 
@@ -725,11 +705,9 @@ function Swipe() {
         // ler se já é adulto
         const { data: prof } = await supabase
           .from('users')
-          .select('birthdate, is_adult, is_premium')
+          .select('is_premium')
           .eq('id', uid)
           .maybeSingle()
-        setBirthdate(prof?.birthdate ?? null)
-        setLegacyAdult(!!prof?.is_adult)
         setIsPremium(!!prof?.is_premium)
 
         // ⚠️ busca da sessão com single + limit(1)
@@ -1760,36 +1738,11 @@ function Swipe() {
   }, [busy, dragging, reviewMovie, openFilters, matchModal])
   // ===============================================
 
-  // A verificação apenas autoriza o usuário a selecionar conteúdo adulto.
-  // O filtro só é efetivamente aplicado pelo FilterModal ao clicar em Aplicar.
-  const confirmAdult = async (value: string) => {
-    if (verifyingAge || ageFromBirthdate(value, today) === null) return
-    setVerifyingAge(true)
-    try {
-      if (!userId) throw new Error('Session unavailable')
-      const { data, error } = await supabase.rpc('set_birthdate', { p_birthdate: value })
-      if (error) throw error
-      if (typeof data !== 'string' || ageFromBirthdate(data, today) === null) throw new Error('Invalid birthdate response')
-      setBirthdate(data)
-      setShowAgeGate(false)
-      if ((ageFromBirthdate(data, today) ?? -1) >= 18) toast.success(t('Verificação concluída. Conteúdo adulto autorizado.'))
-      else toast.info(t('Conteúdo 18+ bloqueado até você completar 18 anos.'))
-    } catch {
-      toast.error(t('Não foi possível confirmar sua data de nascimento. Tente novamente.'))
-    } finally { setVerifyingAge(false) }
-  }
-
-  const cancelAdult = () => {
-    setShowAgeGate(false)
-  }
-
   async function applyFilters(
     filterSnapshot: DiscoverFilters,
   ) {
     const nextFilters: DiscoverFilters = {
       ...filterSnapshot,
-      includeAdult: isAdult && !!filterSnapshot.includeAdult,
-
       genres: [
         ...(filterSnapshot.genres ?? []),
       ],
@@ -1861,8 +1814,7 @@ function Swipe() {
                 nextFilters.sortBy ??
                 'popularity.desc',
 
-              include_adult:
-                !!nextFilters.includeAdult,
+              include_adult: false,
 
               updated_by: userId,
 
@@ -1934,7 +1886,7 @@ function Swipe() {
     return <main className="cinema-page swipe-error"><div className="swipe-empty"><Film size={32} aria-hidden="true" /><p className="cinema-eyebrow">{t("Vamos tentar de novo")}</p><h1>{t("Não foi possível iniciar a sessão")}</h1><p>{fatalError}</p><CinemaButton direction="right" onClick={() => window.location.reload()}>{t("Tentar novamente")}</CinemaButton></div><Toaster richColors position="bottom-center" /></main>
   }
   const det = current ? detailsCache[`${current.tmdb_id}:${locale}:${filters.watchRegion}`] : undefined
-  const adsEnabled = !!current && !isPremium && !filters.includeAdult
+  const adsEnabled = !!current && !isPremium
 
   return (
     <main className="cinema-page swipe-page" id="conteudo" data-ad-step={isAdStep || undefined}>
@@ -1965,14 +1917,13 @@ function Swipe() {
         <aside className="swipe-ad swipe-ad-left" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-tl-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="8357155401" width={300} height={250} /></aside>
         <aside className="swipe-ad swipe-ad-right" aria-label={t("Publicidade")}><span>{t("Publicidade")}</span><AdSlot id={`ad-br-${sessionId ?? 's'}`} adClient="ca-pub-8257200313072326" adSlot="4497801440" width={300} height={250} /></aside>
       </> : null}
-      {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} isAdult={isAdult} adultLocked={adultLocked} onRequestAdultVerification={() => setShowAgeGate(true)} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
+      {openFilters ? <Suspense fallback={null}><FilterModal open filters={filters} defaultFilters={DEFAULT_FILTERS} currentYear={currentYear} onClose={() => setOpenFilters(false)} onApply={applyFilters} /></Suspense> : null}
       {reviewMovie ? <Suspense fallback={null}><MovieReviewsDialog key={reviewMovie.tmdb_id} movie={reviewMovie} onClose={() => setReviewMovie(null)} /></Suspense> : null}
       {matchModal ? <SwipeMatchDialog movie={matchModal} code={code ?? ''} onClose={() => setMatchModal(null)} onMatches={() => {
         markMatchesSeen()
         setLatestMatchAt(0)
         setMatchModal(null)
       }} /> : null}
-      {showAgeGate ? <AgeGateModal open onConfirm={confirmAdult} onCancel={cancelAdult} busy={verifyingAge} /> : null}
       {sessionId ? <SwipeTutorial key={sessionId} ref={tutorialRef} sessionId={sessionId} code={code ?? ''} /> : null}
       <AdblockWall enabled={!isPremium} />
       <Toaster richColors position="bottom-center" />

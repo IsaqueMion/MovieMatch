@@ -903,18 +903,6 @@
     "Last vote undone",
     "Último voto deshecho"
   ],
-  "Informe sua data de nascimento para ativar conteúdo adulto.": [
-    "Enter your birth date to enable adult content.",
-    "Introduce tu fecha de nacimiento para activar contenido para adultos."
-  ],
-  "Você precisa ter 18+ para ver esse conteúdo.": [
-    "You must be 18 or older to view this content.",
-    "Debes tener al menos 18 años para ver este contenido."
-  ],
-  "Verificação concluída. Conteúdo adulto autorizado.": [
-    "Verification complete. Adult content enabled.",
-    "Verificación completa. Contenido para adultos activado."
-  ],
   "Não foi possível identificar a sessão para salvar os filtros.": [
     "Couldn't identify the session to save filters.",
     "No pudimos identificar la sesión para guardar los filtros."
@@ -1415,22 +1403,6 @@
     "Advertising coming soon",
     "Próximamente publicidad aquí"
   ],
-  "Confirme sua idade": [
-    "Confirm your age",
-    "Confirma tu edad"
-  ],
-  "Para ativar conteúdo adulto, informe sua data de nascimento. Ela será usada somente para confirmar se você tem 18 anos ou mais e não será armazenada.": [
-    "To enable adult content, enter your birth date. It is only used to verify you're 18 or older and won't be stored.",
-    "Para activar contenido para adultos, introduce tu fecha de nacimiento. Solo se usa para verificar que tienes al menos 18 años y no se guarda."
-  ],
-  "Data de nascimento": [
-    "Date of birth",
-    "Fecha de nacimiento"
-  ],
-  "Você precisa ter 18 anos ou mais.": [
-    "You must be 18 or older.",
-    "Debes tener al menos 18 años."
-  ],
   "Informe a data para continuar.": [
     "Enter the date to continue.",
     "Introduce la fecha para continuar."
@@ -1879,10 +1851,6 @@
     "1 excluded genre",
     "1 género excluido"
   ],
-  "Conteúdo adulto": [
-    "Adult content",
-    "Contenido para adultos"
-  ],
   "Personalizar": [
     "Customize",
     "Personalizar"
@@ -1982,14 +1950,6 @@
   "Sem mínimo": [
     "No minimum",
     "Sin mínimo"
-  ],
-  "Requer confirmação de maioridade. A data de nascimento não é armazenada.": [
-    "Requires age confirmation. Your birth date is not stored.",
-    "Requiere confirmar la mayoría de edad. No se guarda tu fecha de nacimiento."
-  ],
-  "Permitir conteúdo 18+": [
-    "Allow 18+ content",
-    "Permitir contenido para mayores de 18"
   ],
   "Ativado nesta seleção": [
     "Enabled in this selection",
@@ -2674,26 +2634,6 @@
   "Fechar participantes": [
     "Close participants",
     "Cerrar participantes"
-  ],
-  "Informe uma data de nascimento válida.": [
-    "Enter a valid date of birth.",
-    "Introduce una fecha de nacimiento válida."
-  ],
-  "Sua data fica privada. O filtro 18+ fica disponível quando você completa 18 anos.": [
-    "Your date stays private. The 18+ filter becomes available when you turn 18.",
-    "Tu fecha es privada. El filtro 18+ estará disponible cuando cumplas 18 años."
-  ],
-  "Conteúdo 18+ bloqueado até você completar 18 anos.": [
-    "18+ content is blocked until you turn 18.",
-    "El contenido 18+ está bloqueado hasta que cumplas 18 años."
-  ],
-  "Não foi possível confirmar sua data de nascimento. Tente novamente.": [
-    "We could not confirm your date of birth. Please try again.",
-    "No pudimos confirmar tu fecha de nacimiento. Inténtalo de nuevo."
-  ],
-  "Disponível ao completar 18 anos": [
-    "Available when you turn 18",
-    "Disponible al cumplir 18 años"
   ],
   "Ajude a manter o MovieMatch gratuito": [
     "Help keep MovieMatch free",
