@@ -45,16 +45,18 @@
     </header>
 
     <h1>Política de Privacidade</h1>
-    <p>Última atualização: 06/11/2026</p>
+    <p>Última atualização: 09/11/2026</p>
 
     <h2>1. Informações que coletamos</h2>
     <ul>
       <li><strong>Autenticação anônima</strong> (Supabase): um identificador de usuário anônimo para salvar sua participação em sessões.</li>
+      <li><strong>Conta registrada</strong>: e-mail e identificador de autenticação usados para criar e proteger a conta, confirmar e-mail, entrar e recuperar acesso. O Supabase processa a autenticação e a senha.</li>
       <li><strong>Dados de sessão</strong>: código da sessão, membros, filtros aplicados, filmes listados e suas reações (like/dislike).</li>
       <li><strong>Filmes assistidos</strong>: sua lista pessoal de filmes, a data da marcação e o identificador anônimo responsável pelo histórico.</li>
       <li><strong>Avaliações opcionais</strong>: apelido público, nota de 1 a 5 estrelas, comentário, indicação de spoilers e datas de publicação e edição.</li>
+      <li><strong>Perfil</strong>: endereço do perfil, nome público, bio, gêneros, favoritos, opções de visibilidade e fotos escolhidas. Perfis novos começam privados; você pode tornar o perfil público e escolher o que aparece nele. As fotos usam URLs de um bucket público: quem tiver uma URL direta poderá acessar a imagem mesmo se o perfil ficar privado ou o link for compartilhado.</li>
       <li><strong>Métricas de desempenho</strong> (Vercel Speed Insights): rota, URL sem parâmetros, velocidade da rede, navegador, tipo de dispositivo, sistema operacional, país, métricas Web Vitals e informações técnicas do SDK. O MovieMatch remove parâmetros e fragmentos da URL e substitui códigos de sessão e identificadores de perfil antes do envio.</li>
-      <li><strong>Consentimento de anúncios</strong> (Google): conforme a sua escolha na mensagem de consentimento, quando aplicável.</li>
+      <li><strong>Publicidade e consentimento</strong> (Google): preferências de consentimento e dados técnicos associados aos anúncios, conforme as opções e mensagens disponíveis para sua região.</li>
       <li><strong>Cookies e armazenamento local</strong>: usados para lembrar preferências, progresso no swipe e outras informações necessárias ao funcionamento do serviço.</li>
     </ul>
 
@@ -68,20 +70,21 @@
     </ul>
 
     <h2>3. Compartilhamento</h2>
-    <p>Podemos compartilhar dados com provedores necessários para o funcionamento: <strong>Supabase</strong> (banco de dados/autenticação), <strong>Vercel</strong> (hospedagem e métricas de desempenho), <strong>Google</strong> (AdSense/Funding Choices) e <strong>TMDB</strong> (catálogo de filmes). Não vendemos seus dados.</p>
+    <p>Podemos compartilhar dados técnicos necessários com provedores do serviço: <strong>Supabase</strong> (autenticação, banco de dados e arquivos), <strong>Vercel</strong> (hospedagem e métricas), <strong>Google</strong> (AdSense/Funding Choices), <strong>TMDB</strong> (catálogo e imagens) e <strong>YouTube</strong> (trailers ou conteúdo externo). Quando seu navegador carrega conteúdo desses provedores, eles podem receber dados técnicos da solicitação. Não vendemos seus dados.</p>
     <p>A Vercel informa que os pontos de dados do Speed Insights não são associados a visitantes ou endereços IP e não permitem reconstruir uma sessão de navegação. A transmissão de qualquer solicitação pela internet inclui dados técnicos de rede, como o endereço IP; a infraestrutura também pode processar registros técnicos para entrega e segurança. Consulte as <a href="https://vercel.com/docs/speed-insights/privacy-policy" target="_blank" rel="noopener noreferrer">informações de privacidade do Speed Insights</a> e o <a href="https://vercel.com/legal/privacy-notice" target="_blank" rel="noopener noreferrer">aviso de privacidade da Vercel</a>.</p>
+    <p>Os provedores podem processar dados em países diferentes do seu, de acordo com a infraestrutura, a configuração e os contratos de cada serviço. A localização e as salvaguardas aplicáveis precisam ser avaliadas para os países atendidos; consulte também os avisos de privacidade dos provedores.</p>
     <p>Sua lista de assistidos é pessoal. Ao salvar uma avaliação, seu apelido, nota e comentário ficam visíveis para os usuários do MovieMatch, inclusive participantes com autenticação anônima. Esses registros públicos não exibem seu identificador de autenticação ou seu histórico pessoal. Evite colocar informações pessoais no apelido ou no comentário.</p>
 
     <h2>4. Cookies</h2>
-    <p>Usamos cookies/armazenamento local para manter sua sessão anônima, preferências e consentimento de anúncios. Você pode limpar isso no seu navegador.</p>
+    <p>Usamos armazenamento local para manter sua sessão anônima, preferências e progresso. Antes de carregar anúncios, o site inicializa os sinais de consentimento do Google como negados e carrega Funding Choices; o AdSense pode ser carregado quando um espaço de anúncio fica visível. O Google pode usar cookies ou tecnologias semelhantes para fornecer e medir anúncios conforme as escolhas disponíveis. As mensagens, escolhas e tipos de anúncio dependem da configuração do Google e da região. Limpar os dados do navegador pode encerrar o acesso à identidade anônima, sem apagar os registros no servidor.</p>
     <p>Limpar os dados do navegador pode fazer você perder o acesso ao histórico e às avaliações associados àquela identidade anônima. Isso não apaga automaticamente os registros salvos no banco.</p>
 
     <h2>5. Retenção</h2>
-    <p>O MovieMatch não solicita data de nascimento. Os campos legados de nascimento foram limpos no banco de dados e nos metadados de autenticação; o status de maioridade foi neutralizado e os filtros antigos de conteúdo adulto foram desligados. Novas gravações de data de nascimento são rejeitadas. Dados de sessão, reações e preferências podem permanecer enquanto forem necessários para as funcionalidades associadas ao usuário anônimo.</p>
+    <p>O MovieMatch não solicita data de nascimento. Os campos legados de nascimento foram limpos no banco de dados e nos metadados de autenticação; o status de maioridade foi neutralizado e os filtros antigos de conteúdo adulto foram desligados. Novas gravações de data de nascimento são rejeitadas. Salas não salvas deixam de funcionar após 24 horas; esse vencimento não significa exclusão física imediata e registros técnicos podem permanecer após perderem acesso. Salas salvas permanecem disponíveis até que o salvamento seja removido. Não há, neste momento, uma rotina automática de purga confirmada para todos os registros expirados.</p>
     <p>O histórico de assistidos não depende da duração de uma sessão de votação. Em <a href="/assistidos">Meus assistidos</a>, você pode desmarcar um filme para excluir seu registro e a avaliação vinculada a ele. Também pode editar ou excluir somente sua avaliação, mantendo o filme no histórico. Essas ações exigem acesso à mesma identidade anônima que criou os registros.</p>
 
     <h2>6. Seus direitos</h2>
-    <p>Dependendo da sua região, você pode ter direitos relacionados ao acesso, correção e exclusão de dados. Como o MovieMatch utiliza autenticação anônima, algumas solicitações podem depender da identificação técnica da sessão ou do usuário anônimo correspondente.</p>
+    <p>Dependendo da sua região, você pode ter direitos relacionados ao acesso, correção e exclusão de dados. Hoje, o app permite editar o perfil, remover filmes assistidos, excluir avaliações e retirar salas salvas. Ainda não há exportação integral nem exclusão integral de conta disponível no app; apagar o navegador não apaga os registros do servidor. Como usamos identidade anônima, alguns pedidos podem depender da identificação da sessão ou do usuário que criou os dados. O canal de atendimento para pedidos além dos controles do app ainda precisa ser definido.</p>
 
     <h2>7. Conteúdo e fontes de terceiros</h2>
     <p>Os metadados de filmes são fornecidos por terceiros (ex.: TMDB). <em>Este produto usa a API do TMDB, mas não é endossado ou certificado pelo TMDB.</em></p>
@@ -95,3 +98,4 @@
   </div>
 </body>
 </html>
+
