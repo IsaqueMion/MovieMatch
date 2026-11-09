@@ -20,10 +20,10 @@ const uid='cccccccc-cccc-4ccc-8ccc-cccccccccccc',pid='dddddddd-dddd-4ddd-8ddd-dd
 const makeUser=(guest=false)=>({id:uid,aud:'authenticated',role:'authenticated',is_anonymous:guest,email:guest?undefined:'luna@example.test',email_confirmed_at:guest?undefined:'2026-10-01T12:00:00Z',app_metadata:{},user_metadata:{}})
 const token=Buffer.from('{"alg":"HS256"}').toString('base64url')+'.'+Buffer.from(JSON.stringify({sub:uid,aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture'
 const session=user=>({access_token:token,refresh_token:'fixture',token_type:'bearer',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user})
-async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,privateProfile=false,locale='pt-BR',blockedStorage=false,unavailableEditor=false}={}){
+async function fixture({path='/perfil',width=390,height=900,guest=false,loggedIn=true,publicProfile=false,privateProfile=false,locale='pt-BR',blockedStorage=false,unavailableEditor=false}={}){
   const context=await browser.newContext({locale,viewport:{width,height},serviceWorkers:'block'})
   if(blockedStorage)await context.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Storage blocked','SecurityError')}}))
-  const state={user:makeUser(guest),profile:{id:pid,handle:'luna',display_name:'Luna',bio:'Histórias que ficam.',genres:[878],avatar_path:null,cover_path:null,is_public:!privateProfile,show_favorites:true,show_reviews:true},favorites:[],rooms:[{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sexta do grupo',saved_at:'2026-10-01T12:00:00Z'}],requests:[],errors:[],fail:false}
+  const state={user:makeUser(guest),profile:{id:pid,handle:'luna',display_name:'Luna',bio:'Histórias que ficam.',genres:[878],avatar_path:null,cover_path:null,is_public:publicProfile&&!privateProfile,show_favorites:false,show_reviews:false},favorites:[],rooms:[{session_id:'22222222-2222-4222-8222-222222222222',code:'DEMO01',name:'Sexta do grupo',saved_at:'2026-10-01T12:00:00Z'}],requests:[],errors:[],fail:false}
   if(loggedIn)await context.addInitScript(({value,key})=>{if(!sessionStorage.getItem('fixture:account-seeded')){localStorage.setItem(key,JSON.stringify(value));sessionStorage.setItem('fixture:account-seeded','1')}},{value:session(state.user),key:storageKey})
   await context.route(/https:\/\/[^/]+\.supabase\.co\//,async route=>{
     const request=route.request(),u=new URL(request.url()),method=request.method(),body=request.headers()['content-type']?.includes('application/json')&&request.postData()?request.postDataJSON():null
@@ -184,11 +184,13 @@ for(const width of [320,390,768,1440])test(`perfil em ${width}px: personalizaç�
   const {context,page,state}=await fixture({width,height:width===320?568:width===768?668:900})
   try{
     await page.getByRole('button',{name:'Editar perfil',exact:true}).click();await page.getByLabel('Nome público').waitFor();await page.evaluate(()=>document.fonts.ready)
+    assert.equal(await page.getByLabel('Perfil público').isChecked(),false);assert.equal(await page.getByLabel('Mostrar favoritos').isChecked(),false);assert.equal(await page.getByLabel('Mostrar minhas avaliações neste perfil').isChecked(),false)
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     assert.equal(await page.getByRole('dialog',{name:'Editar perfil',exact:true}).evaluate(el=>el.matches(':modal')&&el.getBoundingClientRect().top>=0&&el.getBoundingClientRect().bottom<=innerHeight),true)
     await page.getByLabel('Nome público').fill('Luna Cinema');await page.getByLabel('Bio',{exact:true}).fill('Ficção científica e histórias para rever.')
-    await page.getByText('Gêneros e privacidade',{exact:true}).click();await page.getByRole('button',{name:'Comédia',exact:true}).click();await page.getByLabel('Mostrar minhas avaliações neste perfil').uncheck();await page.getByRole('button',{name:'Salvar perfil',exact:true}).click();await page.getByText('Perfil salvo.',{exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0)
+    await page.getByText('Gêneros e privacidade',{exact:true}).click();await page.getByRole('button',{name:'Comédia',exact:true}).click();await page.getByLabel('Mostrar minhas avaliações neste perfil').check();await page.getByLabel('Mostrar minhas avaliações neste perfil').uncheck();await page.getByLabel('Perfil público').check();await page.getByRole('button',{name:'Salvar perfil',exact:true}).click();await page.getByText('Perfil salvo.',{exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0)
     assert.equal(state.profile.show_reviews,false);assert.ok(state.profile.genres.includes(35))
+    assert.equal(state.profile.is_public,true);await page.getByRole('link',{name:'Abrir meu perfil público',exact:true}).waitFor()
     await page.getByLabel('Buscar filme',{exact:true}).fill('Interestelar');await page.getByRole('button',{name:'Buscar',exact:true}).click();await page.locator('.profile-search-results button').click();await page.locator('.profile-favorites figure').waitFor()
     assert.equal(state.favorites[0].tmdb_id,157336)
     const image=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=100;c.height=100;c.getContext('2d').fillRect(0,0,100,100);return c.toDataURL('image/png').split(',')[1]})
@@ -204,6 +206,8 @@ test('salas salvas e perfil privado apresentam estados corretos',async()=>{
   try{await page.waitForURL(base+'/#minhas-salas');await page.getByRole('heading',{name:'Sexta do grupo'}).waitFor();assert.match(await page.getByRole('link',{name:'Retomar'}).getAttribute('href'),/DEMO01/);await page.getByRole('button',{name:'Deixar de salvar Sexta do grupo'}).click();await page.getByRole('button',{name:'Remover da minha lista'}).click();await page.getByText('A próxima sessão começa com você.').waitFor();assert.equal(state.rooms.length,0)}finally{await context.close()}
   const hidden=await fixture({path:'/p/luna',loggedIn:false,privateProfile:true})
   try{await hidden.page.getByRole('heading',{name:'Perfil indisponível.'}).waitFor();assert.equal(hidden.state.requests.some(x=>x.path.includes('/auth/v1/')),false)}finally{await hidden.context.close()}
+  const publicProfile=await fixture({path:'/p/luna',loggedIn:false,publicProfile:true})
+  try{await publicProfile.page.getByRole('heading',{name:'Luna',exact:true}).waitFor();assert.equal(publicProfile.state.requests.some(x=>x.path.includes('/auth/v1/')),false)}finally{await publicProfile.context.close()}
 })
 for(const width of [320,390,768,1440])test(`home em ${width}px: navegação de visitante e perfil com teclado, fora do menu e salas privadas`,async()=>{
   const guest=await fixture({path:'/',width,loggedIn:false})
@@ -224,7 +228,7 @@ for(const width of [320,390,768,1440])test(`home em ${width}px: navegação de v
     assert.equal(await page.getByText('luna@example.test',{exact:true}).count(),0)
     const trigger=page.getByRole('button',{name:'Abrir menu do perfil',exact:true});await trigger.click()
     const menu=page.getByRole('menu',{name:'Menu do perfil'});await menu.getByText('Luna',{exact:true}).waitFor();await menu.getByText('luna@example.test',{exact:true}).waitFor()
-    assert.equal(await menu.getByRole('menuitem',{name:'Meu perfil',exact:true}).getAttribute('href'),'/p/luna')
+    assert.equal(await menu.getByRole('menuitem',{name:'Meu perfil',exact:true}).getAttribute('href'),'/perfil')
     await page.keyboard.press('ArrowDown');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Editar perfil')
     await page.keyboard.press('End');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Sair da conta')
     await page.keyboard.press('Escape');assert.equal(await trigger.getAttribute('aria-expanded'),'false');assert.equal(await trigger.evaluate(el=>el===document.activeElement),true)
@@ -305,3 +309,4 @@ test('idioma escolhido na home; troca de acesso preserva email e limpa senha; pa
     assert.equal(await mobile.page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   }finally{await mobile.context.close()}
 })
+
