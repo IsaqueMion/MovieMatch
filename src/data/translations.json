@@ -815,6 +815,10 @@
     "Open my public profile",
     "Abrir mi perfil público"
   ],
+  "Seu perfil está privado.": [
+    "Your profile is private.",
+    "Tu perfil es privado."
+  ],
   "Abrindo edição…": [
     "Opening editor…",
     "Abriendo editor…"
@@ -1326,6 +1330,10 @@
   "Avaliações publicadas continuam visíveis no filme. Assistidos e salas são privados.": [
     "Published reviews remain visible on the film. Watched films and rooms are private.",
     "Las reseñas publicadas siguen visibles en la película. Las vistas y las salas son privadas."
+  ],
+  "Novos perfis começam privados; favoritos e avaliações só aparecem no perfil quando você ativa essas opções. Avaliações salvas continuam públicas nas páginas dos filmes.": [
+    "New profiles start private; favorites and reviews appear on the profile only when you enable those options. Saved reviews remain public on film pages.",
+    "Los perfiles nuevos empiezan en privado; los favoritos y las reseñas solo aparecen en el perfil cuando activas esas opciones. Las reseñas guardadas siguen siendo públicas en las páginas de las películas."
   ],
   "Cancelar": [
     "Cancel",
@@ -2644,3 +2652,4 @@
     "Parece que tu bloqueador está ocultando los anuncios. Si puedes, desactívalo en este sitio para apoyar el proyecto. Puedes seguir votando normalmente."
   ]
 }
+
